@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Everyday in PH icon">
+  <defs>
+    <linearGradient id="bgGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#FFD60A"/>
+      <stop offset="48%"  stop-color="#FF9C1A"/>
+      <stop offset="100%" stop-color="#FF5C00"/>
+    </linearGradient>
+    <linearGradient id="sunGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#FFF3C4"/>
+    </linearGradient>
+    <linearGradient id="waveGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#0057A8"/>
+      <stop offset="100%" stop-color="#002A4A"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="512" rx="118" ry="118" fill="url(#bgGrad2)"/>
+
+  <g fill="#FFFFFF" opacity="0.18">
+    <circle cx="80"  cy="80"  r="6"/>
+    <circle cx="120" cy="60"  r="4"/>
+    <circle cx="420" cy="90"  r="5"/>
+    <circle cx="440" cy="60"  r="3"/>
+  </g>
+
+  <circle cx="256" cy="210" r="105" fill="url(#sunGrad2)"/>
+
+  <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity="0.85">
+    <line x1="256" y1="62" x2="256" y2="88"/>
+    <line x1="130" y1="105" x2="150" y2="126"/>
+    <line x1="382" y1="105" x2="362" y2="126"/>
+    <line x1="72"  y1="210" x2="100" y2="210"/>
+    <line x1="440" y1="210" x2="412" y2="210"/>
+  </g>
+
+  <path d="M 0 360 Q 85 340 170 360 T 340 360 Q 425 340 512 360 L 512 512 L 0 512 Z"
+        fill="url(#waveGrad2)"/>
+
+  <path d="M 0 363 Q 85 343 170 363 T 340 363 Q 425 343 512 363"
+        stroke="#FFFFFF" stroke-width="4" fill="none" opacity="0.7"/>
+
+  <!-- Bold "EPH" initials on the wave -->
+  <text x="256" y="470"
+        font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="112" font-weight="900" fill="#FFFFFF"
+        text-anchor="middle" letter-spacing="8">
+    EPH
+  </text>
+</svg>
+

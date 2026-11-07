@@ -1,0 +1,22 @@
+{
+  "_how_to_use": "Copy this file to lines.json (same folder) and edit. 'text' is what the speech bubble shows, 'file' is YOUR recording of exactly that text. Remove _how_to_use if you like. Entries without 'file' are spoken by the device voice. 'gender' is optional: 'masculine' or 'feminine' limits an entry to NPCs of that look; leave it off to use for anyone.",
+
+  "walker": [
+    { "text": "Good afternoon, oga.",     "file": "walker_01.mp3" },
+    { "text": "How far? You dey alright?", "file": "walker_02.mp3" },
+    { "text": "Good afternoon, ma.",      "file": "walker_03_f.mp3", "gender": "feminine" }
+  ],
+  "trader": [
+    { "text": "Come buy! Fresh from the farm!", "file": "trader_01.mp3" },
+    { "text": "Oga, I get the best price.",     "file": "trader_02.mp3" }
+  ],
+  "police": [
+    { "text": "Move along. Nothing to see here.", "file": "police_01.mp3" }
+  ],
+  "yahoo_boys": [
+    { "text": "Guy, no dey look us like that.", "file": "yahoo_01.mp3" }
+  ],
+  "mamas": [
+    { "text": "My pikin, come buy fresh pepper!", "file": "mama_01.mp3" }
+  ]
+}

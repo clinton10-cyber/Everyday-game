@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="theme-color" content="#0b110e"/>
+
+<title>Everyday in PH — Free Port Harcourt Open World Game</title>
+<meta name="description" content="Play Everyday in PH, a free open-world browser game set in Port Harcourt, Nigeria. Drive, walk, work, buy cars, survive the city. No download — runs in any modern browser."/>
+<link rel="canonical" href="https://yourdomain.com/"/>
+
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="Everyday in PH — Free Port Harcourt Open World Game"/>
+<meta property="og:description" content="Free open-world browser game set in Port Harcourt. Drive, walk, work, buy cars, survive the city."/>
+<meta property="og:image" content="https://yourdomain.com/assets/screenshot.jpg"/>
+<meta property="og:url" content="https://yourdomain.com/"/>
+<meta property="og:site_name" content="Everyday in PH"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="Everyday in PH"/>
+<meta name="twitter:description" content="Free Port Harcourt open-world browser game."/>
+<meta name="twitter:image" content="https://yourdomain.com/assets/screenshot.jpg"/>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": ["VideoGame", "MobileApplication"],
+  "name": "Everyday in PH",
+  "url": "https://yourdomain.com/",
+  "description": "Free open-world browser game set in Port Harcourt, Nigeria. Walk, drive, work, and build a life in the Garden City.",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Web, Android, iOS",
+  "browserRequirements": "Requires JavaScript and WebGL",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "NGN",
+    "availability": "https://schema.org/InStock"
+  },
+  "screenshot": "https://yourdomain.com/assets/screenshot.jpg",
+  "inLanguage": "en",
+  "author": {
+    "@type": "Person",
+    "name": "clintonbenjamin208",
+    "email": "clintonbenjamin208@gmail.com"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Everyday in PH",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://yourdomain.com/assets/logo.svg"
+    }
+  }
+}
+</script>
+
+<link rel="stylesheet" href="css/style.css"/>
+<!-- import-map polyfill: older browsers without native importmap support (fixes: Failed to resolve module specifier "three") -->
+<script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+<script type="importmap">
+{"imports":{
+  "three":"https://unpkg.com/three@0.169.0/build/three.module.js",
+  "three/addons/":"https://unpkg.com/three@0.169.0/examples/jsm/"
+}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" crossorigin="anonymous"/>
+<link rel="stylesheet" href="css/phone.css"/>
+<link rel="stylesheet" href="css/hud-icons.css"/>
+<link rel="stylesheet" href="css/hud.css"/>
+<link rel="stylesheet" href="css/settings.css"/>
+<style>
+#ph3d-error{display:none;position:fixed;inset:0;z-index:9999;background:#0a0d12;color:#ff8080;font:12px/1.55 ui-monospace,Menlo,Consolas,monospace;padding:16px;overflow:auto;white-space:pre-wrap;word-break:break-word;user-select:text;-webkit-user-select:text}
+#ph3d-error-bar{position:sticky;top:0;display:flex;gap:8px;margin-bottom:12px;background:#0a0d12;padding-bottom:10px;flex-wrap:wrap}
+#ph3d-error-bar button{padding:10px 16px;border-radius:10px;border:1px solid rgba(94,224,255,.4);background:rgba(8,16,28,.85);color:#eaf6ff;font:800 11px Inter,system-ui,sans-serif;letter-spacing:.14em;cursor:pointer;touch-action:manipulation}
+#ph3d-error-bar button:active{transform:scale(.96)}
+#ph3d-error-text{margin:0;white-space:pre-wrap}
+</style>
+<div id="ph3d-error">
+  <div id="ph3d-error-bar">
+    <button id="ph3d-err-back">&#9664; BACK</button>
+    <button id="ph3d-err-home">&#8962; CITY</button>
+    <button id="ph3d-err-reload">&#10227; RELOAD</button>
+    <button id="ph3d-err-copy">COPY</button>
+  </div>
+  <pre id="ph3d-error-text"></pre>
+</div>
+<script>
+(function(){
+  var el=function(){return document.getElementById("ph3d-error");};
+  var tx=function(){return document.getElementById("ph3d-error-text");};
+  window.__ph3d_show=function(msg){
+    var e=el(), t=tx(); if(!e||!t) return;
+    e.style.display="block";
+    t.textContent += "\n"+msg;
+  };
+  function hide(){ var e=el(), t=tx(); if(e) e.style.display="none"; if(t) t.textContent=""; }
+  function bind(){
+    var b=document.getElementById("ph3d-err-back"); if(!b) return;
+    /* BACK = dismiss the overlay and keep playing (non-fatal errors). */
+    b.onclick=hide;
+    document.getElementById("ph3d-err-home").onclick=function(){
+      hide();
+      try{ var r=window.__ph3d_router; if(r&&r.go){ r.locked=false; r.go("city"); return; } }catch(e){}
+      location.href="./index.html";
+    };
+    document.getElementById("ph3d-err-reload").onclick=function(){ location.reload(); };
+    document.getElementById("ph3d-err-copy").onclick=function(){
+      try{ navigator.clipboard.writeText(tx().textContent); }catch(e){}
+    };
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bind); else bind();
+  window.addEventListener("error",function(e){
+    window.__ph3d_show("[error] "+(e.message||e.error&&e.error.message||e));
+  });
+  window.addEventListener("unhandledrejection",function(e){
+    var r=e.reason;
+    window.__ph3d_show("[promise] "+(r&&(r.stack||r.message)||r));
+  });
+})();
+</script>
+<link rel="icon" type="image/svg+xml" href="assets/logo-icon.svg"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<meta name="application-name" content="Everyday in PH"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="PH City"/>
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png"/>
+<meta name="author" content="clintonbenjamin208@gmail.com"/>
+<style>
+/* ── Global: kill accidental text selection on touch devices ─────── */
+html, body {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+input, textarea, [contenteditable="true"], #ph3d-error {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+}
+button {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ SEO CONTENT (crawlable, visually hidden) ══════════════ -->
+<div id="seo-content" class="sr-only">
+  <h1>Everyday in PH — Free Port Harcourt Open World Game</h1>
+  <p>
+    Everyday in PH is a free open-world browser game set in Port Harcourt,
+    Nigeria. Walk the streets, drive cars, take jobs, buy a home, and survive
+    the Garden City. No install, no download — it runs in any modern browser
+    on phone or desktop.
+  </p>
+
+  <h2>How to play</h2>
+  <p>
+    Drag the left half of the screen to walk and the right half to look around.
+    Tap the action button to interact with people, doors, cars, and items.
+    Open the phone in the top-right corner to check your balance, jobs, and map.
+    In a car, tap the pedals to accelerate and brake; drag the screen to steer.
+  </p>
+
+  <h2>Tips</h2>
+  <ul>
+    <li>Start with simple jobs at the Job Center before attempting higher-risk contracts.</li>
+    <li>Keep your pocket bag empty — you only have 8 slots and some pickups are worth reselling.</li>
+    <li>Watch the alert meter at the top of the player card. Above 70%, police will start searching for you.</li>
+  </ul>
+
+  <h2>Frequently asked questions</h2>
+  <h3>Is Everyday in PH free to play?</h3>
+  <p>Yes. The game is completely free to play in your browser. No download or account signup is required to try it.</p>
+  <h3>Does it work on mobile?</h3>
+  <p>Yes. Everyday in PH is built mobile-first and works on iOS and Android browsers. Touch controls are optimized for one-thumb play.</p>
+  <h3>How is progress saved?</h3>
+  <p>Your progress is stored locally in your browser. Clearing browser data or switching devices will reset your profile.</p>
+
+  <h2>Explore more of the city</h2>
+  <ul>
+    <li><a href="/">Home</a></li>
+    <li><a href="/?route=drive">Drive through Port Harcourt</a></li>
+    <li><a href="/?route=market">Shop at Mile 1 Market</a></li>
+    <li><a href="/?route=prison">Visit the State Jail</a></li>
+  </ul>
+</div>
+
+<div id="app"></div>
+<div id="hud" style="margin-bottom:10px;">
+  <div id="player-panel">
+    <canvas id="pp-face" width="128" height="128"></canvas>
+    <div class="pp-info">
+      <div class="pp-top">
+        <span class="pp-name" id="pp-name">Player</span>
+        <span class="pp-level" id="pp-level">LV 1</span>
+      </div>
+      <div class="pp-hp-row">
+        <span class="pp-hp-ico"></span>
+        <div class="pp-hp-bar"><i id="pp-hp-fill"></i></div>
+        <span class="pp-hp-num" id="pp-hp-num">100</span>
+      </div>
+      <div class="pp-stats">
+        <span class="pp-cash" id="pp-cash">₦50,000</span>
+        <span class="pp-alert" id="pp-alert">0% alert</span>
+      </div>
+    </div>
+  </div>
+  <div id="backBtn" style="display:none;">◀&nbsp;&nbsp;BACK</div>
+  <div id="travel">
+    <div class="lbl" id="travelMode">DRIVING</div>
+    <div class="dst" id="travelDest">—</div>
+    <div class="bar"><i id="travelBar"></i></div>
+  </div>
+  <div id="card"><b></b><span></span></div>
+</div>
+<div id="modal">
+  <div class="sheet">
+    <h3>How do you want to travel?</h3>
+    <div class="sub" id="mSub">TO PLEASURE PARK</div>
+    <div class="opts">
+      <div class="opt" data-mode="car"><div class="ico">🚗</div><div class="nm">CAR</div><div class="ds" id="carName">G-WAGON</div></div>
+      <div class="opt" data-mode="bike"><div class="ico">🏍️</div><div class="nm">BIKE</div><div class="ds">SUPERSPORT</div></div>
+    </div>
+    <button class="cancel" id="mCancel">CANCEL</button>
+  </div>
+</div>
+<div id="shop">
+  <div class="shoppanel">
+    <div class="shophead">
+      <div><div class="nm" id="shName">G-WAGON</div><div class="tg" id="shTag">AMG · 4.0L V8</div></div>
+      <div class="price" id="shPrice">₦48,000,000</div>
+    </div>
+    <div class="rowlabel">BODY PAINT</div>
+    <div class="swatches" id="swBody"></div>
+    <div class="rowlabel">RIM FINISH</div>
+    <div class="swatches" id="swRim"></div>
+    <button class="buy" id="buyBtn">SELECT THIS RIDE</button>
+  </div>
+</div>
+<div id="fade"></div>
+<div id="scene-loader">
+  <div class="sl-spinner"></div>
+  <div class="sl-label" id="sl-label">LOADING…</div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+<script type="module" src="js/ui/hud.js"></script>
+<script type="module" src="js/pwa.js"></script>
+
+<!-- ── DRIVE UI (Fixed Flexbox Layout) ── -->
+<div id="drive-ui" style="display:none">
+  
+  <!-- TOP CENTER: Speedometer -->
+  <div id="drive-hud">0 km/h</div>
+
+  <!-- BOTTOM LEFT: Sound + Pedals -->
+  <div id="dr-left-container">
+    <div id="dr-pedals">
+      <button class="dr-btn" id="dr-gas" aria-label="Accelerate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 15 12 8 19 15"/></svg>
+      </button>
+      <button class="dr-btn" id="dr-brake" aria-label="Brake">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 12 16 19 9"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- BOTTOM RIGHT: Steering -->
+  <div id="dr-right-container">
+    <div id="dr-steer">
+      <button class="dr-btn" id="dr-left" aria-label="Steer left">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"/></svg>
+      </button>
+      <button class="dr-btn" id="dr-right" aria-label="Steer right">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- CENTER: Enter Car Button -->
+  <button id="drive-enter">ENTER</button>
+
+</div>
+
+<div id="ph3d-dmg-flash" style="position:fixed;inset:0;pointer-events:none;z-index:44;background:radial-gradient(circle at 50% 50%, rgba(255,40,40,0) 30%, rgba(200,0,0,.7) 100%);opacity:0;transition:opacity .18s"></div>
+
+<script type="module">
+/* ── Player panel updater ───────────────────────────── */
+(function(){
+  const faceCanvas = document.getElementById("pp-face");
+  if (!faceCanvas) return;
+  const fctx = faceCanvas.getContext("2d");
+  const nameEl  = document.getElementById("pp-name");
+  const lvlEl   = document.getElementById("pp-level");
+  const hpFill  = document.getElementById("pp-hp-fill");
+  const hpNum   = document.getElementById("pp-hp-num");
+  const hpBar   = hpFill && hpFill.parentElement;
+  const cashEl  = document.getElementById("pp-cash");
+  const alertEl = document.getElementById("pp-alert");
+
+  function waitFor(mods, ready){
+    if (mods.every(m => window[m])) ready();
+    else setTimeout(() => waitFor(mods, ready), 150);
+  }
+
+  function drawFace() {
+    const W = window.__ph3d_wardrobe;
+    if (!W || !fctx) return;
+    const cfg = W.config || {};
+
+    const SKIN = ["#f5d5b8","#ecc0a0","#dca882","#c98d62","#a86a3a","#7a4a26","#4e2e16","#2a1708"];
+    const HAIR = ["#15100a","#2a1c14","#4a3022","#6a4a2a","#8a6a3a","#c0a070","#d8d8d8","#e8c8a8","#5a2a5a","#2a4a6a","#8a2020"];
+    const SHIRT = ["#3a7bd5","#e84a5f","#4ade80","#fbbf24","#a78bfa","#f0f0f0","#1e293b","#0ea5e9","#dc2626","#16a34a","#f59e0b","#7c3aed","#ec4899","#14b8a6"];
+    const skin  = SKIN[cfg.skinTone   | 0] || SKIN[3];
+    const hair  = HAIR[cfg.hairColor  | 0] || HAIR[1];
+    const shirt = SHIRT[cfg.topColor  | 0] || SHIRT[0];
+
+    const SIZE = faceCanvas.width;
+    const cx = SIZE / 2;
+    fctx.clearRect(0, 0, SIZE, SIZE);
+
+    const bg = fctx.createRadialGradient(cx, cx * 0.94, 6, cx, cx, SIZE * 0.55);
+    bg.addColorStop(0, "#0e1a2a");
+    bg.addColorStop(1, "#05080f");
+    fctx.fillStyle = bg;
+    fctx.fillRect(0, 0, SIZE, SIZE);
+
+    fctx.fillStyle = shirt;
+    fctx.beginPath();
+    fctx.ellipse(cx, SIZE * 0.94, SIZE * 0.34, SIZE * 0.20, 0, 0, Math.PI * 2);
+    fctx.fill();
+
+    fctx.fillStyle = skin;
+    fctx.fillRect(cx - SIZE * 0.09, SIZE * 0.66, SIZE * 0.18, SIZE * 0.14);
+
+    fctx.beginPath();
+    fctx.ellipse(cx, SIZE * 0.50, SIZE * 0.24, SIZE * 0.27, 0, 0, Math.PI * 2);
+    fctx.fillStyle = skin;
+    fctx.fill();
+
+    const style = cfg.hairStyle || "short";
+    if (style !== "bald") {
+      fctx.fillStyle = hair;
+      fctx.beginPath();
+      fctx.arc(cx, SIZE * 0.46, SIZE * 0.27, Math.PI, 0);
+      fctx.fill();
+      if (style === "curly") {
+        for (let i = 0; i < 7; i++) {
+          fctx.beginPath();
+          fctx.arc(SIZE * 0.28 + i * SIZE * 0.075, SIZE * 0.22, SIZE * 0.055, 0, Math.PI * 2);
+          fctx.fill();
+        }
+      } else if (style === "long") {
+        fctx.beginPath();
+        fctx.ellipse(cx - SIZE * 0.24, SIZE * 0.58, SIZE * 0.07, SIZE * 0.26, 0, 0, Math.PI * 2);
+        fctx.ellipse(cx + SIZE * 0.24, SIZE * 0.58, SIZE * 0.07, SIZE * 0.26, 0, 0, Math.PI * 2);
+        fctx.fill();
+      } else if (style === "ponytail") {
+        fctx.beginPath();
+        fctx.ellipse(cx + SIZE * 0.29, SIZE * 0.50, SIZE * 0.05, SIZE * 0.22, 0, 0, Math.PI * 2);
+        fctx.fill();
+      }
+    }
+
+    const eyeY = SIZE * 0.51;
+    fctx.fillStyle = "#141a22";
+    fctx.beginPath(); fctx.arc(cx - SIZE * 0.10, eyeY, SIZE * 0.034, 0, Math.PI * 2); fctx.fill();
+    fctx.beginPath(); fctx.arc(cx + SIZE * 0.10, eyeY, SIZE * 0.034, 0, Math.PI * 2); fctx.fill();
+
+    fctx.strokeStyle = "#9b4f4a";
+    fctx.lineWidth = SIZE * 0.018;
+    fctx.beginPath();
+    fctx.arc(cx, SIZE * 0.64, SIZE * 0.06, 0.15 * Math.PI, 0.85 * Math.PI);
+    fctx.stroke();
+
+    if (cfg.glasses) {
+      const style = cfg.glasses.style;
+      fctx.strokeStyle = "#0d0f14";
+      fctx.lineWidth = SIZE * 0.018;
+      if (style === "shades") {
+        fctx.fillStyle = "rgba(6,10,20,0.9)";
+        fctx.fillRect(cx - SIZE * 0.20, eyeY - SIZE * 0.045, SIZE * 0.40, SIZE * 0.075);
+      } else {
+        fctx.beginPath();
+        fctx.arc(cx - SIZE * 0.10, eyeY, SIZE * 0.055, 0, Math.PI * 2);
+        fctx.stroke();
+        fctx.beginPath();
+        fctx.arc(cx + SIZE * 0.10, eyeY, SIZE * 0.055, 0, Math.PI * 2);
+        fctx.stroke();
+        fctx.beginPath();
+        fctx.moveTo(cx - SIZE * 0.045, eyeY);
+        fctx.lineTo(cx + SIZE * 0.045, eyeY);
+        fctx.stroke();
+      }
+    }
+
+    if (cfg.hat) {
+      const hatCol = SHIRT[(cfg.hat.color | 0) % SHIRT.length] || "#444";
+      fctx.fillStyle = hatCol;
+      fctx.beginPath();
+      fctx.arc(cx, SIZE * 0.36, SIZE * 0.24, Math.PI, 0);
+      fctx.fill();
+      fctx.fillRect(cx - SIZE * 0.24, SIZE * 0.33, SIZE * 0.48, SIZE * 0.05);
+      if (cfg.hat.style === "cap") {
+        fctx.fillRect(cx - SIZE * 0.26, SIZE * 0.35, SIZE * 0.30, SIZE * 0.03);
+      }
+    }
+  }
+
+  function updatePanel() {
+    const A = window.__ph3d_auth;
+    const C = window.__ph3d_combat;
+    const E = window.__ph3d_economy;
+    const Cr = window.__ph3d_crime;
+    const P = window.__ph3d_profile;
+
+    if (A && A.user && nameEl) {
+      nameEl.textContent = A.user.username || "PLAYER";
+    }
+
+    let rep = 100;
+    try { rep = (P && P.reputation) ? P.reputation() : (A.user && A.user.reputation) || 100; } catch(e) {}
+    if (E && lvlEl) {
+      const bal = E.balance || 0;
+      let levelText = "BROKE";
+      
+      if (bal >= 1000000000) levelText = "MASTER";
+      else if (bal >= 100000000) levelText = "LV 6";
+      else if (bal >= 50000000) levelText = "LV 5";
+      else if (bal >= 20000000) levelText = "LV 4";
+      else if (bal >= 5000000) levelText = "LV 3";
+      else if (bal >= 2000000) levelText = "LV 2";
+      else if (bal >= 1500000) levelText = "LV 1";
+      
+      lvlEl.textContent = levelText;
+      
+      if (levelText === "MASTER") {
+        lvlEl.style.background = "linear-gradient(135deg, #ffd700, #ff8c00)";
+        lvlEl.style.color = "#000";
+      } else {
+        lvlEl.style.background = "linear-gradient(135deg,#ffcc5e,#ff9d5c)";
+        lvlEl.style.color = "#2a1400";
+      }
+    }
+
+    if (C && hpFill && hpNum) {
+      const pct = Math.max(0, Math.min(1, C.hp / C.maxHp));
+      hpFill.style.width = (pct * 100).toFixed(1) + "%";
+      hpNum.textContent = Math.round(C.hp);
+      if (hpBar) hpBar.classList.toggle("low", pct < 0.35);
+    }
+
+    if (E && cashEl) {
+      cashEl.textContent = "₦" + Math.floor(E.balance).toLocaleString();
+    }
+
+    if (Cr && alertEl) {
+      const a = Math.round(Cr.alert || 0);
+      alertEl.textContent = a + "% alert";
+      alertEl.classList.toggle("warn", a >= 30 && a < 70);
+      alertEl.classList.toggle("danger", a >= 70);
+    }
+  }
+
+  function bindAndStart() {
+    const A = window.__ph3d_auth;
+    const W = window.__ph3d_wardrobe;
+
+    drawFace();
+    updatePanel();
+
+    if (W && W.onChange) W.onChange(function () { try { drawFace(); } catch (e) {} });
+    if (A && A.onChange) A.onChange(updatePanel);
+
+    setInterval(updatePanel, 500);
+  }
+
+  waitFor(["__ph3d_wardrobe", "__ph3d_auth"], function(){
+    waitFor(["__ph3d_combat", "__ph3d_economy", "__ph3d_crime"], bindAndStart);
+  });
+})();
+</script>
+
+<script type="module">
+/* ── Player panel → Character Hub ──────────────────────────── */
+(function mountHub() {
+  if (window.__ph3d_hub_mounted) return;
+  const panel = document.getElementById("player-panel");
+  if (!panel) { setTimeout(mountHub, 300); return; }
+  window.__ph3d_hub_mounted = true;
+
+  let hubMod = null;
+  async function getHub() {
+    if (hubMod) return hubMod;
+    try {
+      hubMod = await import("./js/core/character-hub.js");
+      window.__ph3d_character_hub = hubMod.Hub;
+    } catch (e) {
+      console.warn("[hub] failed to load", e);
+    }
+    return hubMod;
+  }
+
+  panel.addEventListener("click", async (ev) => {
+    if (ev.target.closest("button")) return;
+    const m = await getHub();
+    if (m && m.Hub) m.Hub.open();
+  });
+  panel.addEventListener("touchstart", async (ev) => {
+    panel._touchT0 = performance.now();
+    panel._touchY = ev.touches[0].clientY;
+  }, { passive: true });
+  panel.addEventListener("touchend", async (ev) => {
+    const dt = performance.now() - (panel._touchT0 || 0);
+    const dy = Math.abs((ev.changedTouches[0].clientY) - (panel._touchY || 0));
+    if (dt < 450 && dy < 12) {
+      const m = await getHub();
+      if (m && m.Hub) m.Hub.open();
+    }
+  }, { passive: true });
+})();
+</script>
+
+</body>
+</html>

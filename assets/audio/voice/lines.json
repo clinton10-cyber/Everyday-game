@@ -1,0 +1,271 @@
+{
+ "walker": [
+  {
+   "text": "Good afternoon, oga.",
+   "file": "greet_walker_1.mp3"
+  },
+  {
+   "text": "How far?",
+   "file": "greet_walker_2.mp3"
+  },
+  {
+   "text": "No wahala.",
+   "file": "greet_walker_3.mp3"
+  },
+  {
+   "text": "How far? You dey alright?"
+  },
+  {
+   "text": "This weather hot sha."
+  },
+  {
+   "text": "I dey go market."
+  },
+  {
+   "text": "You get change?"
+  },
+  {
+   "text": "Make we see later."
+  },
+  {
+   "text": "Ah, you again!"
+  },
+  {
+   "text": "Na so life be."
+  },
+  {
+   "text": "PH no dey carry last."
+  }
+ ],
+ "trader": [
+  {
+   "text": "Come buy! Fresh from the farm!",
+   "file": "greet_trader_1.mp3"
+  },
+  {
+   "text": "Oga, I get the best price.",
+   "file": "greet_trader_2.mp3"
+  },
+  {
+   "text": "Plantain dey, tomato dey, everything dey."
+  },
+  {
+   "text": "Buy small now, no be every day."
+  }
+ ],
+ "banker": [
+  {
+   "text": "Bank is open. Walk in.",
+   "file": "greet_banker_1.mp3"
+  },
+  {
+   "text": "Your money is safe with us.",
+   "file": "greet_banker_2.mp3"
+  },
+  {
+   "text": "Do you want to make a deposit?"
+  }
+ ],
+ "mechanic": [
+  {
+   "text": "Your car need servicing?",
+   "file": "greet_mechanic_1.mp3"
+  },
+  {
+   "text": "Anything for the engine, I fit fix am."
+  },
+  {
+   "text": "Bring am tomorrow, I go work on am."
+  }
+ ],
+ "priest": [
+  {
+   "text": "God bless you, my child.",
+   "file": "greet_priest_1.mp3"
+  },
+  {
+   "text": "The Lord is with you."
+  },
+  {
+   "text": "Come back for Sunday service."
+  }
+ ],
+ "doctor": [
+  {
+   "text": "Are you hurt? Let me have a look.",
+   "file": "greet_doctor_1.mp3"
+  },
+  {
+   "text": "You look pale. Take some rest."
+  },
+  {
+   "text": "Health is wealth, don't forget."
+  }
+ ],
+ "police": [
+  {
+   "text": "Move along.",
+   "file": "greet_police_1.mp3"
+  },
+  {
+   "text": "Keep moving.",
+   "file": "greet_police_2.mp3"
+  },
+  {
+   "text": "Move along. Nothing to see here."
+  },
+  {
+   "text": "Report any crime to us."
+  },
+  {
+   "text": "You look suspicious. Keep moving."
+  }
+ ],
+ "inmate": [
+  {
+   "text": "You new here?",
+   "file": "greet_inmate_1.mp3"
+  },
+  {
+   "text": "Keep your head down.",
+   "file": "greet_inmate_2.mp3"
+  },
+  {
+   "text": "They dey watch us."
+  },
+  {
+   "text": "I'm innocent, swear."
+  },
+  {
+   "text": "Bail is a joke."
+  },
+  {
+   "text": "What you dey in for?"
+  },
+  {
+   "text": "Chow time soon."
+  }
+ ],
+ "warden": [
+  {
+   "text": "No funny business.",
+   "file": "greet_warden_1.mp3"
+  },
+  {
+   "text": "Lights out in ten."
+  },
+  {
+   "text": "Cell check."
+  },
+  {
+   "text": "Keep moving."
+  },
+  {
+   "text": "You're not going anywhere."
+  }
+ ],
+ "taxi": [
+  {
+   "text": "Where you dey go? Enter!",
+   "file": "greet_taxi_1.mp3"
+  },
+  {
+   "text": "I go take you anywhere for the city."
+  },
+  {
+   "text": "Fare na small money."
+  }
+ ],
+ "couple": [
+  {
+   "text": "We dey go chop, join us?"
+  },
+  {
+   "text": "Abeg, we dey enjoy small."
+  },
+  {
+   "text": "This city sweet when you no dey alone."
+  },
+  {
+   "text": "Oga, na our anniversary today."
+  }
+ ],
+ "suit_men": [
+  {
+   "text": "Time is money, my friend."
+  },
+  {
+   "text": "We have a meeting at three."
+  },
+  {
+   "text": "Send me the figures before close of day."
+  },
+  {
+   "text": "Business is booming in PH."
+  }
+ ],
+ "yahoo_boys": [
+  {
+   "text": "Guy, no dey look us like that."
+  },
+  {
+   "text": "Wetin dey happen, boss?"
+  },
+  {
+   "text": "Hustle no get holiday."
+  },
+  {
+   "text": "Too much wahala for this street."
+  }
+ ],
+ "mamas": [
+  {
+   "text": "My pikin, come buy fresh pepper!"
+  },
+  {
+   "text": "Price don change, na so e be."
+  },
+  {
+   "text": "You no go greet your elders?"
+  },
+  {
+   "text": "See as you dey thin, come chop."
+  }
+ ],
+ "school_kids": [
+  {
+   "text": "Good afternoon, sir!"
+  },
+  {
+   "text": "We dey go school."
+  },
+  {
+   "text": "Teacher go flog us if we late!"
+  },
+  {
+   "text": "Please sir, any change?"
+  }
+ ],
+ "student": [
+  {
+   "text": "Exams dey this week, I dey tire."
+  },
+  {
+   "text": "Library dey full today."
+  },
+  {
+   "text": "I dey find small hustle for school fees."
+  }
+ ],
+ "clerk": [
+  {
+   "text": "Please queue up, sir."
+  },
+  {
+   "text": "Come back tomorrow, the system is down."
+  },
+  {
+   "text": "Do you have the form?"
+  }
+ ]
+}

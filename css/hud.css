@@ -1,0 +1,633 @@
+/* ════════════════════════════════════════════════════════════════
+   EVERYDAY IN PH — HUD SYSTEM
+   One layout for every scene. Load order: style.css, phone.css,
+   hud-icons.css, hud.css (this file wins on purpose).
+
+   Screen map (portrait phone):
+
+     ┌────────────────────────────────────┐
+     │ [card: face · name · hp]   [bag]   │  tl / tr
+     │ [home] [menu] [sound]      [₦ 928M]│  rail   / wallet
+     │                                    │
+     │            ‹ banner ›              │  centre slot (speed, wave, jail)
+     │                                    │
+     │                         [ Talk  ]  │  ctx  (what you can do right now)
+     │                         [ Get   ]  │
+     │ state                     [Run ]   │  pad  (always the same 3 spots)
+     │ (joystick)           [Fight][Jump] │
+     └────────────────────────────────────┘
+
+   Scenes never position their own buttons. They create an element
+   with a known id (see SPEC in js/ui/hud.js) and the HUD files it
+   into the right zone. Old inline styles are overridden here.
+   ════════════════════════════════════════════════════════════════ */
+
+:root{
+  --h-ink:#0b110e;
+  --h-glass:rgba(10,16,13,.80);
+  --h-glass-hi:rgba(18,28,22,.92);
+  --h-line:rgba(243,241,232,.14);
+  --h-line-hi:rgba(243,241,232,.30);
+  --h-paper:#f3f1e8;
+  --h-mist:#9db0a6;
+  --h-danfo:#ffc62b;          /* the one accent: taxi-yellow, used for "do this now" */
+  --h-danfo-ink:#1b1400;
+  --h-garden:#35d07f;         /* money, health, go */
+  --h-flare:#ff5a3c;          /* danger, fight */
+  --h-sky:#7cc8ff;
+
+  --h-top:calc(env(safe-area-inset-top,0px) + 10px);
+  --h-left:calc(env(safe-area-inset-left,0px) + 12px);
+  --h-right:calc(env(safe-area-inset-right,0px) + 12px);
+  --h-bottom:calc(env(safe-area-inset-bottom,0px) + 20px);
+  --h-banner-top:calc(env(safe-area-inset-top,0px) + 130px);
+
+  --h-font:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --h-ease:cubic-bezier(.2,.8,.2,1);
+}
+
+/* ── Zones ───────────────────────────────────────────────────── */
+#hud-root{position:fixed;inset:0;z-index:26;pointer-events:none;
+  font-family:var(--h-font);color:var(--h-paper);
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#hud-root>div{position:absolute;pointer-events:none}
+
+#hud-tl{left:var(--h-left);top:var(--h-top);display:flex;flex-direction:column;align-items:flex-start;gap:8px;
+  max-width:calc(100vw - var(--h-left) - var(--h-right) - 132px)}
+#hud-rail{order:1;display:flex;flex-direction:row;gap:8px;align-items:center;flex-wrap:wrap}
+#hud-tr{right:var(--h-right);top:var(--h-top);display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+
+/* what you can do right now — grows upward from just above the pad */
+#hud-ctx{right:var(--h-right);bottom:calc(env(safe-area-inset-bottom,0px) + 190px);
+  display:flex;flex-direction:column-reverse;align-items:flex-end;gap:8px}
+
+/* Held-item actions sit ABOVE the context stack so DROP can never land on GO OUTSIDE */
+#hud-item{right:var(--h-right);bottom:calc(env(safe-area-inset-bottom,0px) + 250px);
+  display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+#hud-item .h-ctx{background:var(--h-paper)!important;border-color:transparent!important;color:var(--h-ink)!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.4)!important;animation:none!important}
+
+/* the three fixed thumb spots */
+#hud-pad{right:var(--h-right);bottom:var(--h-bottom);width:150px;height:140px}
+
+/* status text that sits above the joystick */
+#hud-bl{left:var(--h-left);bottom:calc(env(safe-area-inset-bottom,0px) + 186px);display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+
+/* adopted children: the HUD owns position, scenes only own show/hide */
+[data-hud]{
+  position:relative!important;inset:auto!important;left:auto!important;right:auto!important;
+  top:auto!important;bottom:auto!important;margin:0!important;z-index:auto!important;
+  transform:none!important;pointer-events:auto;
+  font-family:var(--h-font)!important;text-transform:none!important;
+  -webkit-font-smoothing:antialiased;touch-action:manipulation;
+  box-sizing:border-box;cursor:pointer;
+  transition:transform .12s var(--h-ease),background .16s,color .16s,border-color .16s,box-shadow .16s,opacity .2s!important;
+}
+[data-hud]:active{transform:scale(.94)!important}
+[data-hud="state"],[data-hud="tl"]{pointer-events:none}
+[data-hud="tl"]{pointer-events:auto}
+
+/* icon + label building block */
+.h-ico{display:inline-block;flex:none;width:1.2em;height:1.2em;background:currentColor;vertical-align:-.2em;
+  -webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+.h-lead::before{content:"";display:inline-block;width:1.2em;height:1.2em;margin-right:.5em;vertical-align:-.22em;background:currentColor;
+  -webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+
+/* ── Player card ─────────────────────────────────────────────── */
+#player-panel{
+  display:flex;align-items:center;gap:10px;padding:7px 12px 7px 7px;
+  border-radius:18px;background:var(--h-glass);border:1px solid var(--h-line);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  box-shadow:0 6px 22px rgba(0,0,0,.38);color:var(--h-paper);
+  max-width:100%;
+}
+#pp-face{width:46px;height:46px;border-radius:14px;border:1.5px solid var(--h-line-hi);background:#0b1018;flex:none;image-rendering:auto;box-shadow:none}
+.pp-info{display:flex;flex-direction:column;gap:5px;min-width:0}
+.pp-top{display:flex;align-items:center;gap:7px;min-width:0}
+.pp-name{font:800 14px/1 var(--h-font);letter-spacing:0;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:112px;min-width:0;flex:0 1 auto;color:var(--h-paper)}
+.pp-level{font:800 10px/1 var(--h-font)!important;letter-spacing:.02em;padding:3px 6px;border-radius:6px;
+  background:var(--h-danfo)!important;color:var(--h-danfo-ink)!important;flex:none}
+.pp-hp-row{display:flex;align-items:center;gap:7px}
+.pp-hp-ico{display:inline-block;width:11px;height:11px;flex:none;background:var(--h-flare);
+  -webkit-mask:var(--i-heart) center/contain no-repeat;mask:var(--i-heart) center/contain no-repeat;font-size:0}
+.pp-hp-bar{flex:1;min-width:64px;height:5px;border-radius:3px;background:rgba(243,241,232,.14);overflow:hidden}
+.pp-hp-bar i{display:block;height:100%;width:100%;background:var(--h-garden);border-radius:3px;transition:width .2s}
+.pp-hp-bar.low i{background:var(--h-flare)}
+.pp-hp-num{font:700 11px/1 var(--h-font);font-variant-numeric:tabular-nums;color:var(--h-mist);min-width:24px;text-align:right}
+.pp-stats{display:flex;gap:8px;font:700 10px/1 var(--h-font);letter-spacing:.01em}
+.pp-cash{display:none}   /* balance lives in the wallet chip, not twice */
+.pp-alert{color:var(--h-mist)}
+.pp-alert.warn{color:var(--h-danfo)}
+.pp-alert.danger{color:var(--h-flare);animation:hPulse 1s ease-in-out infinite}
+@keyframes hPulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* ── Top-right chips: bag + wallet ───────────────────────────── */
+.h-chip,.h-wallet,#ph3d-pocket-btn{
+  display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 11px;border-radius:12px;
+  background:var(--h-glass);border:1px solid var(--h-line);color:var(--h-paper);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  font:700 13px/1 var(--h-font);font-variant-numeric:tabular-nums;box-shadow:0 6px 18px rgba(0,0,0,.32);
+}
+#ph3d-pocket{pointer-events:none}
+#ph3d-pocket-btn{pointer-events:auto;cursor:pointer}
+#ph3d-pocket-btn .h-ico{color:var(--h-mist)}
+#ph3d-pocket-btn em{font-style:normal;color:var(--h-mist);margin-left:-3px}
+#ph3d-pocket-btn.is-full{border-color:var(--h-danfo)}
+#ph3d-pocket-btn.is-full #ph3d-pocket-count{color:var(--h-danfo)}
+
+.tpill.h-wallet{padding:0 12px 0 6px;gap:8px;border-radius:12px}
+.tpill.h-wallet .tt{width:22px;height:22px;border-radius:7px;background:var(--h-danfo);color:var(--h-danfo-ink);
+  font-size:0;box-shadow:none;display:flex;align-items:center;justify-content:center}
+.tpill.h-wallet .tt::before{content:"";width:14px;height:14px;background:currentColor;
+  -webkit-mask:var(--i-phone) center/contain no-repeat;mask:var(--i-phone) center/contain no-repeat}
+.tpill.h-wallet .tamt{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--h-garden);
+  font:800 13px/1 var(--h-font);font-variant-numeric:tabular-nums;letter-spacing:0}
+
+/* ── Rail (home · menu · sound) ──────────────────────────────── */
+.h-rail{
+  min-width:40px;height:40px!important;line-height:40px!important;padding:0!important;border-radius:13px!important;text-align:center;
+  background:var(--h-glass)!important;border:1px solid var(--h-line)!important;color:var(--h-paper)!important;
+  font:700 12px/1 var(--h-font)!important;letter-spacing:0!important;box-shadow:0 6px 18px rgba(0,0,0,.32)!important;
+  backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;
+  font-size:0!important;
+}
+.h-rail::before{content:"";display:inline-block;vertical-align:middle;width:20px;height:20px;background:currentColor;
+  -webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+.h-rail:not(.h-labelled){width:40px!important}
+.h-rail.h-labelled{font-size:13px!important;padding:0 14px 0 11px!important}
+.h-rail.h-labelled::before{width:17px;height:17px;margin-right:7px}
+.h-rail.is-off{color:var(--h-mist)!important}
+
+/* ── Context actions: "what you can do right now" ─────────────
+   Idle = quiet glass. Live = yellow, the only loud thing on screen. */
+.h-ctx{
+  min-height:46px;line-height:46px!important;padding:0 18px 0 14px!important;border-radius:16px!important;text-align:center;
+  background:var(--h-glass)!important;border:1px solid var(--h-line)!important;color:rgba(243,241,232,.62)!important;
+  font:800 14px/1 var(--h-font)!important;letter-spacing:0!important;white-space:nowrap;
+  box-shadow:0 6px 18px rgba(0,0,0,.32)!important;
+  backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;
+}
+.h-ctx.is-live,.h-act,.h-ctx.h-always{
+  background:var(--h-danfo)!important;border-color:transparent!important;color:var(--h-danfo-ink)!important;
+  box-shadow:0 8px 24px rgba(255,198,43,.34),0 2px 6px rgba(0,0,0,.4)!important;
+}
+.h-ctx.is-live{animation:hRing 1.8s ease-out infinite}
+@keyframes hRing{0%{box-shadow:0 0 0 0 rgba(255,198,43,.5),0 8px 24px rgba(255,198,43,.3)}
+  70%,100%{box-shadow:0 0 0 12px rgba(255,198,43,0),0 8px 24px rgba(255,198,43,.3)}}
+.h-ctx[style*="opacity: 0;"]{display:none!important}
+.h-ctx.hud-dup{display:none!important}
+
+/* ── Pad: jump / fight / run — same three spots in every scene ── */
+.h-pad{
+  position:absolute!important;text-align:center;
+  background:var(--h-glass)!important;border:1px solid var(--h-line-hi)!important;color:var(--h-paper)!important;
+  font:800 11px/1 var(--h-font)!important;letter-spacing:.01em!important;padding:0!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.4)!important;
+  backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;
+}
+.h-pad::before{content:"";display:block;margin:0 auto 4px;width:22px;height:22px;background:currentColor;
+  -webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+.h-jump{right:0!important;bottom:0!important;width:72px!important;height:72px!important;border-radius:50%!important}
+.h-fight{right:82px!important;bottom:4px!important;width:60px!important;height:60px!important;border-radius:20px!important;
+  color:var(--h-flare)!important;border-color:rgba(255,90,60,.5)!important}
+.h-run{right:6px!important;bottom:82px!important;width:56px!important;height:56px!important;border-radius:18px!important}
+.h-reload{right:96px!important;bottom:8px!important;width:60px!important;height:60px!important;border-radius:20px!important}
+.h-fire{width:84px!important;height:84px!important;background:var(--h-flare)!important;border-color:transparent!important;color:#fff!important;
+  box-shadow:0 8px 26px rgba(255,90,60,.45)!important}
+.h-pad.is-live{background:var(--h-flare)!important;color:#fff!important;border-color:transparent!important}
+.h-run.is-on{background:var(--h-danfo)!important;color:var(--h-danfo-ink)!important;border-color:transparent!important}
+.h-pad:active{transform:scale(.92)!important}
+
+/* ── State label above the joystick ──────────────────────────── */
+.h-state{padding:6px 10px!important;border-radius:9px!important;
+  background:rgba(10,16,13,.62)!important;border:1px solid var(--h-line)!important;color:var(--h-mist)!important;
+  font:700 11px/1 var(--h-font)!important;letter-spacing:.01em!important;backdrop-filter:blur(8px)!important;-webkit-backdrop-filter:blur(8px)!important;
+  pointer-events:none!important}
+
+/* ── Joysticks (all three implementations, one look) ─────────── */
+#ph3d-joy-base,#ph3d-walk-joy-base,#ph3d-house-pad{
+  background:rgba(243,241,232,.07)!important;border:1.5px solid rgba(243,241,232,.30)!important;
+  box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+#ph3d-joy-knob,#ph3d-walk-joy-knob,#ph3d-house-knob{
+  background:rgba(243,241,232,.82)!important;border:0!important;
+  box-shadow:0 4px 14px rgba(0,0,0,.4)!important}
+
+/* ── Centre banner slot: speedometer / wave / jail timer / combo ─ */
+#drive-hud,#ph3d-wave,#ph3d-prison-hud,#pc-combo{
+  position:fixed!important;left:50%!important;right:auto!important;top:var(--h-banner-top)!important;bottom:auto!important;
+  transform:translateX(-50%)!important;z-index:27!important;
+  padding:7px 14px!important;border-radius:12px!important;min-height:0!important;
+  background:var(--h-glass)!important;border:1px solid var(--h-line)!important;color:var(--h-paper)!important;
+  font:800 13px/1 var(--h-font)!important;letter-spacing:.01em!important;text-transform:none!important;text-shadow:none!important;
+  box-shadow:0 6px 18px rgba(0,0,0,.32)!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+#drive-hud{color:var(--h-garden)!important}
+#ph3d-prison-hud{background:var(--h-flare)!important;border-color:transparent!important;color:#fff!important}
+#ph3d-wave{color:var(--h-flare)!important}
+#pc-combo{font-size:20px!important;color:var(--h-danfo)!important}
+
+/* ── Toasts ──────────────────────────────────────────────────── */
+.ttoast{top:var(--h-banner-top)!important;padding:10px 16px!important;border-radius:12px!important;
+  background:var(--h-glass-hi)!important;border:1px solid var(--h-line-hi)!important;color:var(--h-paper)!important;
+  font:700 13px/1.2 var(--h-font)!important;letter-spacing:0!important;z-index:91}
+
+/* ── Range scene: use the shared card for HP, ammo takes a ctx slot ─ */
+#ph3d-hp,#ph3d-range-exit{display:none!important}   /* HP is on the card; the City button already leaves the range */
+#ph3d-gun-hud{
+  right:var(--h-right)!important;bottom:calc(env(safe-area-inset-bottom,0px) + 190px)!important;
+  padding:8px 12px!important;border-radius:12px!important;background:var(--h-glass)!important;
+  border:1px solid var(--h-line)!important;backdrop-filter:blur(12px)}
+#ph3d-gun-name{font:700 11px/1 var(--h-font)!important;letter-spacing:.02em!important;color:var(--h-mist)!important;opacity:1!important}
+#ph3d-gun-ammo{font:800 22px/1.1 var(--h-font)!important;font-variant-numeric:tabular-nums}
+
+/* ── Drive controls (pedals + steering) ──────────────────────── */
+#dr-left-container{left:var(--h-left)!important;bottom:var(--h-bottom)!important}
+#dr-right-container{right:var(--h-right)!important;bottom:var(--h-bottom)!important}
+.dr-btn{width:64px!important;height:64px!important;border-radius:20px!important;
+  background:var(--h-glass)!important;border:1px solid var(--h-line-hi)!important;color:var(--h-paper)!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.4)!important}
+.dr-btn:active,.dr-btn.on{background:var(--h-paper)!important;color:var(--h-ink)!important;border-color:transparent!important;box-shadow:none!important;transform:scale(.93)!important}
+#dr-gas{color:var(--h-garden)!important;border-color:rgba(53,208,127,.55)!important;background:var(--h-glass)!important}
+#dr-gas:active,#dr-gas.on{background:var(--h-garden)!important;color:var(--h-ink)!important}
+#dr-brake{color:var(--h-flare)!important;border-color:rgba(255,90,60,.55)!important;background:var(--h-glass)!important}
+#dr-brake:active,#dr-brake.on{background:var(--h-flare)!important;color:#fff!important}
+#drive-enter{
+  bottom:calc(env(safe-area-inset-bottom,0px) + 100px)!important;min-height:46px;padding:0 20px!important;border-radius:16px!important;
+  background:var(--h-danfo)!important;color:var(--h-danfo-ink)!important;border:0!important;
+  font:800 14px/1 var(--h-font)!important;letter-spacing:0!important;text-transform:none!important;box-shadow:0 8px 24px rgba(255,198,43,.34)!important}
+@media (max-width:400px){.dr-btn{width:58px!important;height:58px!important}}
+
+/* ── Shared sheet (menu, bag, travel choice) ─────────────────── */
+.h-scrim{position:fixed;inset:0;z-index:70;display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(4,8,6,.58);opacity:0;transition:opacity .22s;touch-action:none;
+  font-family:var(--h-font);color:var(--h-paper)}
+.h-scrim.on{opacity:1}
+.h-sheet{width:min(460px,100%);max-height:86vh;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;
+  padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 16px);
+  border-radius:24px 24px 0 0;background:var(--h-glass-hi);border:1px solid var(--h-line-hi);border-bottom:0;
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  box-shadow:0 -18px 50px rgba(0,0,0,.55);transform:translateY(24px);transition:transform .28s var(--h-ease)}
+.h-scrim.on .h-sheet{transform:none}
+.h-grab{width:38px;height:4px;border-radius:2px;background:var(--h-line-hi);margin:0 auto 12px}
+.h-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.h-title{font:800 20px/1.1 var(--h-font);letter-spacing:-.01em}
+.h-sub{font:600 12px/1.3 var(--h-font);color:var(--h-mist);margin-top:3px}
+.h-x{width:36px;height:36px;border-radius:12px;border:1px solid var(--h-line);background:transparent;color:var(--h-mist);display:grid;place-items:center;cursor:pointer}
+.h-x::before{content:"";width:16px;height:16px;background:currentColor;-webkit-mask:var(--i-close) center/contain no-repeat;mask:var(--i-close) center/contain no-repeat}
+.h-sec{margin-top:16px}
+.h-sec-l{font:700 12px/1 var(--h-font);color:var(--h-mist);margin:0 2px 8px}
+.h-grid{display:grid;gap:8px}
+.h-grid.c1{grid-template-columns:1fr}.h-grid.c2{grid-template-columns:1fr 1fr}
+.h-grid.c3{grid-template-columns:repeat(3,1fr)}.h-grid.c4{grid-template-columns:repeat(4,1fr)}.h-grid.c5{grid-template-columns:repeat(5,1fr)}
+.h-tile{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;min-height:56px;padding:11px 12px;border-radius:14px;
+  background:rgba(243,241,232,.06);border:1px solid var(--h-line);color:var(--h-paper);font:inherit;text-align:left;cursor:pointer;
+  transition:transform .12s var(--h-ease),background .15s,border-color .15s}
+.h-tile:active{transform:scale(.96)}
+.h-tile .h-ico{width:20px;height:20px;margin-bottom:2px;color:var(--h-mist)}
+.h-glyph{font-size:22px;line-height:1}
+.h-tile-l{font:800 14px/1.15 var(--h-font)}
+.h-tile-s{font:600 11px/1.2 var(--h-font);color:var(--h-mist)}
+.h-grid.c3 .h-tile,.h-grid.c4 .h-tile,.h-grid.c5 .h-tile{align-items:center;text-align:center;padding:10px 4px;min-height:64px}
+.h-grid.c4 .h-tile-l,.h-grid.c5 .h-tile-l{font-size:11px}
+.h-tile.is-on{background:rgba(255,198,43,.14);border-color:var(--h-danfo)}
+.h-tile.is-on .h-ico{color:var(--h-danfo)}
+.h-tile.tone-danfo{background:var(--h-danfo);border-color:transparent;color:var(--h-danfo-ink)}
+.h-tile.tone-danfo .h-ico,.h-tile.tone-danfo .h-tile-s{color:rgba(27,20,0,.7)}
+.h-tile.tone-flare{border-color:rgba(255,90,60,.5);color:var(--h-flare)}
+.h-tile.tone-flare .h-ico{color:var(--h-flare)}
+
+/* bag rows */
+.h-bagtotal{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;border-radius:14px;background:rgba(243,241,232,.06);border:1px solid var(--h-line);margin-top:10px}
+.h-bagtotal b{font:800 22px/1 var(--h-font);color:var(--h-garden);font-variant-numeric:tabular-nums}
+.h-bagtotal span{font:600 12px/1 var(--h-font);color:var(--h-mist)}
+.h-row{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid var(--h-line)}
+.h-row:last-child{border-bottom:0}
+.h-row-i{font-size:22px;width:30px;text-align:center}
+.h-row-m{flex:1;min-width:0}
+.h-row-n{font:800 14px/1.1 var(--h-font)}
+.h-row-v{font:700 12px/1.2 var(--h-font);color:var(--h-garden);margin-top:3px;font-variant-numeric:tabular-nums}
+.h-mini{height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--h-line-hi);background:transparent;color:var(--h-paper);font:800 12px/1 var(--h-font);cursor:pointer}
+.h-mini.sell{background:var(--h-garden);border-color:transparent;color:#04170c}
+.h-empty{padding:26px 8px;text-align:center;color:var(--h-mist);font:600 13px/1.4 var(--h-font)}
+
+/* ── Older sheets pick up the same skin ──────────────────────── */
+#modal .sheet,.shoppanel{background:var(--h-glass-hi)!important;border:1px solid var(--h-line-hi)!important;border-radius:24px!important;font-family:var(--h-font)}
+.sheet h3{font:800 20px/1.1 var(--h-font)!important}
+.sheet .sub,.shophead .tg,.rowlabel{font:700 12px/1 var(--h-font)!important;letter-spacing:0!important;text-transform:none!important;color:var(--h-mist)!important}
+.opt .nm{font:800 14px/1 var(--h-font)!important;letter-spacing:0!important}
+.opt .ds{font:600 11px/1 var(--h-font)!important;opacity:1!important;color:var(--h-mist)}
+.opt .ico{background:rgba(243,241,232,.06)!important;border-color:var(--h-line)!important}
+.cancel{font:800 13px/1 var(--h-font)!important;letter-spacing:0!important;border-radius:14px!important;color:var(--h-paper)!important}
+.price{color:var(--h-danfo)!important;background:rgba(255,198,43,.12)!important;border-color:rgba(255,198,43,.4)!important;font-family:var(--h-font)}
+.buy{background:var(--h-danfo)!important;color:var(--h-danfo-ink)!important;font:800 14px/1 var(--h-font)!important;letter-spacing:0!important;border-radius:16px!important}
+.sw.on{border-color:var(--h-danfo)!important;box-shadow:0 0 0 3px rgba(255,198,43,.25)!important}
+
+/* ── Small phones ────────────────────────────────────────────── */
+@media (max-width:360px){
+  #hud-tl{max-width:calc(100vw - var(--h-left) - var(--h-right) - 118px)}
+  .pp-name{max-width:84px;font-size:13px}
+  #pp-face{width:40px;height:40px}
+  .h-jump{width:66px!important;height:66px!important}
+  .h-fight{right:76px!important;width:56px!important;height:56px!important}
+  .h-run{width:52px!important;height:52px!important;bottom:76px!important}
+}
+@media (prefers-reduced-motion:reduce){
+  .h-ctx.is-live,.pp-alert.danger{animation:none}
+  .h-sheet,.h-scrim{transition:none}
+}
+@media (orientation:landscape) and (max-height:480px){
+  #hud-ctx{bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}
+  #hud-bl{bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}
+  :root{--h-banner-top:calc(env(safe-area-inset-top,0px) + 10px)}
+}
+
+/* ── Interior combat buttons: same spots as the pad (fight + block) ── */
+#ph3d-atk,#ph3d-blk{
+  position:fixed!important;left:auto!important;display:block!important;text-align:center;
+  border-radius:20px!important;color:var(--h-paper)!important;
+  background:var(--h-glass)!important;border:1px solid var(--h-line-hi)!important;
+  font:800 11px/1 var(--h-font)!important;letter-spacing:0!important;box-shadow:0 8px 22px rgba(0,0,0,.4)!important;
+  backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;z-index:27}
+#ph3d-atk{right:calc(var(--h-right) + 82px)!important;bottom:calc(var(--h-bottom) + 4px)!important;width:60px!important;height:60px!important;
+  color:var(--h-flare)!important;border-color:rgba(255,90,60,.5)!important;padding-top:14px!important}
+#ph3d-blk{right:calc(var(--h-right) + 82px)!important;bottom:calc(var(--h-bottom) + 74px)!important;width:52px!important;height:52px!important;border-radius:17px!important;padding-top:12px!important}
+#ph3d-atk::before,#ph3d-blk::before{content:"";display:block;margin:-8px auto 3px;width:20px;height:20px;background:currentColor;
+  -webkit-mask:var(--i-fight) center/contain no-repeat;mask:var(--i-fight) center/contain no-repeat}
+#ph3d-blk::before{-webkit-mask-image:var(--i-lock);mask-image:var(--i-lock)}
+
+/* line-height must come after the font shorthand */
+.h-ctx{line-height:46px!important}
+.h-rail{line-height:40px!important}
+
+/* ══════════════════════════════════════════════════════════════
+   INLINE-STYLE OVERRIDE LAYER
+   Scenes create buttons with style.cssText that hard-codes random
+   colours (green, orange, purple, cyan). These rules use !important
+   to reclaim the HUD token palette. Covers both the adopted ctx
+   elements AND the legacy-positioned ones.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Danfo (primary / "do this now") group ────────────────── */
+/* walk-talk & walk-enter were styled green and cyan in drive.js */
+#ph3d-walk-talk,
+#ph3d-walk-enter,
+#ph3d-walk-grab,
+#ph3d-outside-btn {
+  background:var(--h-danfo)!important;
+  border-color:transparent!important;
+  color:var(--h-danfo-ink)!important;
+  box-shadow:0 8px 24px rgba(255,198,43,.34),0 2px 6px rgba(0,0,0,.4)!important;
+  /* kill the old centered alignment */
+  position:relative!important;
+  left:auto!important;
+  right:auto!important;
+  top:auto!important;
+  bottom:auto!important;
+  transform:none!important;
+}
+
+/* ── Glass (secondary / contextual) group ─────────────────── */
+/* crouch was orange, lie was purple, pick/use were green/amber */
+#ph3d-crouch-btn,
+#ph3d-lie-btn,
+#ph3d-walk-pick,
+#ph3d-walk-use {
+  background:var(--h-glass)!important;
+  border:1px solid var(--h-line-hi)!important;
+  color:var(--h-paper)!important;
+  box-shadow:0 6px 18px rgba(0,0,0,.32)!important;
+  position:relative!important;
+  left:auto!important;
+  right:auto!important;
+  top:auto!important;
+  bottom:auto!important;
+  transform:none!important;
+}
+
+/* ── Active / toggled states ──────────────────────────────── */
+/* when crouch or lie is engaged, highlight with danfo ring,
+   NOT a random gradient – keeps the screen reading as one system */
+#ph3d-crouch-btn.is-on {
+  background:rgba(255,198,43,.15)!important;
+  border-color:var(--h-danfo)!important;
+  color:var(--h-paper)!important;
+  box-shadow:0 0 0 2px rgba(255,198,43,.35),0 6px 18px rgba(0,0,0,.32)!important;
+}
+#ph3d-lie-btn.is-on {
+  background:rgba(255,198,43,.10)!important;
+  border-color:rgba(255,198,43,.5)!important;
+  color:var(--h-mist)!important;
+}
+
+/* ── drive.js pad buttons: glass with correct accent tints ─── */
+#ph3d-walk-run  { background:var(--h-glass)!important; color:var(--h-paper)!important; border-color:var(--h-line-hi)!important; }
+#ph3d-walk-jump { background:var(--h-glass)!important; color:var(--h-paper)!important; border-color:var(--h-line-hi)!important; }
+
+/* run active state */
+#ph3d-walk-run.is-on {
+  background:var(--h-danfo)!important;
+  color:var(--h-danfo-ink)!important;
+  border-color:transparent!important;
+}
+
+/* ── drive.js vehicle buttons: keep consistent glass ─────── */
+#ph3d-car-sit,
+#ph3d-drive-getout {
+  background:var(--h-glass)!important;
+  color:var(--h-paper)!important;
+  border-color:var(--h-line-hi)!important;
+  box-shadow:0 6px 18px rgba(0,0,0,.32)!important;
+}
+
+/* ── Jump flash (replaces inline bg swap) ─────────────────── */
+@keyframes hJumpFlash {
+  0%   { background:var(--h-paper)!important; color:var(--h-ink)!important; }
+  100% { background:var(--h-glass)!important; color:var(--h-paper)!important; }
+}
+.h-flash { animation: hJumpFlash .18s ease-out forwards!important; }
+
+/* ── ph3d-act-btn state variants (walkcontrols.js data-state) ─ */
+/* default / SIT: glass, muted */
+#ph3d-act-btn                      { color:rgba(243,241,232,.62)!important; border-color:var(--h-line)!important; }
+/* STAND — you are already sitting/lying */
+#ph3d-act-btn[data-state="active"] { background:var(--h-danfo)!important; color:var(--h-danfo-ink)!important; border-color:transparent!important; }
+/* DROP — you are carrying something */
+#ph3d-act-btn[data-state="warn"]   { background:var(--h-glass)!important; color:var(--h-paper)!important; border-color:var(--h-line-hi)!important; }
+/* USE — near an interactable */
+#ph3d-act-btn[data-state="interact"]{ background:var(--h-glass)!important; color:var(--h-paper)!important; border-color:var(--h-line-hi)!important; }
+/* TAKE — near a pickup */
+#ph3d-act-btn[data-state="take"]   { background:var(--h-glass)!important; color:var(--h-paper)!important; border-color:var(--h-line-hi)!important; }
+
+#ph3d-hunt-hud{position:fixed;top:var(--ph3d-obj-top,calc(env(safe-area-inset-top,0px) + 66px));left:50%;transform:translateX(-50%);z-index:27;display:none;min-width:220px;padding:12px 20px 14px;border-radius:18px;background:rgba(20,8,8,.95);border:1px solid rgba(255,69,58,.5);color:#fff;font-family:var(--h-font,"Archivo",system-ui,sans-serif);text-align:center;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.6);pointer-events:auto}
+#ph3d-hunt-hud.on{display:block}
+.hh-head{display:flex;align-items:center;justify-content:center;gap:8px;font-size:9px;letter-spacing:.28em;color:#ff9f0a;font-weight:900;text-transform:uppercase;margin-bottom:6px}
+.hh-dot{width:8px;height:8px;border-radius:50%;background:#ff453a;animation:hhPulse 1s ease-in-out infinite}
+@keyframes hhPulse{0%,100%{opacity:1}50%{opacity:.35}}
+.hh-timer{font-size:26px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.1}
+.hh-hour{font-size:10px;letter-spacing:.2em;color:rgba(234,246,255,.55);font-weight:800;margin-top:2px}
+.hh-prize-label{font-size:9px;letter-spacing:.28em;color:rgba(234,246,255,.5);font-weight:800;margin-top:10px}
+.hh-prize{font-size:22px;font-weight:900;color:#35d07f;font-variant-numeric:tabular-nums}
+.hh-cashout{margin-top:10px;padding:9px 18px;border-radius:12px;border:none;background:linear-gradient(135deg,#35d07f,#2aab66);color:#04170c;font:900 10px var(--h-font,"Archivo",system-ui,sans-serif);letter-spacing:.16em;cursor:pointer;touch-action:manipulation}
+.hh-cashout:active{transform:scale(.96)}
+
+/* ══════════════════════════════════════════════════════════════
+   ACTION DOCK — right-hand actions live in a collapsible panel.
+   Always visible: Jump (small) + dock toggle. Fight / Run / Reload /
+   Block etc. are tiles inside the dock. Works in every scene.
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --i-grid:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2.2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Crect%20x='4'%20y='4'%20width='6.5'%20height='6.5'%20rx='1.8'/%3E%3Crect%20x='13.5'%20y='4'%20width='6.5'%20height='6.5'%20rx='1.8'/%3E%3Crect%20x='4'%20y='13.5'%20width='6.5'%20height='6.5'%20rx='1.8'/%3E%3Crect%20x='13.5'%20y='13.5'%20width='6.5'%20height='6.5'%20rx='1.8'/%3E%3C/svg%3E");
+  --i-pin:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='2.2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M12%2017v5M8%203h8l-1%208%203%204H6l3-4z'/%3E%3C/svg%3E");
+  --dk-gap:calc(var(--h-bottom) + 66px);
+}
+.h-pad,.h-ctx,#hud-dockbtn,#hud-dock button,.dr-btn{touch-action:none;-webkit-tap-highlight-color:transparent}
+
+/* pad = just Jump / Fire now */
+#hud-pad{width:64px;height:64px}
+.h-jump{right:0!important;bottom:0!important;width:62px!important;height:62px!important;border-radius:50%!important}
+.h-jump::before{width:22px;height:22px;margin:0 auto 3px}
+.h-fire{width:78px!important;height:78px!important}
+.h-pad:active{transform:scale(.9)!important;background:var(--h-paper)!important;color:var(--h-ink)!important;border-color:transparent!important}
+
+/* dock toggle */
+#hud-dockbtn{position:absolute;right:var(--h-right);bottom:var(--dk-gap);width:46px;height:46px;border-radius:50%;
+  pointer-events:auto;cursor:pointer;padding:0;display:none;align-items:center;justify-content:center;
+  background:rgba(10,16,13,.86);border:1.5px solid var(--h-line-hi);color:var(--h-paper);
+  box-shadow:0 8px 22px rgba(0,0,0,.45);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  transition:transform .15s var(--h-ease),background .18s,color .18s,border-color .18s}
+#hud-dockbtn.has{display:flex}
+#hud-dockbtn i{width:22px;height:22px;background:currentColor;-webkit-mask:var(--i-grid) center/contain no-repeat;mask:var(--i-grid) center/contain no-repeat;
+  transition:transform .25s var(--h-ease)}
+#hud-dockbtn.is-open{background:var(--h-danfo);color:var(--h-danfo-ink);border-color:transparent}
+#hud-dockbtn.is-open i{-webkit-mask-image:var(--i-close);mask-image:var(--i-close);transform:rotate(90deg)}
+#hud-dockbtn:active{transform:scale(.92)}
+#hud-dockbtn b{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;border-radius:9px;padding:0 4px;box-sizing:border-box;
+  background:var(--h-danfo);color:var(--h-danfo-ink);font:800 10px/17px var(--h-font);text-align:center}
+#hud-dockbtn.is-open b{display:none}
+#hud-dockbtn.alert{border-color:var(--h-flare);animation:hdAlert 1.4s ease-out infinite}
+#hud-dockbtn.alert b{background:var(--h-flare);color:#fff}
+@keyframes hdAlert{0%{box-shadow:0 0 0 0 rgba(255,90,60,.55),0 8px 22px rgba(0,0,0,.45)}
+  70%,100%{box-shadow:0 0 0 12px rgba(255,90,60,0),0 8px 22px rgba(0,0,0,.45)}}
+
+/* dock panel */
+#hud-dock{position:absolute;right:var(--h-right);bottom:calc(var(--dk-gap) + 56px);width:216px;box-sizing:border-box;
+  padding:12px 12px 12px;border-radius:24px;pointer-events:none;
+  background:linear-gradient(165deg,rgba(20,31,25,.95),rgba(9,14,11,.94));
+  border:1px solid var(--h-line-hi);box-shadow:0 18px 44px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.07);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  transform-origin:100% 100%;transform:translate(10px,14px) scale(.82);opacity:0;visibility:hidden;
+  transition:transform .26s var(--h-ease),opacity .2s,visibility 0s .26s;overflow:hidden}
+#hud-dock::before{content:"";position:absolute;left:18px;right:18px;top:0;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,var(--h-danfo),var(--h-garden))}
+#hud-dock.on{transform:none;opacity:1;visibility:visible;pointer-events:auto;transition:transform .26s var(--h-ease),opacity .2s,visibility 0s}
+.hd-head{display:flex;align-items:center;gap:6px;margin:2px 2px 10px}
+.hd-title{flex:1;font:800 11px/1 var(--h-font);letter-spacing:.22em;text-transform:uppercase;color:var(--h-mist)}
+.hd-btn{width:28px;height:28px;border-radius:10px;border:1px solid var(--h-line);background:rgba(243,241,232,.06);
+  color:var(--h-mist);padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.hd-btn i{width:15px;height:15px;background:currentColor;-webkit-mask:var(--m) center/contain no-repeat;mask:var(--m) center/contain no-repeat}
+.hd-btn.is-on{background:var(--h-danfo);color:var(--h-danfo-ink);border-color:transparent}
+.hd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.hd-grid>*{opacity:0;transform:translateY(8px)}
+#hud-dock.on .hd-grid>*{opacity:1;transform:none}
+#hud-dock.on .hd-grid>*:nth-child(2){transition-delay:.03s}
+#hud-dock.on .hd-grid>*:nth-child(3){transition-delay:.06s}
+#hud-dock.on .hd-grid>*:nth-child(4){transition-delay:.09s}
+#hud-dock.on .hd-grid>*:nth-child(5){transition-delay:.12s}
+.hd-hint{margin:10px 2px 0;font:600 10px/1.2 var(--h-font);color:rgba(157,176,166,.7);text-align:center}
+
+/* tiles inside the dock (overrides pad/atk/blk positioning) */
+#hud-dock .hd-grid>*{
+  position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  width:auto!important;height:60px!important;margin:0!important;padding:11px 2px 0!important;box-sizing:border-box!important;
+  border-radius:16px!important;text-align:center;
+  background:rgba(243,241,232,.06)!important;border:1px solid rgba(243,241,232,.14)!important;color:var(--h-paper)!important;
+  font:700 10.5px/1 var(--h-font)!important;letter-spacing:.01em!important;
+  box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  transition:transform .12s var(--h-ease),opacity .22s,background .15s,color .15s!important}
+#hud-dock .hd-grid>*::before{display:block!important;content:"";margin:0 auto 6px!important;width:21px!important;height:21px!important;
+  background:currentColor;-webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+#hud-dock #ph3d-atk,#hud-dock #ph3d-blk{display:block!important}
+#hud-dock .h-fight,#hud-dock #ph3d-atk{color:var(--h-flare)!important;border-color:rgba(255,90,60,.4)!important}
+#hud-dock .h-run.is-on{background:var(--h-danfo)!important;color:var(--h-danfo-ink)!important;border-color:transparent!important}
+#hud-dock .hd-grid>.is-live,#hud-dock .hd-grid>*:active,#hud-dock .hd-grid>.is-pressed{
+  background:var(--h-paper)!important;color:var(--h-ink)!important;border-color:transparent!important;transform:scale(.93)!important}
+#hud-dock .h-fight.is-live,#hud-dock .h-fight:active,#hud-dock #ph3d-atk:active{background:var(--h-flare)!important;color:#fff!important}
+
+/* contextual prompts sit beside the toggle, a touch smaller */
+.h-ctx{min-height:42px!important;line-height:42px!important;padding:0 16px 0 12px!important;border-radius:14px!important;font-size:13px!important}
+#hud-ctx{right:calc(var(--h-right) + 56px);bottom:calc(var(--dk-gap) - 2px);gap:8px}
+#hud-item{right:calc(var(--h-right) + 56px);bottom:calc(var(--dk-gap) + 56px);gap:8px}
+#ph3d-gun-hud{right:calc(var(--h-right) + 56px)!important;bottom:calc(var(--dk-gap) - 2px)!important}
+
+/* drive pedals slightly smaller */
+.dr-btn{width:60px!important;height:60px!important;border-radius:50%!important}
+#dr-right-container{display:flex;gap:12px;align-items:flex-end}
+
+@media (orientation:landscape) and (max-height:480px){
+  :root{--dk-gap:calc(var(--h-bottom) + 56px)}
+  #hud-dock{width:200px;max-height:calc(100vh - var(--dk-gap) - 70px);overflow:auto}
+  .h-jump{width:56px!important;height:56px!important}
+}
+@media (prefers-reduced-motion:reduce){#hud-dock,#hud-dockbtn i,.hd-grid>*{transition:none!important}#hud-dockbtn.alert{animation:none}}
+
+/* ══════════════════════════════════════════════════════════════
+   v3 LAYOUT POLISH — one tidy right column, one shared glass look.
+   bottom row:  [ Moves ]  [ Jump ]      above it: uniform prompt stack
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --g-bg:linear-gradient(160deg,rgba(24,36,29,.90),rgba(10,16,13,.90));
+  --g-line:rgba(243,241,232,.20);
+  --g-shadow:0 10px 26px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);
+  --row-h:66px;
+  --stack-bottom:calc(var(--h-bottom) + var(--row-h) + 14px);
+}
+
+/* bottom row */
+#hud-pad{width:var(--row-h);height:var(--row-h)}
+.h-jump{width:var(--row-h)!important;height:var(--row-h)!important;border-radius:50%!important;right:0!important;bottom:0!important;
+  background:var(--g-bg)!important;border:1.5px solid var(--g-line)!important;box-shadow:var(--g-shadow)!important}
+.h-fire{width:84px!important;height:84px!important;right:-6px!important;bottom:-8px!important;
+  background:linear-gradient(160deg,#ff7a55,#e5482a)!important;border:0!important;color:#fff!important}
+#hud-dockbtn{width:52px;height:52px;right:calc(var(--h-right) + var(--row-h) + 12px);bottom:calc(var(--h-bottom) + 7px);
+  background:var(--g-bg);border:1.5px solid var(--g-line);box-shadow:var(--g-shadow)}
+#hud-dockbtn i{width:24px;height:24px}
+#hud-dockbtn b{top:-4px;right:-4px}
+
+/* prompt stack: same width, same edge, same rhythm */
+#hud-ctx{right:var(--h-right)!important;bottom:var(--stack-bottom)!important;gap:8px!important;align-items:flex-end!important}
+#hud-item{right:var(--h-right)!important;bottom:calc(var(--stack-bottom) + 190px)!important;gap:8px!important}
+#ph3d-gun-hud{right:var(--h-right)!important;bottom:var(--stack-bottom)!important}
+.h-ctx{width:158px!important;min-width:0!important;min-height:44px!important;line-height:44px!important;
+  padding:0 14px!important;border-radius:16px!important;font-size:13.5px!important;text-align:left!important;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:var(--g-bg)!important;border:1px solid var(--g-line)!important;color:var(--h-paper)!important;box-shadow:var(--g-shadow)!important}
+.h-ctx.h-lead::before{width:1.25em;height:1.25em;margin-right:.6em;color:var(--h-mist)}
+/* yellow is ONLY for "do this now" */
+.h-ctx.h-always,.h-ctx.h-act{background:var(--g-bg)!important;color:var(--h-paper)!important;border-color:var(--g-line)!important;box-shadow:var(--g-shadow)!important}
+.h-ctx.is-live{background:var(--h-danfo)!important;color:var(--h-danfo-ink)!important;border-color:transparent!important}
+.h-ctx.is-live::before{color:var(--h-danfo-ink)}
+.h-ctx.h-always.is-live,.h-ctx.h-act.is-live{background:var(--h-danfo)!important;color:var(--h-danfo-ink)!important}
+
+/* dock panel lines up with the stack */
+#hud-dock{right:var(--h-right);bottom:var(--stack-bottom);width:224px;background:var(--g-bg);border-color:var(--g-line);border-radius:26px}
+
+/* driving: pedals + steering become two clean capsules */
+#dr-left-container,#dr-right-container{display:flex!important;padding:5px;gap:2px;border-radius:36px;
+  background:var(--g-bg);border:1.5px solid var(--g-line);box-shadow:var(--g-shadow);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+#dr-left-container{flex-direction:column;left:var(--h-left)!important;bottom:var(--h-bottom)!important}
+#dr-right-container{flex-direction:row;right:var(--h-right)!important;bottom:var(--h-bottom)!important}
+#dr-left-container .dr-btn,#dr-right-container .dr-btn{width:64px!important;height:60px!important;border:0!important;box-shadow:none!important;
+  background:transparent!important;border-radius:30px!important}
+#dr-right-container .dr-btn+.dr-btn{border-left:1px solid var(--h-line)!important;border-radius:30px!important}
+#dr-left-container .dr-btn+.dr-btn{border-top:1px solid var(--h-line)!important}
+#dr-left-container .dr-btn:active,#dr-left-container .dr-btn.on,#dr-right-container .dr-btn:active,#dr-right-container .dr-btn.on{transform:scale(.94)!important}
+#dr-right-container .dr-btn:active,#dr-right-container .dr-btn.on{background:var(--h-paper)!important;color:var(--h-ink)!important}
+#dr-gas{color:var(--h-garden)!important}#dr-brake{color:var(--h-flare)!important}
+
+/* landscape phones */
+@media (orientation:landscape) and (max-height:480px){
+  :root{--row-h:56px}
+  .h-ctx{width:146px!important;min-height:38px!important;line-height:38px!important}
+  #hud-item{bottom:calc(var(--stack-bottom) + 130px)!important}
+}

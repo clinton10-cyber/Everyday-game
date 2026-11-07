@@ -1,0 +1,107 @@
+/* css/settings.css — live-effect CSS for every setting. Load AFTER hud.css */
+
+/* ── HUD opacity + scale ─────────────────────────────────── */
+:root {
+  --ph3d-hud-opacity: 1;
+  --ph3d-hud-scale: 1;
+}
+
+#hud-root,
+#ph3d-phone,
+.tpill,
+.ttoast {
+  opacity: var(--ph3d-hud-opacity);
+  transition: opacity .18s ease;
+}
+
+/* Scale each zone around its own corner so nothing collides */
+#hud-tl {
+  transform: scale(var(--ph3d-hud-scale));
+  transform-origin: top left;
+  transition: transform .18s ease;
+}
+#hud-tr {
+  transform: scale(var(--ph3d-hud-scale));
+  transform-origin: top right;
+  transition: transform .18s ease;
+}
+#hud-ctx {
+  transform: scale(var(--ph3d-hud-scale));
+  transform-origin: bottom right;
+  transition: transform .18s ease;
+}
+#hud-pad {
+  transform: scale(var(--ph3d-hud-scale));
+  transform-origin: bottom right;
+  transition: transform .18s ease;
+}
+#hud-bl {
+  transform: scale(var(--ph3d-hud-scale));
+  transform-origin: bottom left;
+  transition: transform .18s ease;
+}
+
+/* ── Reduce motion ───────────────────────────────────────── */
+html.ph3d-reduce-motion *,
+html.ph3d-reduce-motion *::before,
+html.ph3d-reduce-motion *::after {
+  animation-duration:       .001ms !important;
+  animation-iteration-count: 1     !important;
+  transition-duration:      .001ms !important;
+}
+
+/* ── Big text ────────────────────────────────────────────── */
+html.ph3d-big-text {
+  font-size: 118%;
+}
+html.ph3d-big-text .h-tile-l,
+html.ph3d-big-text .h-tile-s,
+html.ph3d-big-text .tpill,
+html.ph3d-big-text #player-panel {
+  font-size: 1.15em;
+}
+
+/* ── High contrast ───────────────────────────────────────── */
+html.ph3d-high-contrast {
+  --h-bg:    #000;
+  --h-glass: rgba(0,0,0,.98);
+  --h-text:  #fff;
+  --h-danfo: #ffe600;
+  --h-border: rgba(255,255,255,.8);
+}
+html.ph3d-high-contrast .h-sheet,
+html.ph3d-high-contrast .h-tile {
+  border-width: 2px;
+}
+
+/* ── Themes ──────────────────────────────────────────────── */
+html.ph3d-theme-sunset {
+  --h-danfo:  #ff8c42;
+  --h-garden: #ff6b35;
+  --h-sky:    #ffd166;
+}
+html.ph3d-theme-forest {
+  --h-danfo:  #52d65e;
+  --h-garden: #38a169;
+  --h-sky:    #9ae6b4;
+}
+/* Dark is the default — no override needed */
+
+/* ── Joystick side swap ──────────────────────────────────── */
+html.ph3d-joy-right #ph3d-joy-ring {
+  left: auto !important;
+  right: 20px !important;
+}
+
+/* ── Hide on-screen hints ────────────────────────────────── */
+html.ph3d-hide-hints #ph3d-walk-enter,
+html.ph3d-hide-hints #ph3d-walk-talk,
+html.ph3d-hide-hints #ph3d-walk-pick,
+html.ph3d-hide-hints #ph3d-walk-use,
+html.ph3d-hide-hints #ph3d-walk-actions,
+html.ph3d-hide-hints #ph3d-walk-grab,
+html.ph3d-hide-hints #ph3d-act-btn,
+html.ph3d-hide-hints #ph3d-joy-ring {
+  display: none !important;
+}
+
