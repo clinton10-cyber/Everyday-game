@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /assets/audio/voice/
+
+Sitemap: https://everyday-ph.onrender.com/sitemap.xml
