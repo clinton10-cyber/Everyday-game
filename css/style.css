@@ -66,5 +66,8 @@ canvas{display:block;touch-action:none}
 #scene-loader .sl-label{font-size:11px;letter-spacing:.22em;font-weight:800;
   color:rgba(234,246,255,.75);text-transform:uppercase}
 @keyframes sl-spin{to{transform:rotate(360deg)}}
+#scene-loader .sl-pct{font-size:34px;font-weight:800;letter-spacing:.08em;color:#fff;font-variant-numeric:tabular-nums}
+#scene-loader .sl-bar{width:min(60vw,260px);height:4px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+#scene-loader .sl-bar i{display:block;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,#FFD60A,#FF5C00);box-shadow:0 0 10px rgba(255,120,0,.7)}
 
 

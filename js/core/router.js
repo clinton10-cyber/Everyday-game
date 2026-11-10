@@ -176,9 +176,24 @@ export class Router {
   async _loadWithProgress(name, run){
     const el = document.getElementById("scene-loader");
     const lbl = document.getElementById("sl-label");
+    const fill = document.getElementById("sl-fill");
+    const pctEl = document.getElementById("sl-pct");
     if (lbl) lbl.textContent = "LOADING " + name.toUpperCase() + "…";
-    /* Only show the spinner if the load is actually slow (avoids a flash on fast loads). */
-    const showT = setTimeout(() => { if (el) el.classList.add("show"); }, 300);
+
+    /* Progress is an estimate (scene builds report no real progress): it eases
+       toward 92% while the scene loads, then snaps to 100% when it is ready. */
+    let p = 0, raf = 0, shown = false;
+    const draw = () => {
+      if (fill) fill.style.width = p + "%";
+      if (pctEl) pctEl.textContent = Math.min(100, Math.floor(p)) + "%";
+    };
+    const step = () => { p += (92 - p) * 0.06; draw(); raf = requestAnimationFrame(step); };
+    /* Only show the loader if the load is actually slow (avoids a flash on fast loads). */
+    const showT = setTimeout(() => {
+      shown = true; p = 0; draw();
+      if (el) el.classList.add("show");
+      raf = requestAnimationFrame(step);
+    }, 300);
 
     const t0 = performance.now();
     const tick = setInterval(() => {
@@ -191,6 +206,11 @@ export class Router {
     } finally {
       clearInterval(tick);
       clearTimeout(showT);
+      cancelAnimationFrame(raf);
+      if (shown) {
+        p = 100; draw();
+        await new Promise(r => setTimeout(r, 140));   // let the player see 100%
+      }
       if (el) el.classList.remove("show");
     }
   }
