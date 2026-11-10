@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Voice check — Everyday in PH</title>
+<style>
+ body{margin:0;background:#0b110e;color:#eaf6ff;font:14px system-ui,sans-serif;padding:12px 12px 90px}
+ h1{font-size:18px;margin:4px 0 2px} p{color:#9fb4a8;margin:4px 0 12px;line-height:1.4}
+ h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#7dd3fc;margin:18px 0 6px}
+ .row{display:flex;gap:8px;align-items:center;background:#16201b;border-radius:12px;padding:8px;margin:6px 0}
+ .row.ok{outline:2px solid #4ade80}.row.bad{outline:2px solid #f87171}
+ .row button{border:0;border-radius:10px;padding:10px 12px;font-weight:800}
+ .play{background:#5ee0ff;color:#04121c}.ok-b{background:#4ade80;color:#052e16}
+ .fn{font:11px monospace;color:#9fb4a8;min-width:0;width:118px;word-break:break-all}
+ input{flex:1;min-width:0;background:#0b110e;border:1px solid #2c3d34;border-radius:8px;color:#eaf6ff;padding:9px;font-size:14px}
+ .bar{position:fixed;left:0;right:0;bottom:0;background:#0b110e;border-top:1px solid #2c3d34;padding:10px;display:flex;gap:8px}
+ .bar button{flex:1;border:0;border-radius:12px;padding:14px;font-weight:900;background:#4ade80;color:#052e16}
+ textarea{width:100%;height:160px;background:#0b110e;color:#9fb4a8;border:1px solid #2c3d34;border-radius:8px;margin-top:10px;display:none}
+</style></head><body>
+<h1>Voice check</h1>
+<p>Tap ▶ and listen. If the words you hear are different from the box, type what is actually said (leave a box empty for sounds with no words, like screams).
+Then tap <b>Export</b> and save the result as <code>assets/audio/voice/transcripts.json</code>, run <code>python3 tools/voice_sheet.py</code>, and every bubble / toast will show exactly what is spoken.</p>
+<div id="list"></div>
+<textarea id="out" readonly></textarea>
+<div class="bar"><button id="exp">EXPORT transcripts.json</button></div>
+<script>
+const DIR="../assets/audio/voice/";
+let T={}, files=[];
+(async()=>{
+  try{ T=await (await fetch(DIR+"transcripts.json",{cache:"no-cache"})).json(); }catch(e){}
+  try{ files=await (await fetch("../precache.json")).json().then(j=>j.files.filter(f=>/assets\/audio\/voice\/.+\.mp3$/.test(f)).map(f=>f.split("/").pop())); }catch(e){ files=Object.keys(T); }
+  const groups={};
+  files.sort().forEach(f=>{const k=f.replace(/_?\d+\.mp3$/,"").replace(/_\d+$/,"");(groups[k]=groups[k]||[]).push(f);});
+  const root=document.getElementById("list");
+  for(const [g,fs] of Object.entries(groups)){
+    const h=document.createElement("h2");h.textContent=g;root.appendChild(h);
+    for(const f of fs){
+      const r=document.createElement("div");r.className="row";
+      r.innerHTML=`<button class="play">▶</button><div class="fn">${f}</div><input value="${(T[f]||"").replace(/"/g,"&quot;")}" placeholder="(no words)"/><button class="ok-b">✓</button>`;
+      const a=new Audio(DIR+f);
+      r.querySelector(".play").onclick=()=>{a.currentTime=0;a.play();};
+      r.querySelector(".ok-b").onclick=()=>{r.classList.add("ok");};
+      r.querySelector("input").oninput=()=>{r.classList.remove("ok");r.classList.add("bad");};
+      r.dataset.f=f;root.appendChild(r);
+    }
+  }
+})();
+document.getElementById("exp").onclick=()=>{
+  const o={};document.querySelectorAll(".row").forEach(r=>{const v=r.querySelector("input").value.trim();if(v)o[r.dataset.f]=v;});
+  const s=JSON.stringify(o,null,1);const t=document.getElementById("out");t.style.display="block";t.value=s;t.select();
+  try{navigator.clipboard.writeText(s);}catch(e){}
+  const b=new Blob([s],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="transcripts.json";a.click();
+};
+</script></body></html>
