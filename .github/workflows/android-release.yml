@@ -1,11 +1,8 @@
-name: Build APK and publish release
+Name: Build APK and publish release
 
-# Push a tag like v1.0.0 to build the APK and attach it to a GitHub Release.
-#   git tag v1.0.0 && git push origin v1.0.0
-# Or run it by hand: Actions tab -> "Build APK and publish release" -> Run workflow
-# (a manual run uploads the APK as a downloadable build artifact only).
 on:
   push:
+    branches: ["main"]
     tags: ["v*"]
   workflow_dispatch:
 
