@@ -18,6 +18,8 @@ function seededRandom(seed){
   };
 }
 
+const CAT_SCALE = 0.5;
+
 export const Cats = {
   list: [],
   scene: null,
@@ -67,6 +69,7 @@ export const Cats = {
       cat.y = this.groundFn ? this.groundFn(cat.x, cat.z) : 0;
       model.group.position.set(cat.x, cat.y, cat.z);
       model.group.rotation.y = cat.yaw; model.group.userData.isNpc = true;
+      model.group.scale.setScalar(CAT_SCALE); /* cats were too big: half size */
       scene.add(model.group);
       this.list.push(cat);
     }

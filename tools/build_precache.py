@@ -4,7 +4,7 @@ Run from the project root after adding/removing files:  python3 tools/build_prec
 """
 import json, os
 EXT = {".js",".css",".html",".json",".svg",".png",".webmanifest",".mp3",".wav",".jpg",".jpeg",".webp",".glb",".woff2"}
-SKIP_DIRS = {"tools", "node_modules", ".git", "dist"}
+SKIP_DIRS = {"branding", "tools", "node_modules", ".git", "dist"}
 SKIP_FILES = {"precache.json", "package.json", "sw.js", "lines.example.json"}
 out = []
 for root, dirs, files in os.walk("."):
