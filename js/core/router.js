@@ -106,8 +106,8 @@ export class Router {
       this.current = null;
       try { c.dispose && c.dispose(); } catch (e) {}
       disposeScene(c.three, this.renderer, c.controls);
-      // give the GC a micro-tick to reclaim before the next load
-      await new Promise(r => setTimeout(r, 60));
+      // yield one tick so the fade paints before the next load
+      await new Promise(r => setTimeout(r, 0));
     }
 
     // ── LAZY LOAD of the new scene ──
@@ -165,7 +165,7 @@ export class Router {
     this.ui.setHint(scene.hint || "", !!scene.hint);
 
     this.ui.fadeOut();
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 60));
     this.locked = false;
     return scene;
   }
@@ -177,7 +177,8 @@ export class Router {
     const el = document.getElementById("scene-loader");
     const lbl = document.getElementById("sl-label");
     if (lbl) lbl.textContent = "LOADING " + name.toUpperCase() + "…";
-    if (el) el.classList.add("show");
+    /* Only show the spinner if the load is actually slow (avoids a flash on fast loads). */
+    const showT = setTimeout(() => { if (el) el.classList.add("show"); }, 300);
 
     const t0 = performance.now();
     const tick = setInterval(() => {
@@ -189,6 +190,7 @@ export class Router {
       return await run();
     } finally {
       clearInterval(tick);
+      clearTimeout(showT);
       if (el) el.classList.remove("show");
     }
   }

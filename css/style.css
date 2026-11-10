@@ -55,7 +55,7 @@ canvas{display:block;touch-action:none}
 .sw{flex:0 0 auto;width:36px;height:36px;border-radius:12px;cursor:pointer;border:2px solid rgba(255,255,255,.13);transition:.16s}
 .sw.on{border-color:var(--accent);box-shadow:0 0 0 3px rgba(94,224,255,.2)}
 .buy{width:100%;margin-top:16px;padding:15px;border-radius:16px;cursor:pointer;background:linear-gradient(100deg,var(--accent),#4ab6ff);border:none;color:#04121c;font-size:12px;font-weight:900;letter-spacing:.18em}
-#fade{position:fixed;inset:0;background:#04070d;opacity:0;pointer-events:none;transition:.4s;z-index:40}
+#fade{position:fixed;inset:0;background:#04070d;opacity:0;pointer-events:none;transition:.16s;z-index:40}
 #scene-loader{position:fixed;inset:0;z-index:41;background:#04070d;display:none;
   flex-direction:column;align-items:center;justify-content:center;gap:16px;
   font-family:Inter,system-ui,sans-serif}

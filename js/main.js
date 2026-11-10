@@ -448,3 +448,31 @@ window.addEventListener("ph3d:player-dead", async () => {
     router.ui.fadeOut();
   }
 });
+
+
+/* ── Warm up scene modules in the background ──────────────────
+   Offline there is no network cost, but each scene's JS still has to be
+   parsed and evaluated the first time it is visited. Doing that while the
+   player is busy in the city makes later scene changes much quicker. */
+(function warmScenes(){
+  const mods = [
+    "./scenes/interior.js", "./scenes/drive.js", "./scenes/travel.js",
+    "./scenes/minimap.js", "./scenes/showroom.js", "./scenes/zonewalk.js",
+    "./scenes/zonedrive.js", "./scenes/governor.js", "./scenes/governor-interior.js",
+    "./scenes/shootingrange.js", "./scenes/prison.js", "./scenes/airplane.js",
+    "./places/exterior.js", "./places/pleasurepark/world.js"
+  ];
+  let i = 0;
+  function next(){
+    if (i >= mods.length) return;
+    if (router.locked) { setTimeout(next, 1500); return; }   // never compete with a scene load
+    const m = mods[i++];
+    import(m).catch(function(){}).then(function(){ setTimeout(idle, 600); });
+  }
+  function idle(){
+    if (window.requestIdleCallback) requestIdleCallback(next, { timeout: 3000 });
+    else setTimeout(next, 300);
+  }
+  function start(){ setTimeout(idle, 4000); }
+  if (document.readyState === "complete") start(); else window.addEventListener("load", start);
+})();

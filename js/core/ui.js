@@ -55,7 +55,7 @@ export class UI {
   }
   hideCard(){ if (this.card) this.card.classList.remove("show"); }
 
-  fadeIn(){ this.fade.style.opacity = "1"; return new Promise(r=>setTimeout(r,420)); }
+  fadeIn(){ this.fade.style.opacity = "1"; return new Promise(r=>setTimeout(r,160)); }
   fadeOut(){ this.fade.style.opacity = "0"; }
 
   askTravel(dest) {
