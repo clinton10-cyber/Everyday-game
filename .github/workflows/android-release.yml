@@ -1,10 +1,20 @@
-Name: Build APK and publish release
+name: Build APK and publish release
 
+# Automatic: every push to main/master builds the APK and publishes it as a
+# GitHub Release (tag "build-<run number>").
+# Official versions: git tag v1.0.0 && git push origin v1.0.0
+# Manual: Actions tab -> "Build APK and publish release" -> Run workflow
+# (a manual run uploads the APK as a downloadable build artifact only).
 on:
   push:
-    branches: ["main"]
+    branches: [main, master]
     tags: ["v*"]
+    paths-ignore: ["**.md"]
   workflow_dispatch:
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -32,7 +42,7 @@ jobs:
         run: |
           mkdir www
           rsync -a --exclude '.git' --exclude '.github' --exclude 'www' \
-                --exclude 'tools' --exclude 'android' --exclude 'node_modules' \
+                --exclude 'tools' --exclude 'branding' --exclude 'android' --exclude 'node_modules' \
                 --exclude 'assets/audio/voice/SCRIPT.md' ./ www/
 
       - name: Install Capacitor and create the Android project
@@ -41,6 +51,50 @@ jobs:
           npx cap init "$APP_NAME" "$APP_ID" --web-dir www
           npx cap add android
           npx cap sync android
+
+      - name: Apply custom app icon
+        run: |
+          pip install pillow
+          python3 - <<'EOF'
+          from PIL import Image
+          import os, shutil
+          res = "android/app/src/main/res"
+          src = Image.open("assets/icon-maskable-512.png").convert("RGBA")
+          sizes = {"mdpi":48,"hdpi":72,"xhdpi":96,"xxhdpi":144,"xxxhdpi":192}
+          fg = {"mdpi":108,"hdpi":162,"xhdpi":216,"xxhdpi":324,"xxxhdpi":432}
+          for d,s in sizes.items():
+              p = f"{res}/mipmap-{d}"
+              os.makedirs(p, exist_ok=True)
+              ic = src.resize((s,s), Image.LANCZOS)
+              ic.save(f"{p}/ic_launcher.png")
+              ic.save(f"{p}/ic_launcher_round.png")
+              f = fg[d]; inner = int(f*0.66)
+              canvas = Image.new("RGBA",(f,f),(0,0,0,0))
+              canvas.paste(src.resize((inner,inner), Image.LANCZOS), ((f-inner)//2,(f-inner)//2))
+              canvas.save(f"{p}/ic_launcher_foreground.png")
+          open(f"{res}/values/ic_launcher_background.xml","w").write(
+            '<?xml version="1.0" encoding="utf-8"?><resources>'
+            '<color name="ic_launcher_background">#0b110e</color></resources>')
+          shutil.rmtree(f"{res}/mipmap-anydpi-v26", ignore_errors=True)
+          EOF
+
+      - name: Apply Clinton Tech splash screen
+        run: |
+          pip install pillow
+          python3 - <<'EOF'
+          from PIL import Image
+          import glob
+          src = Image.open("branding/clinton-tech-splash.png").convert("RGB")
+          files = glob.glob("android/app/src/main/res/drawable*/splash.png")
+          for f in files:
+              w, h = Image.open(f).size
+              side = max(w, h)
+              # centre-crop the square art to the file's aspect ratio
+              crop_w = min(2732, int(2732 * w / side)); crop_h = min(2732, int(2732 * h / side))
+              l = (2732 - crop_w) // 2; t = (2732 - crop_h) // 2
+              src.crop((l, t, l + crop_w, t + crop_h)).resize((w, h), Image.LANCZOS).save(f)
+          print("splash replaced in", len(files), "files")
+          EOF
 
       - name: Set version from tag
         run: |
@@ -82,9 +136,20 @@ jobs:
           name: apk
           path: out/*.apk
 
-      - name: Publish GitHub Release
+      - name: Publish GitHub Release (version tag)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: out/*.apk
           generate_release_notes: true
+
+      - name: Publish GitHub Release (automatic build from branch push)
+        if: github.ref_type == 'branch' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          files: out/*.apk
+          generate_release_notes: true
+          make_latest: true
