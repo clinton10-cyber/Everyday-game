@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Everyday in PH">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#FFD60A"/>
+      <stop offset="48%"  stop-color="#FF9C1A"/>
+      <stop offset="100%" stop-color="#FF5C00"/>
+    </linearGradient>
+    <linearGradient id="sunGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#FFF3C4"/>
+    </linearGradient>
+    <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#0057A8"/>
+      <stop offset="100%" stop-color="#002A4A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background with bright sunset gradient -->
+  <rect x="0" y="0" width="512" height="512" rx="118" ry="118" fill="url(#bgGrad)"/>
+
+  <!-- Small decorative dot pattern (subtle) -->
+  <g fill="#FFFFFF" opacity="0.18">
+    <circle cx="80"  cy="80"  r="6"/>
+    <circle cx="120" cy="60"  r="4"/>
+    <circle cx="420" cy="90"  r="5"/>
+    <circle cx="440" cy="60"  r="3"/>
+    <circle cx="60"  cy="140" r="4"/>
+    <circle cx="450" cy="160" r="4"/>
+  </g>
+
+  <!-- Big sun -->
+  <circle cx="256" cy="200" r="98" fill="url(#sunGrad)"/>
+
+  <!-- Sun rays (simple white arcs) -->
+  <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity="0.85">
+    <line x1="256" y1="62" x2="256" y2="88"/>
+    <line x1="136" y1="100" x2="154" y2="120"/>
+    <line x1="376" y1="100" x2="358" y2="120"/>
+    <line x1="80"  y1="200" x2="108" y2="200"/>
+    <line x1="432" y1="200" x2="404" y2="200"/>
+  </g>
+
+  <!-- Deep blue wave (PH coast) -->
+  <path d="M 0 375 Q 85 355 170 375 T 340 375 Q 425 355 512 375 L 512 512 L 0 512 Z"
+        fill="url(#waveGrad)"/>
+
+  <!-- Small white wave line on top of the blue -->
+  <path d="M 0 378 Q 85 358 170 378 T 340 378 Q 425 358 512 378"
+        stroke="#FFFFFF" stroke-width="4" fill="none" opacity="0.7"/>
+
+  <!-- EVERYDAY wordmark -->
+  <text x="256" y="452"
+        font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="58" font-weight="900" fill="#FFFFFF"
+        text-anchor="middle" letter-spacing="2"
+        style="paint-order: stroke; stroke: #002A4A; stroke-width: 1px;">
+    EVERYDAY
+  </text>
+
+  <!-- IN PH tagline -->
+  <text x="256" y="492"
+        font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="26" font-weight="800" fill="#FFD60A"
+        text-anchor="middle" letter-spacing="14">
+    IN PH
+  </text>
+</svg>
+
