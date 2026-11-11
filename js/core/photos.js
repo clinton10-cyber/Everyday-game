@@ -138,6 +138,8 @@ function grabCanvas(router) {
 export function captureFrame() {
   const router = window.__ph3d_router;
   if (!router || !router.renderer) return null;
+  /* The main canvas no longer keeps its buffer between frames, so draw one fresh frame first. */
+  try { if (router.current) router.renderer.render(router.current.three, router.current.camera); } catch (e) {}
   return grabCanvas(router);
 }
 

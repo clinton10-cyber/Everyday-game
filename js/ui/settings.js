@@ -130,16 +130,12 @@ export const Settings = {
   _applyQuality(q) {
     const Q = window.__ph3d_quality;
     if (!Q) return;
-    if (q === "auto") { Q.detect && Q.detect(); }
-    else if (Q.tier !== q) {
-      Q.tier = q;
-      if (Q.TIERS && Q.TIERS[q]) Q.current = Object.assign({}, Q.TIERS[q]);
-    }
-    if (window.__ph3d_router && window.__ph3d_router.renderer) {
-      const r = window.__ph3d_router.renderer;
+    Q.detect(q === "auto" ? "auto" : q);
+    const r = window.__ph3d_router && window.__ph3d_router.renderer;
+    if (r) {
       try {
-        r.setPixelRatio(Math.min(window.devicePixelRatio, (Q.current && Q.current.pixelRatio) || 1));
-        r.shadowMap.enabled = !!(Q.current && Q.current.shadows) && Settings.get("shadows");
+        r.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.current.pixelRatio));
+        r.shadowMap.enabled = !!Q.current.shadows && Settings.get("shadows");
       } catch (e) {}
     }
   },
@@ -398,11 +394,11 @@ export const SettingsUI = {
   },
 
   _fmtPct(v)         { return Math.round(v * 100) + "%"; },
-  _qualityLabel(q)   { return q === "auto" ? "Auto" : q === "high" ? "High" : q === "medium" ? "Med" : "Low"; },
+  _qualityLabel(q)   { return q === "auto" ? "Auto" : q === "high" ? "High" : q === "medium" ? "Med" : q === "potato" ? "Minimum" : "Low"; },
   _themeLabel(t)     { return t === "sunset" ? "Sunset" : t === "forest" ? "Forest" : "Dark"; },
 
   _cycleQuality(tile) {
-    const order = ["auto", "low", "medium", "high"];
+    const order = ["auto", "potato", "low", "medium", "high"];
     const next  = order[(order.indexOf(Settings.get("quality")) + 1) % order.length];
     Settings.set("quality", next);
     tile.querySelector(".h-tile-s").textContent = this._qualityLabel(next);

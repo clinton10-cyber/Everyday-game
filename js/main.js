@@ -170,8 +170,10 @@ safe("showBadge", function showBadge(){
   setTimeout(() => b.remove(), 4500);
 });
 
-const renderer = new THREE.WebGLRenderer({ antialias: __Q.antialias, powerPreference: "high-performance", preserveDrawingBuffer: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+/* preserveDrawingBuffer is off: it forces an extra buffer copy every frame, which is costly on
+   mobile GPUs. Photo capture re-renders right before reading the canvas instead (see photos.js). */
+const renderer = new THREE.WebGLRenderer({ antialias: __Q.antialias, powerPreference: "high-performance", preserveDrawingBuffer: false, stencil: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, __Q.pixelRatio));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = __Q.shadows;
 renderer.shadowMap.type = __Q.shadowType === "PCFSoft" ? THREE.PCFSoftShadowMap : __Q.shadowType === "PCF" ? THREE.PCFShadowMap : THREE.BasicShadowMap;

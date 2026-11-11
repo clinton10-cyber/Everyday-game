@@ -24,6 +24,13 @@ export class Router {
     this.raycaster = new THREE.Raycaster();
     this.ndc = new THREE.Vector2();
     this.clock = new THREE.Clock();
+    /* Frame pacing + dynamic resolution (see _loop / _adaptRes) */
+    this._lastFrame = 0;
+    this._dprNow = Math.min(window.devicePixelRatio || 1, Quality.current.pixelRatio);
+    this._fpsAcc = 0; this._fpsN = 0; this._goodRun = 0; this._lastDprChange = 0;
+    window.addEventListener("ph3d:settings-changed", (e) => {
+      if (e && e.detail && (e.detail.key === "quality" || e.detail.key === "*")) this._resetRes();
+    });
     this._bind();
     this._resize();
     this._bindBackHome();
@@ -253,8 +260,8 @@ export class Router {
   _resize(){
     window.addEventListener("resize", () => {
       const w = innerWidth, h = innerHeight;
+      this.renderer.setPixelRatio(this._dprNow);
       this.renderer.setSize(w, h);
-      this.renderer.setPixelRatio(Quality.current.pixelRatio);
       if (this.current){
         this.current.camera.aspect = w / h;
         this.current.camera.updateProjectionMatrix();
@@ -305,9 +312,51 @@ export class Router {
     this._outsideBtn = btn;
   }
 
-  _loop(){
-    requestAnimationFrame(() => this._loop());
-    const dt = Math.min(this.clock.getDelta(), 0.08);
+  /* Snap back to the active tier's starting resolution (quality changed). */
+  _resetRes(){
+    this._dprNow = Math.min(window.devicePixelRatio || 1, Quality.current.pixelRatio);
+    this.renderer.setPixelRatio(this._dprNow);
+    this._fpsAcc = 0; this._fpsN = 0; this._goodRun = 0;
+  }
+
+  /* Dynamic resolution: drop the render scale when frames run long, creep back
+     up when there is headroom. Never goes below the tier's minPixelRatio. */
+  _adaptRes(rawDt, cap){
+    if (this.locked || rawDt > 0.25) { this._fpsAcc = 0; this._fpsN = 0; return; }   // scene load / tab switch spike
+    this._fpsAcc += rawDt; this._fpsN++;
+    if (this._fpsN < 30) return;
+    const avg = this._fpsAcc / this._fpsN;
+    this._fpsAcc = 0; this._fpsN = 0;
+    const now = performance.now();
+    if (now - this._lastDprChange < 1200) return;
+    const Qc = Quality.current;
+    const maxR = Math.min(window.devicePixelRatio || 1, Qc.pixelRatio);
+    const minR = Math.min(maxR, Qc.minPixelRatio || 0.6);
+    const target = 1 / cap;
+    let r = this._dprNow;
+    if (avg > target * 1.25 && r > minR) { r = Math.max(minR, r - (avg > target * 1.6 ? 0.15 : 0.08)); this._goodRun = 0; }
+    else if (avg < target * 1.08) { if (++this._goodRun >= 8 && r < maxR) { r = Math.min(maxR, r + 0.05); this._goodRun = 0; } }
+    else this._goodRun = 0;
+    if (Math.abs(r - this._dprNow) > 0.001) {
+      this._dprNow = r;
+      this._lastDprChange = now;
+      this.renderer.setPixelRatio(r);
+    }
+  }
+
+  _loop(ts){
+    requestAnimationFrame((t) => this._loop(t));
+
+    /* Frame cap from the quality tier (30 on low/potato, 60 otherwise; also holds 120 Hz screens to 60).
+       Skipped frames keep their time in the clock so game speed stays correct. */
+    const cap = (Quality.current && Quality.current.frameCap) || 60;
+    const nowMs = (typeof ts === "number") ? ts : performance.now();
+    if (this._lastFrame && nowMs - this._lastFrame < (1000 / cap) - 3) return;
+    this._lastFrame = nowMs;
+
+    const rawDt = this.clock.getDelta();
+    const dt = Math.min(rawDt, 0.08);
+    this._adaptRes(rawDt, cap);
     const t = this.clock.elapsedTime;
 
     /* Advance the 24h clock every frame. Without this the hour stays

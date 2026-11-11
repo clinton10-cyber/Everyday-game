@@ -459,7 +459,7 @@ export const NPCs = {
     try { Lives.setHost(this); Lives.city(true); } catch (e) { console.warn("[lives]", e); }
     _aabbs = opts.aabbs || [];
 
-    const quality = Quality.isLow ? 0.45 : Quality.isHigh ? 1.0 : 0.72;
+    const quality = Quality.isPotato ? 0.3 : Quality.isLow ? 0.45 : Quality.isHigh ? 1.0 : 0.72;
 
     for (const path of NPC_PATHS) {
       const groupsList = path.groups || [{ type: "solo", count: 1, weight: 1 }];
@@ -467,7 +467,7 @@ export const NPCs = {
       for (const g of groupsList) {
         for (let w = 0; w < (g.weight || 1); w++) pool.push(g);
       }
-      const basePerPath = Quality.isLow ? 3 : 7;
+      const basePerPath = Quality.isPotato ? 2 : Quality.isLow ? 3 : 7;
       const groupCount = Math.max(1, Math.round(basePerPath * quality));
 
       for (let i = 0; i < groupCount; i++) {

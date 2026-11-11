@@ -174,6 +174,7 @@ export async function driveScene(params, router) {
 async function _driveInner(params, router) {
   const TIER = (Quality.current && Quality.current.tier) || "medium";
   const LOW = TIER === "low";
+  const POTATO = !!(Quality.current && Quality.current.potato);
 
   const SKY = 0xa6c8e6;
   const three = new THREE.Scene();
@@ -358,7 +359,7 @@ async function _driveInner(params, router) {
   /* World objects */
   try {
     WorldObjects.init(three);
-    WorldObjects.seedCity(three, LOW ? 80 : 200, GRID_RADIUS, BLOCK_SIZE, ROAD_W);
+    WorldObjects.seedCity(three, POTATO ? 40 : LOW ? 80 : 200, GRID_RADIUS, BLOCK_SIZE, ROAD_W);
     window.__ph3d_world_objects = WorldObjects;
   } catch (e) { console.warn("[drive] WorldObjects:", e); }
 
@@ -1238,7 +1239,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   /* ── NPCs ─────────────────────────────────────────────────── */
   try {
     NPCs.spawn(three, {
-      count: LOW ? 18 : 30,       // was 36 / 60 — cuts ~1200 draw calls
+      count: POTATO ? 10 : LOW ? 18 : 30,       // was 36 / 60 — cuts ~1200 draw calls
       aabbs: worldAABBs,
       roleSpots: compounds,
     });
@@ -1248,7 +1249,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   /* ── NPC cars ─────────────────────────────────────────────── */
   try {
     NPC_Cars.spawn(three, {
-      count: LOW ? 18 : 36,
+      count: POTATO ? 8 : LOW ? 18 : 36,
       aabbs: worldAABBs,
       roads: city.roads,
       getPlayerState: () => window.__ph3d_drive.getPlayerState(),
