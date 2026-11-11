@@ -1664,7 +1664,8 @@ try {
           if (jm > 1) { mx /= jm; mz /= jm; }
 
           const run = walkRunHold || !!(keys.ShiftLeft || keys.ShiftRight);
-          const sp = (run ? WALK_SPEED * 1.7 : WALK_SPEED) * (window.__ph3d_moveSpeed || 1) * (jet.on && !walker.onGround ? 1.8 : 1) * (walker._carryMul || 1) * (Weather.walkMul || 1);
+          const _jetFly = jet.on && !walker.onGround;
+          const sp = (_jetFly ? WALK_SPEED * (run ? 7.5 : 5) : (run ? WALK_SPEED * 1.7 : WALK_SPEED)) * (window.__ph3d_moveSpeed || 1) * 1 * (walker._carryMul || 1) * (Weather.walkMul || 1);
 
           const camFx = Math.sin(walkCameraYaw), camFz = Math.cos(walkCameraYaw);
           const camRx = Math.cos(walkCameraYaw), camRz = -Math.sin(walkCameraYaw);
@@ -1752,7 +1753,7 @@ try {
               const want = (jet.thrust || keys.Space) && jet.fuel > 0;
               if (want) {
                 if (walker.onGround) { walker.onGround = false; walker.y += 0.05; walker.vy = Math.max(walker.vy, 2); }
-                walker.vy = Math.min(9, walker.vy + 38 * dt);
+                walker.vy = Math.min(14, walker.vy + 50 * dt);
                 jet.fuel = Math.max(0, jet.fuel - dt * 0.2);
               } else if (!walker.onGround) {
                 walker.vy = Math.max(-7, walker.vy - 14 * dt);

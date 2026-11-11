@@ -96,6 +96,7 @@ export async function interiorScene(params, router) {
   try {
     const ctl = window.__ph3d_walkCtrl;
     if (ctl && ctl.weapons) {
+      ctl._parity = true;   // this scene wires weapons/actions itself
       ctl.opts = ctl.opts || {};
 
       /* Give the Weapons system real targets (the interior's own NPCs). */

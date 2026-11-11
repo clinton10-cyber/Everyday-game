@@ -211,7 +211,7 @@ router.register("pleasurepark", (params, r) => import("./places/pleasurepark/wor
 }));
 
 router.register("zonewalk",  (params, r) => import("./scenes/zonewalk.js").then(m => m.zonewalkScene(params, r)).catch(e => console.error("[route] scene failed:", e)));
-router.register("zonedrive", (params, r) => import("./scenes/zonedrive.js").then(m => m.zonedriveScene(params, r)).catch(e => console.error("[route] scene failed:", e)));
+router.register("zonedrive", (params, r) => import("./scenes/zonewalk.js").then(m => m.zonewalkScene(params, r)).catch(e => console.error("[route] scene failed:", e)));
 router.register("governorScene", (params, r) => import("./scenes/governor.js").then(m => m.governorScene(params, r)).catch(e => console.error("[route] scene failed:", e)));
 router.register("governorInterior", (params, r) => import("./scenes/governor-interior.js").then(m => m.governorInteriorScene(params, r)).catch(e => {
   console.error("[route] governorInterior failed:", e);
@@ -458,7 +458,7 @@ window.addEventListener("ph3d:player-dead", async () => {
   const mods = [
     "./scenes/interior.js", "./scenes/drive.js", "./scenes/travel.js",
     "./scenes/minimap.js", "./scenes/showroom.js", "./scenes/zonewalk.js",
-    "./scenes/zonedrive.js", "./scenes/governor.js", "./scenes/governor-interior.js",
+    "./scenes/governor.js", "./scenes/governor-interior.js",
     "./scenes/shootingrange.js", "./scenes/prison.js", "./scenes/airplane.js",
     "./places/exterior.js", "./places/pleasurepark/world.js"
   ];

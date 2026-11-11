@@ -47,6 +47,7 @@ export const AuthUI = {
                 mask-image: radial-gradient(70% 55% at 50% 45%, #000 0%, transparent 100%);
       }
       #ph3d-auth.hide { display: none; }
+      .au-l, .au-r { display: contents; }
 
       .au-card {
         position: relative; width: min(92vw, 380px);
@@ -142,10 +143,12 @@ export const AuthUI = {
     wrap.id = "ph3d-auth";
     wrap.innerHTML = `
       <div class="au-card">
+        <div class="au-l">
         <img class="au-logo" src="assets/logo.svg" alt="Everyday in PH"/>
         <div class="au-title">Everyday in PH</div>
         <div class="au-sub">The Garden City</div>
-
+        </div>
+        <div class="au-r">
         <label class="au-lbl" for="au-name">What should we call you?</label>
         <input id="au-name" class="au-input" type="text"
                maxlength="16" autocomplete="off" spellcheck="false"
@@ -162,6 +165,7 @@ export const AuthUI = {
         <div class="au-credit">
           everyday in PH<br/>
           <a href="mailto:clintonbenjamin208@gmail.com">clintonbenjamin208@gmail.com</a>
+        </div>
         </div>
       </div>
     `;

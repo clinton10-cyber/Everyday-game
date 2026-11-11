@@ -43,11 +43,7 @@ export async function buildMinimap(router, meta, children, onTap) {
     '<button data-go="zonewalk" style="padding:13px 22px;border-radius:999px;' +
     'background:rgba(8,16,28,.85);border:1px solid rgba(125,255,155,.5);color:#eaffef;' +
     'font:800 11px Inter,system-ui,sans-serif;letter-spacing:.14em;cursor:pointer;' +
-    'backdrop-filter:blur(12px);box-shadow:0 8px 24px rgba(0,0,0,.4)">\uD83D\uDEB6 WALK HERE</button>' +
-    '<button data-go="zonedrive" style="padding:13px 22px;border-radius:999px;' +
-    'background:rgba(8,16,28,.85);border:1px solid rgba(94,224,255,.5);color:#eaf6ff;' +
-    'font:800 11px Inter,system-ui,sans-serif;letter-spacing:.14em;cursor:pointer;' +
-    'backdrop-filter:blur(12px);box-shadow:0 8px 24px rgba(0,0,0,.4)">\uD83D\uDE97 DRIVE HERE</button>';
+    'backdrop-filter:blur(12px);box-shadow:0 8px 24px rgba(0,0,0,.4)">\uD83D\uDEB6 WALK HERE</button>';
   document.body.appendChild(wrap);
   wrap.querySelectorAll("button").forEach(b => {
     b.addEventListener("pointerdown", e => e.stopPropagation());
@@ -63,7 +59,7 @@ export async function buildMinimap(router, meta, children, onTap) {
     crumb: meta.sub || "MAP",
     title: meta.name || "MAP",
     subtitle: "TAP A BUILDING",
-    hint: "TAP A BUILDING TO ENTER \u00B7 OR WALK / DRIVE THE AREA",
+    hint: "TAP A BUILDING TO ENTER \u00B7 OR WALK THE AREA",
     dispose: () => {
       world.dispose();
       wrap.remove();

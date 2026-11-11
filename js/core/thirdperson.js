@@ -9,6 +9,7 @@ import {
 import * as Animator from "../characters/animator.js";
 import { AnimationAutomation } from "./animation-automation.js";
 import { Weapons } from "./guns.js";
+import { NPCs } from "./npcs.js";
 import { HUD } from "../ui/hud.js";
 import { Sanity } from "./sanity.js";
 import { InteriorPoses } from "./interior-poses.js";
@@ -395,6 +396,7 @@ export class ThirdPersonControls {
         ] },
         ...(((window.__ph3d_family && window.__ph3d_family.menuItems()) || []).length
           ? [{ label: "Family", cols: 4, items: window.__ph3d_family.menuItems() }] : []),
+        { label: "Fight moves", cols: 4, items: Object.entries(Animator.WRESTLING_MOVES || {}).filter(([id, m]) => !m.hidden).map(([id, m]) => emote(id, m.label)) },
         { label: "Back flips", cols: 4, items: [
           emote("backflip", "Backflip"),
           emote("doubleBackflip", "Double"),
@@ -544,6 +546,41 @@ export class ThirdPersonControls {
     return { origin: this._aimOrigin.clone(), dir: this._aimDir.clone() };
   }
 
+  /* Open-world abilities everywhere: weapons menu, attack/fight button, emotes, hooks that
+     scare NPCs. The generic interior scene wires these itself (sets _parity); every other
+     scene that builds its own controls gets them from here the first time it updates. */
+  _autoParity() {
+    this._parity = true;
+    if (this.opts && this.opts.getTargets) return;      // scene brings its own weapon setup
+    this.opts = this.opts || {};
+    const self = this;
+    this.opts.getTargets = () => { try { return NPCs.targets(self.pos.x, self.pos.z, 80); } catch (e) { return []; } };
+    if (!this.opts.onGunFire) this.opts.onGunFire = () => {
+      try { NPCs.scare(self.pos.x, self.pos.z, 15); } catch (e) {}
+      try { const S = window.__ph3d_social; if (S && S.onCrime) S.onCrime(self.pos.x, self.pos.z, "gun"); } catch (e) {}
+    };
+    if (!this.opts.onKnifeStab) this.opts.onKnifeStab = () => {
+      try { NPCs.scare(self.pos.x, self.pos.z, 10); } catch (e) {}
+      try { const S = window.__ph3d_social; if (S && S.onCrime) S.onCrime(self.pos.x, self.pos.z, "knife"); } catch (e) {}
+    };
+    const shim = {
+      get x() { return self.pos.x; }, get z() { return self.pos.z; }, get y() { return self.floorY; },
+      get yaw() { return self.yaw; }, set yaw(v) { self.yaw = v; },
+      get sitting() { return self.state !== "standing" && self.state !== "crouching"; },
+      get ragdoll() { return false; },
+      get onGround() { return self.onGround !== false; },
+      get _emoteName() { return self._emoteName; }, set _emoteName(v) { self._emoteName = v; },
+      get _emoteTimer() { return self._emoteTimer; }, set _emoteTimer(v) { self._emoteTimer = v; },
+      get _emotePhase() { return self._emotePhase; }, set _emotePhase(v) { self._emotePhase = v; },
+      _ul: () => { try { self._ul && self._ul(); } catch (e) {} },
+    };
+    import("./walk-actions.js").then(({ WalkActions }) => {
+      if (self._disposed || window.__ph3d_walkCtrl !== self) return;
+      if (document.getElementById("ph3d-walk-actions")) return;   // something else already mounted it
+      WalkActions.mount({ walker: shim, weapons: self.weapons, getMode: () => "walk" });
+      self._WA = WalkActions;
+    }).catch(() => {});
+  }
   playEmote(name) {
     if (!EMOTE_DURATION[name]) return;
     if (this.state !== "standing") return;
@@ -552,6 +589,10 @@ export class ThirdPersonControls {
     this._emoteTimer = EMOTE_DURATION[name];
     this._emotePhase = 0;
     this._useTimer = 0;
+    /* show-off moves draw a crowd that rings you and claps (same as the open world) */
+    if (Animator.FLIP_EMOTES && Animator.FLIP_EMOTES[name]) {
+      try { NPCs.audience(this.pos.x, this.pos.z, 22, 6 + EMOTE_DURATION[name] / 1.4); } catch (e) {}
+    }
     this._ul();
   }
   /* hug / handshake: the nearest NPC walks over, then both of you play the pose */
@@ -903,6 +944,8 @@ export class ThirdPersonControls {
   const _real = this._lastNow ? (_now - this._lastNow) / 1000 : dt;
   this._lastNow = _now;
   dt = Math.min(Math.max(this.driveFeel ? _real : dt, 0), this.driveFeel ? 0.25 : 0.08);
+  if (!this._parity) this._autoParity();
+  if (this._WA) { try { this._WA.tick(dt, this.moving ? 4.6 : 0); } catch (e) {} }
 
   /* Keep a clamped copy for the animator so a dropped frame
      (dt can still reach 0.25 in driveFeel mode, or 0.08 in the
@@ -985,6 +1028,7 @@ this.moving = this._movingTimer > 0;
       let speed = baseWalk * speedMult;
       if (this.state === "crouching") speed = CROUCH_SP;
       else if (this.running) speed = baseRun * speedMult;
+      if (this.jet && this.jet.on && !this.onGround) speed *= 2.8;   /* jetpack flight is much faster than walking */
       const gunOut = this.weapons &&
         (this.weapons.current === "pistol" || this.weapons.current === "sniper" || this.weapons.current === "bazooka");
       const camF = gunOut ? (this.yaw + Math.PI) : this.camYaw;
@@ -1001,7 +1045,7 @@ this.moving = this._movingTimer > 0;
         }
       }
       const dx = mx * speed * dt, dz = mz * speed * dt;
-      const _n = Math.min(4, Math.max(1, Math.ceil(dt / 0.04)));
+      const _n = Math.min(10, Math.max(1, Math.ceil(dt / 0.04), Math.ceil(Math.hypot(dx, dz) / 0.18)));   /* small steps at jet speed: no tunnelling through walls */
       for (let _i = 0; _i < _n; _i++) {
         const [nx, nz] = this._resolve(this.pos.x + dx / _n, this.pos.z + dz / _n, this.level);
         this.pos.x = nx; this.pos.z = nz;
@@ -1013,7 +1057,7 @@ this.moving = this._movingTimer > 0;
       if (_jt.on && (_want || !this.onGround)) {
         if (_want) {
           if (this.onGround) { this.onGround = false; this.floorY += 0.05; this.vel.y = Math.max(this.vel.y, 2); }
-          this.vel.y = Math.min(9, this.vel.y + 38 * dt);
+          this.vel.y = Math.min(12, this.vel.y + 46 * dt);
           _jt.fuel = Math.max(0, _jt.fuel - dt * 0.2);
         } else {
           this.vel.y = Math.max(-7, this.vel.y - 14 * dt);
@@ -1316,6 +1360,8 @@ _updateCamera(dt, snap) {
 }
 
   dispose() {
+    this._disposed = true;
+    if (this._WA) { try { this._WA.unmount(); } catch (e) {} this._WA = null; }
     if (window.__ph3d_walkCtrl === this) window.__ph3d_walkCtrl = null;
     window.removeEventListener("keydown", this._kd);
     window.removeEventListener("keyup", this._ku);

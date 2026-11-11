@@ -62,27 +62,12 @@ export async function zonewalkScene(params, router) {
   backBtn.addEventListener("pointerdown", e => e.stopPropagation());
   backBtn.addEventListener("click", () => { router.back(); });
 
-  /* switch to driving, right here in the open zone */
-  const driveBtn = document.createElement("button");
-  driveBtn.textContent = "\uD83D\uDE97 DRIVE";
-  driveBtn.style.cssText =
-    "position:fixed;right:18px;bottom:calc(env(safe-area-inset-bottom) + 32px);" +
-    "z-index:27;padding:13px 22px;border-radius:999px;background:rgba(8,16,28,.85);" +
-    "border:1px solid rgba(94,224,255,.5);color:#eaf6ff;" +
-    "font:800 11px Inter,system-ui,sans-serif;letter-spacing:.14em;" +
-    "cursor:pointer;backdrop-filter:blur(12px);touch-action:manipulation";
-  document.body.appendChild(driveBtn);
-  driveBtn.addEventListener("pointerdown", e => e.stopPropagation());
-  driveBtn.addEventListener("click", () => {
-    router.go("zonedrive", { meta, children, onTap });
-  });
-
   return {
     three: scene, camera, controls: { update: () => {} },
     crumb: meta.sub || "MAP", title: meta.name, subtitle: "WALKING AROUND",
     hint: "LEFT: MOVE  \u00B7  RIGHT: LOOK  \u00B7  E: ENTER BUILDING",
     update: (dt) => { ctl.update(dt); world.update(dt); },
-    dispose: () => { ctl.dispose(); world.dispose(); backBtn.remove(); driveBtn.remove(); },
+    dispose: () => { ctl.dispose(); world.dispose(); backBtn.remove(); },
   };
 }
 

@@ -103,6 +103,7 @@
 <link rel="stylesheet" href="css/phone.css"/>
 <link rel="stylesheet" href="css/hud-icons.css"/>
 <link rel="stylesheet" href="css/hud.css"/>
+<link rel="stylesheet" href="css/hud-landscape.css"/>
 <link rel="stylesheet" href="css/settings.css"/>
 <style>
 #ph3d-error{display:none;position:fixed;inset:0;z-index:9999;background:#0a0d12;color:#ff8080;font:12px/1.55 ui-monospace,Menlo,Consolas,monospace;padding:16px;overflow:auto;white-space:pre-wrap;word-break:break-word;user-select:text;-webkit-user-select:text}
@@ -219,6 +220,8 @@ button {
 </style>
 </head>
 <body>
+<div id="rotate-hint"><i></i><div>ROTATE YOUR PHONE<br>TO LANDSCAPE</div></div>
+<script>try{var so=screen.orientation;if(so&&so.lock){var lk=function(){so.lock("landscape").catch(function(){})};lk();document.addEventListener("pointerdown",lk,{once:true})}}catch(e){}</script>
 <div id="ct-splash" role="img" aria-label="Clinton Tech presents">
   <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
     <defs><linearGradient id="ctg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD60A"/><stop offset="1" stop-color="#FF5C00"/></linearGradient></defs>

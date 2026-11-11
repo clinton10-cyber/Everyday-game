@@ -234,13 +234,16 @@ function buildWelcome({ onStart, onLater }) {
   card.style.background = "linear-gradient(165deg,#0d1420,#080c12)";
   card.style.border = "1px solid rgba(94,224,255,.35)";
   card.style.borderRadius = "26px";
-  card.style.padding = "26px 24px 22px";
+  const _ls = window.matchMedia && window.matchMedia("(orientation: landscape)").matches;   /* short screen: compact card */
+  card.style.padding = _ls ? "12px 20px 12px" : "26px 24px 22px";
+  card.style.maxHeight = "calc(100vh - 16px)";
+  card.style.overflowY = "auto";
   card.style.boxShadow = "0 30px 90px rgba(0,0,0,.85)";
   card.style.textAlign = "center";
 
   card.innerHTML = `
-    <img src="assets/logo.svg" width="120" height="120" alt="Everyday in PH"
-         style="display:inline-block;margin-bottom:10px"/>
+    <img src="assets/logo.svg" width="${_ls ? 48 : 120}" height="${_ls ? 48 : 120}" alt="Everyday in PH"
+         style="display:inline-block;margin-bottom:${_ls ? 2 : 10}px"/>
     <div style="font-size:24px;font-weight:900;letter-spacing:-.3px;
                 background:linear-gradient(90deg,#7dd3fc,#a78bfa,#f0abfc);
                 -webkit-background-clip:text;background-clip:text;color:transparent">
@@ -251,8 +254,8 @@ function buildWelcome({ onStart, onLater }) {
       The Garden City
     </div>
 
-    <div style="text-align:left;margin:22px 0 0;
-                display:flex;flex-direction:column;gap:12px">
+    <div style="text-align:left;margin:${_ls ? 10 : 22}px 0 0;
+                display:flex;flex-direction:column;gap:${_ls ? 7 : 12}px">
       <div style="display:flex;gap:12px;align-items:flex-start">
         <div style="flex:0 0 26px;height:26px;border-radius:50%;
                     background:linear-gradient(135deg,#ffc62b,#ff9d5c);
@@ -282,12 +285,12 @@ function buildWelcome({ onStart, onLater }) {
         <div style="font-weight:500;color:rgba(234,246,255,.82);font-size:13px;
                     line-height:1.45">
           Tap the <b>player card</b> to change how you look.
-          Tap the <b>phone</b> icon (top-right) for everything else.
+          Tap the <b>phone</b> icon for everything else.
         </div>
       </div>
     </div>
 
-    <div style="display:flex;gap:10px;margin-top:24px">
+    <div style="display:flex;gap:10px;margin-top:${_ls ? 12 : 24}px">
       <button id="ph3d-tour-later"
         style="flex:1;padding:14px;border-radius:14px;
                border:1px solid rgba(255,255,255,.16);background:transparent;

@@ -70,6 +70,11 @@ export const ZoneDrive = {
   _state: null,
 
   attach({ scene, camera, renderer, world, spawn }) {
+    /* Driving inside open-world interiors/zones is disabled: walk only. */
+    this._state = null;
+    return { isDriving() { return false; }, update() {}, dispose() {}, _state: null };
+  },
+  _attachDisabled({ scene, camera, renderer, world, spawn }) {
     if (this._state) this.dispose();
 
     const S = {
