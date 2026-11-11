@@ -85,21 +85,53 @@ async function _citySceneInner(params, router) {
   ];
   try { ATMs.register(atmPositions); } catch (e) {}
 
-  /* ── 3. Landmark tap planes + 3D labels ──────────────────── */
+  /* ── 3. Pins, labels and tap planes (game-style map markers) ──────── */
+  const PIN_PX = 26, LABEL_PX = 18;
+  const TAN_HALF = Math.tan(THREE.MathUtils.degToRad(46 / 2));
+  const wpp = (d) => (2 * TAN_HALF * d) / Math.max(1, innerHeight);       // world units per screen pixel at distance d
+
+  function pinTexture(fill) {
+    const c = document.createElement("canvas"); c.width = c.height = 96;
+    const g = c.getContext("2d");
+    g.shadowColor = "rgba(0,0,0,.55)"; g.shadowBlur = 8; g.shadowOffsetY = 3;
+    g.beginPath(); g.arc(48, 46, 30, 0, Math.PI * 2); g.fillStyle = "#ffffff"; g.fill();
+    g.shadowColor = "transparent";
+    g.beginPath(); g.arc(48, 46, 23, 0, Math.PI * 2); g.fillStyle = fill; g.fill();
+    g.beginPath(); g.arc(48, 46, 8, 0, Math.PI * 2); g.fillStyle = "#06101a"; g.fill();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  function ringTexture() {
+    const c = document.createElement("canvas"); c.width = c.height = 128;
+    const g = c.getContext("2d");
+    g.lineWidth = 9; g.strokeStyle = "#ffc62b"; g.shadowColor = "rgba(255,198,43,.9)"; g.shadowBlur = 14;
+    g.beginPath(); g.arc(64, 64, 46, 0, Math.PI * 2); g.stroke();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  const texPin = pinTexture("#35c8ff"), texHome = pinTexture("#ffc62b");
+  const ringMat = new THREE.SpriteMaterial({ map: ringTexture(), transparent: true, depthTest: false, depthWrite: false });
+  const ring = new THREE.Sprite(ringMat); ring.renderOrder = 997; ring.visible = false; three.add(ring);
+
   const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+  const lmItems = [];
+  let selected = null;
   for (const lm of world.landmarks) {
     const hit = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), hitMat);
     hit.rotation.x = -Math.PI / 2;
     hit.position.set(lm.x, 12, lm.z);
-    hit.userData.tap = () => routeToLandmark(lm, router);
+    const it = { lm, x: lm.x, z: lm.z, dist: 0, aspect: 4, pin: null, label: null };
+    hit.userData.tap = () => selectLandmark(it, false);
     three.add(hit);
+
+    const pin = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: lm.id === "myhouse" ? texHome : texPin, transparent: true, depthTest: false, depthWrite: false }));
+    pin.renderOrder = 998; three.add(pin); it.pin = pin;
 
     try {
       const lbl = textLabel(lm.name, "");
-      lbl.position.set(lm.x, 45, lm.z);
-      lbl.scale.multiplyScalar(0.9);
-      three.add(lbl);
+      it.aspect = lbl.scale.x / lbl.scale.y;
+      lbl.visible = false; three.add(lbl); it.label = lbl;
     } catch (e) {}
+    lmItems.push(it);
   }
 
   function routeToLandmark(lm, router) {
@@ -281,15 +313,258 @@ async function _citySceneInner(params, router) {
 
   let simTime = 0, planeT = 0, heliT = 0;
 
+  /* ── 6b. Game-style map controls: D-pad, rotate/zoom/tilt, compass, places, GO ── */
+  const ARW = {
+    up:    '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>',
+    down:  '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+    left:  '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
+    right: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
+    home:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/></svg>',
+    rotL:  '<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v4h4"/></svg>',
+    rotR:  '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M20 4v4h-4"/></svg>',
+    zin:   '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    zout:  '<svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>',
+    tup:   '<svg viewBox="0 0 24 24"><path d="M5 17l7-9 7 9"/><path d="M5 21h14"/></svg>',
+    tdn:   '<svg viewBox="0 0 24 24"><path d="M5 7l7 9 7-9"/><path d="M5 3h14"/></svg>',
+  };
+  const ui = document.createElement("div");
+  ui.id = "cm-ui";
+  ui.innerHTML =
+    '<div class="cm-vig"></div>' +
+    '<div class="cm-plate"><b>PORT HARCOURT</b><span>CITY MAP</span><em id="cm-near">OPEN GROUND</em></div>' +
+    '<button class="cm-compass" id="cm-compass" type="button" aria-label="Face north"><i id="cm-needle"></i><b>N</b></button>' +
+    '<div class="cm-dpad" id="cm-dpad">' +
+      '<button class="cm-b cm-up"    data-k="up"    type="button" aria-label="Move up">'    + ARW.up    + '</button>' +
+      '<button class="cm-b cm-left"  data-k="left"  type="button" aria-label="Move left">'  + ARW.left  + '</button>' +
+      '<button class="cm-b cm-mid"   data-k="reset" type="button" aria-label="Reset view">' + ARW.home  + '</button>' +
+      '<button class="cm-b cm-right" data-k="right" type="button" aria-label="Move right">' + ARW.right + '</button>' +
+      '<button class="cm-b cm-down"  data-k="down"  type="button" aria-label="Move down">'  + ARW.down  + '</button>' +
+    '</div>' +
+    '<div class="cm-cluster" id="cm-cluster">' +
+      '<button class="cm-b" data-k="rotL"  type="button" aria-label="Rotate left">'  + ARW.rotL + '<u>TURN</u></button>' +
+      '<button class="cm-b" data-k="rotR"  type="button" aria-label="Rotate right">' + ARW.rotR + '<u>TURN</u></button>' +
+      '<button class="cm-b" data-k="zin"   type="button" aria-label="Zoom in">'      + ARW.zin  + '<u>ZOOM</u></button>' +
+      '<button class="cm-b" data-k="zout"  type="button" aria-label="Zoom out">'     + ARW.zout + '<u>ZOOM</u></button>' +
+      '<button class="cm-b" data-k="tup"   type="button" aria-label="Look down">'    + ARW.tup  + '<u>TILT</u></button>' +
+      '<button class="cm-b" data-k="tdn"   type="button" aria-label="Look ahead">'   + ARW.tdn  + '<u>TILT</u></button>' +
+    '</div>' +
+    '<div class="cm-bottom">' +
+      '<button class="cm-places" id="cm-places" type="button"><i></i>PLACES</button>' +
+      '<div class="cm-go" id="cm-go" hidden><button class="cm-gobtn" id="cm-gobtn" type="button"><small>GO TO</small><b id="cm-goname"></b></button><button class="cm-x" id="cm-clear" type="button" aria-label="Clear">&#10005;</button></div>' +
+    '</div>' +
+    '<div class="cm-edge" id="cm-edge" hidden><i></i><b id="cm-edgename"></b></div>';
+  document.body.appendChild(ui);
+  const $c = (id) => document.getElementById(id);
+
+  /* hold-to-move buttons */
+  const held = Object.create(null);
+  const setHeld = (k, v) => { held[k] = v; };
+  const pressFx = [];
+  ui.querySelectorAll(".cm-b").forEach((b) => {
+    const k = b.dataset.k;
+    const down = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      try { b.setPointerCapture(e.pointerId); } catch (_) {}
+      b.classList.add("on");
+      if (k === "reset") { resetView(); return; }
+      setHeld(k, true);
+    };
+    const up = (e) => { b.classList.remove("on"); if (k !== "reset") setHeld(k, false); };
+    b.addEventListener("pointerdown", down);
+    b.addEventListener("pointerup", up);
+    b.addEventListener("pointercancel", up);
+    b.addEventListener("lostpointercapture", up);
+    b.addEventListener("contextmenu", (e) => e.preventDefault());
+    pressFx.push([b, down, up]);
+  });
+
+  function resetView() {
+    cam.tTarget.set(-30, 0, 0); cam.tDist = 430; cam.tTheta = 0.72; cam.tPhi = 0.78;
+  }
+  $c("cm-compass").addEventListener("click", (e) => {
+    e.stopPropagation();
+    /* turn so that north (-Z) is straight up the screen: camera looks along -Z => theta = PI/2 */
+    let d = (Math.PI / 2 - cam.tTheta) % (Math.PI * 2);
+    if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2;
+    cam.tTheta += d;
+  });
+
+  /* keyboard (desktop): arrows/WASD move, Q/E turn, +/- zoom */
+  const KEYMAP = { ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down", ArrowLeft: "left", KeyA: "left",
+    ArrowRight: "right", KeyD: "right", KeyQ: "rotL", KeyE: "rotR", Equal: "zin", NumpadAdd: "zin", Minus: "zout", NumpadSubtract: "zout" };
+  const onKD = (e) => {
+    const t = e.target; if (t && /INPUT|TEXTAREA|SELECT/.test(t.tagName)) return;
+    const k = KEYMAP[e.code]; if (k) { setHeld("k_" + k, true); e.preventDefault(); }
+  };
+  const onKU = (e) => { const k = KEYMAP[e.code]; if (k) setHeld("k_" + k, false); };
+  window.addEventListener("keydown", onKD);
+  window.addEventListener("keyup", onKU);
+
+  /* selection + GO */
+  function selectLandmark(it, fly) {
+    selected = it;
+    $c("cm-goname").textContent = it.lm.name.toUpperCase();
+    $c("cm-go").hidden = false; $c("cm-places").hidden = true;
+    if (fly) { cam.tTarget.set(it.x, 0, it.z); cam.tDist = Math.min(cam.tDist, 260); cam.tTarget.x = Math.max(-620, Math.min(620, cam.tTarget.x)); cam.tTarget.z = Math.max(-620, Math.min(620, cam.tTarget.z)); }
+  }
+  function clearSelection() {
+    selected = null; ring.visible = false;
+    $c("cm-go").hidden = true; $c("cm-places").hidden = false; $c("cm-edge").hidden = true;
+  }
+  $c("cm-gobtn").addEventListener("click", (e) => { e.stopPropagation(); if (selected) routeToLandmark(selected.lm, router); });
+  $c("cm-clear").addEventListener("click", (e) => { e.stopPropagation(); clearSelection(); });
+
+  /* PLACES list: nearest first, with an arrow + distance relative to the view */
+  const ARROWS = ["\u2191", "\u2197", "\u2192", "\u2198", "\u2193", "\u2199", "\u2190", "\u2196"];
+  function bearingArrow(dx, dz) {
+    /* screen-relative: forward = (-cos th, -sin th), right = (sin th, -cos th) */
+    const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+    const fwd = dx * -ct + dz * -st, rgt = dx * st + dz * -ct;
+    const a = Math.atan2(rgt, fwd);                         // 0 = straight ahead, + = to the right
+    return ARROWS[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8];
+  }
+  $c("cm-places").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const list = lmItems.map((it) => {
+      const dx = it.x - cam.target.x, dz = it.z - cam.target.z;
+      return { it, d: Math.hypot(dx, dz), arrow: bearingArrow(dx, dz) };
+    }).sort((a, b) => a.d - b.d);
+    let sh = null;
+    const items = list.map((r) => ({
+      icon: "walk", label: r.it.lm.name, sub: r.arrow + "  " + Math.round(r.d) + " m",
+      onClick: () => { try { sh && sh.close(); } catch (_) {} selectLandmark(r.it, true); },
+    }));
+    sh = HUD.sheet({ title: "Places", sub: "Nearest first · arrows are relative to your view", sections: [{ cols: 3, items }] });
+  });
+
+  /* per-frame UI + camera input */
+  const _v = new THREE.Vector3(), _up = new THREE.Vector3(), _sv = new THREE.Vector3();
+  let nearT = 0;
+  function cmUpdate(dt) {
+    /* held buttons -> camera targets */
+    const H = (k) => held[k] || held["k_" + k];
+    const sp = cam.dist * 0.85 * dt;
+    const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+    let mx = 0, mz = 0;
+    if (H("up"))    { mx += -ct; mz += -st; }
+    if (H("down"))  { mx +=  ct; mz +=  st; }
+    if (H("right")) { mx +=  st; mz += -ct; }
+    if (H("left"))  { mx += -st; mz +=  ct; }
+    if (mx || mz) {
+      cam.tTarget.x = Math.max(-620, Math.min(620, cam.tTarget.x + mx * sp));
+      cam.tTarget.z = Math.max(-620, Math.min(620, cam.tTarget.z + mz * sp));
+      /* moving by hand drops any fly-to */
+    }
+    if (H("rotL")) cam.tTheta -= 1.5 * dt;
+    if (H("rotR")) cam.tTheta += 1.5 * dt;
+    if (H("zin"))  cam.tDist = Math.max(MIN_DIST, cam.tDist * Math.exp(-1.15 * dt));
+    if (H("zout")) cam.tDist = Math.min(MAX_DIST, cam.tDist * Math.exp( 1.15 * dt));
+    if (H("tup"))  cam.tPhi = Math.max(MIN_PHI, cam.tPhi - 0.9 * dt);
+    if (H("tdn"))  cam.tPhi = Math.min(MAX_PHI, cam.tPhi + 0.9 * dt);
+  }
+  function cmLayout(dt, t) {
+    camera.updateMatrixWorld();
+    _up.setFromMatrixColumn(camera.matrixWorld, 1);
+
+    /* compass: needle points to north (-Z) in screen terms */
+    const st = Math.sin(cam.theta), ct = Math.cos(cam.theta);
+    const fx = -ct, fz = -st, rx = st, rz = -ct;
+    const needle = Math.atan2(0 * rx + -1 * rz, 0 * fx + -1 * fz) * 180 / Math.PI;
+    const nd = $c("cm-needle"); if (nd) nd.style.transform = "rotate(" + needle.toFixed(1) + "deg)";
+
+    /* pins at constant screen size */
+    for (const it of lmItems) {
+      _v.set(it.x, 14, it.z);
+      const d = _v.distanceTo(camera.position), s = wpp(d) * PIN_PX;
+      it.pin.scale.set(s, s, 1);
+      it.pin.position.copy(_v).addScaledVector(_up, s * 0.5);
+      it.dist = Math.hypot(it.x - cam.target.x, it.z - cam.target.z);
+    }
+
+    /* labels: the closest few that fit on screen without overlapping */
+    const order = lmItems.slice().sort((a, b) => ((b === selected) - (a === selected)) || (a.dist - b.dist));
+    /* keep labels clear of the on-screen controls (cached, refreshed ~1/s) */
+    if (!cmLayout._ex || (cmLayout._exT = (cmLayout._exT || 0) - dt) <= 0) {
+      cmLayout._exT = 1;
+      cmLayout._ex = [];
+      document.querySelectorAll(".cm-plate,.cm-dpad,.cm-compass,.cm-cluster,.cm-bottom,#hud-tl,#hud-tr").forEach((e) => {
+        const r = e.getBoundingClientRect();
+        if (r.width > 2 && r.height > 2) cmLayout._ex.push({ x0: r.left - 4, x1: r.right + 4, y0: r.top - 4, y1: r.bottom + 4 });
+      });
+    }
+    const taken = cmLayout._ex.slice(); let shown = 0;
+    for (const it of order) {
+      if (!it.label) continue;
+      it.label.visible = false;
+      if (shown >= 9) continue;
+      if (it !== selected && it.dist > cam.dist * 0.95) continue;
+      _v.set(it.x, 14, it.z);
+      const d = _v.distanceTo(camera.position), k = wpp(d);
+      const h = k * LABEL_PX, w = h * it.aspect;
+      _v.addScaledVector(_up, k * (PIN_PX + LABEL_PX * 0.6 + 2));
+      it.label.scale.set(w, h, 1); it.label.position.copy(_v);
+      _sv.copy(_v).project(camera);
+      if (_sv.z > 1 || Math.abs(_sv.x) > 1.05 || Math.abs(_sv.y) > 1.05) continue;
+      const cx = (_sv.x * 0.5 + 0.5) * innerWidth, cy = (-_sv.y * 0.5 + 0.5) * innerHeight, pw = w / k;
+      const r = { x0: cx - pw / 2 - 4, x1: cx + pw / 2 + 4, y0: cy - LABEL_PX / 2 - 3, y1: cy + LABEL_PX / 2 + 3 };
+      if (it !== selected && taken.some((q) => !(r.x1 < q.x0 || q.x1 < r.x0 || r.y1 < q.y0 || q.y1 < r.y0))) continue;
+      taken.push(r); it.label.visible = true; shown++;
+    }
+
+    /* selection ring + off-screen direction arrow */
+    const edge = $c("cm-edge");
+    if (selected) {
+      _v.set(selected.x, 14, selected.z);
+      const d = _v.distanceTo(camera.position), k = wpp(d);
+      const s = k * 60 * (1 + 0.1 * Math.sin(t * 5));
+      ring.scale.set(s, s, 1); ring.position.copy(_v).addScaledVector(_up, k * PIN_PX * 0.5); ring.visible = true;
+      _sv.copy(_v).project(camera);
+      const behind = _sv.z > 1;
+      const sx = (_sv.x * 0.5 + 0.5) * innerWidth, sy = (-_sv.y * 0.5 + 0.5) * innerHeight;
+      const off = behind || sx < 56 || sx > innerWidth - 56 || sy < 70 || sy > innerHeight - 70;
+      if (off) {
+        let dx = sx - innerWidth / 2, dy = sy - innerHeight / 2;
+        if (behind) { dx = -dx; dy = -dy; }
+        const ang = Math.atan2(dy, dx);
+        /* free area between the title plate, the D-pad/compass and the turn/zoom cluster */
+        const x0 = 160, x1 = innerWidth - 120, y0 = 104, y1 = innerHeight - 110;
+        const cx0 = (x0 + x1) / 2, cy0 = (y0 + y1) / 2, hw = Math.max(20, (x1 - x0) / 2), hh = Math.max(10, (y1 - y0) / 2);
+        const sc = Math.min(Math.abs(hw / (Math.cos(ang) || 1e-6)), Math.abs(hh / (Math.sin(ang) || 1e-6)));
+        const ex = cx0 + Math.cos(ang) * sc, ey = cy0 + Math.sin(ang) * sc;
+        edge.hidden = false;
+        edge.style.left = ex.toFixed(0) + "px"; edge.style.top = ey.toFixed(0) + "px";
+        edge.firstChild.style.transform = "rotate(" + (ang * 180 / Math.PI + 90).toFixed(1) + "deg)";
+        $c("cm-edgename").textContent = selected.lm.name;
+      } else edge.hidden = true;
+    }
+
+    /* "near" readout, a few times a second */
+    nearT -= dt;
+    if (nearT <= 0) {
+      nearT = 0.25;
+      let best = null;
+      for (const it of lmItems) if (!best || it.dist < best.dist) best = it;
+      const el = $c("cm-near");
+      if (el) el.textContent = best && best.dist < 140 ? "NEAR \u00b7 " + best.lm.name.toUpperCase() : "OPEN GROUND";
+    }
+  }
+  const cmDispose = () => {
+    window.removeEventListener("keydown", onKD);
+    window.removeEventListener("keyup", onKU);
+    try { ui.remove(); } catch (e) {}
+  };
+
+
   return {
     three, camera,
     controls: { update: () => {} },
     crumb: "CITY MAP",
     title: "PORT HARCOURT",
-    subtitle: "DRAG TO LOOK AROUND",
+    subtitle: "ARROWS TO MOVE · TAP A PIN",
     hint: "",
     dispose: () => {
       try { menuBtn.remove(); } catch (e) {}
+      try { cmDispose(); } catch (e) {}
       canvas.removeEventListener("pointerdown", onPD);
       canvas.removeEventListener("pointermove", onPM);
       canvas.removeEventListener("pointerup", onPU);
@@ -326,6 +601,8 @@ async function _citySceneInner(params, router) {
       );
       if (camera.position.y < 6) camera.position.y = 6;
       camera.lookAt(cam.target);
+      cmUpdate(dt);
+      cmLayout(dt, simTime);
 
       if (planeGroup && planePath) {
         planeT = (planeT + dt / 26) % 1;
