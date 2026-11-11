@@ -262,6 +262,7 @@ function attach(el, opts) {
         target = null;
         opts.onResize && opts.onResize(0);
       }
+      if (!opts.stickyHardware) { window.removeEventListener("keydown", onKey, true); window.removeEventListener("keyup", onKeyUp, true); el.classList.remove("gk-on"); }
     },
     get isOpen() { return !!(kbEl && target === ctl && kbEl.classList.contains("on")); },
 
@@ -276,6 +277,11 @@ function attach(el, opts) {
     focus() { ctl.open(); },
     blur() { ctl.close(); },
   };
+
+  /* Existing code treats the field like an <input>: el.value / el.focus() / el.blur(). */
+  Object.defineProperty(el, "value", { get: () => ctl.value, set: (v) => { ctl.value = v; }, configurable: true });
+  el.focus = () => ctl.open();
+  el.blur = () => ctl.deactivate();
 
   function draw() {
     textEl.textContent = val;

@@ -332,6 +332,9 @@ export const Wardrobe = {
   },
   /* set("hat.color", 3) also creates the parent object when it is null */
   set(path, value) {
+    if (path === "gender" && value !== this.config.gender) {
+      try { const g = window.__ph3d_genderGuard; if (g && g(value) === false) return false; } catch (e) {}
+    }
     const parts = path.split(".");
     let obj = this.config;
     for (let i = 0; i < parts.length - 1; i++) {

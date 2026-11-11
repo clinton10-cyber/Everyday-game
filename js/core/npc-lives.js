@@ -19,6 +19,7 @@
 import { DayNight } from "./daynight.js";
 import { Economy } from "./economy.js";
 import { Belly, Baby } from "./body-attach.js";
+import { Wardrobe } from "./wardrobe.js";
 
 const LS = "ph3d_lives_v1";
 const DAYS_PER_YEAR = 4;          /* game days per game year (children grow up) */
@@ -159,6 +160,9 @@ function attracted(a, b) {
   if (a.age < 18 || b.age < 18) return false;
   return a.attr === "b" || (a.attr === "m" && b.g === "masculine") || (a.attr === "f" && b.g === "feminine");
 }
+/* You can only date the opposite gender (masculine ↔ feminine). A "neutral" avatar has no limit. */
+function gCompat(g, q) { return g === "masculine" ? q.g === "feminine" : g === "feminine" ? q.g === "masculine" : true; }
+function compatible(p) { let g = "neutral"; try { g = Wardrobe.config.gender; } catch (e) {} return gCompat(g, p); }
 function log(txt) { S.log.unshift({ d: S.day, h: Math.floor(DayNight.hour), t: txt }); if (S.log.length > 60) S.log.length = 60; }
 
 function interact(a, b, quiet) {
@@ -705,8 +709,8 @@ function renderPanel() {
   const infant = isKid && p.age < INFANT_AGE, held = P.held === p.id;
   const can = {
     friend: t === "acquaintance" && r.v >= 20 && !isKid,
-    ask: adult && single && r.v >= 40 && r.met >= 3,
-    prop: isPt && !isFi && r.v >= 75 && S.day - (P.since || 0) >= 2,
+    ask: adult && single && r.v >= 40 && r.met >= 3 && compatible(p),
+    prop: isPt && !isFi,
     baby: isSp && r.v >= 65 && !P.preg && P.kids.length < 5,
   };
   const mood = p.mood > 0.7 ? "😄 happy" : p.mood > 0.4 ? "🙂 okay" : "😕 low";
@@ -730,7 +734,7 @@ function renderPanel() {
       + btn("selfie", "📸 Selfie", t === "enemy" || r.v < 10);
     if (isSp) acts += btn("dress", "👗 Dress", 0) + btn("holdhand", "🤝 Hold hand", 0) + btn("holdelbow", "💑 Link arms", 0);
     if (stage === "acquaintance" || stage === "stranger") acts += btn("friend", "🤝 Be friends", !can.friend);
-    if (!isSp && !isPt && adult) acts += btn("flirt", "😉 Flirt", 0) + btn("ask", "❤ Ask out", !can.ask);
+    if (!isSp && !isPt && adult && compatible(p)) acts += btn("flirt", "😉 Flirt", 0) + btn("ask", "❤ Ask out", !can.ask);
     if (stage === "dating") acts += btn("date_walk", "🌳 Park walk", 0) + btn("date_dinner", "🍽 Dinner ₦6,000", 0) + btn("date_cinema", "🎬 Cinema ₦4,000", 0)
       + btn("date_beach", "🌊 Beach ₦3,000", 0) + btn("prop", "💍 Propose", !can.prop) + btn("breakup", "💔 Break up", 0);
     if (stage === "engaged") acts += btn("date_dinner", "🍽 Dinner ₦6,000", 0) + btn("plan", "⛪ Plan wedding", 0) + btn("breakup", "💔 Call off", 0);
@@ -791,6 +795,8 @@ function act(a) {
     try { window.__ph3d_family && window.__ph3d_family.setHold(a === "holdhand" ? "hand" : "elbow"); } catch (e) {}
   } else if (a === "friend") {
     if (r.v >= 20) { r.v = Math.max(r.v, 38); r.met = Math.max(r.met, 3); hear("Of course! We're friends now."); log("You and " + p.name + " became friends"); toast("🤝 You and " + p.name + " are friends"); }
+  } else if ((a === "flirt" || a === "ask") && !compatible(p)) {
+    hear(lines(["Sorry, I'm not looking for that.", "We're better as friends."]));
   } else if (a === "flirt") {
     const ok = r.v + tr.rom * 25 + rnd() * 30 > 55; bump(p, ok ? 7 : -5); hear(ok ? lines(["Hehe, you're smooth.", "Stop… you're making me blush."]) : lines(["Not interested.", "Abeg, no."]));
   } else if (a === "ask") {
@@ -798,7 +804,7 @@ function act(a) {
     if (ok) { P.partner = p.id; P.since = S.day; p.partner = "player"; bump(p, 10); hear("Yes. I'd love that. ❤"); toast("❤ You're now dating " + p.name); log("You and " + p.name + " started dating ❤"); }
     else { bump(p, -4); hear("I like you, but… not yet."); }
   } else if (a === "prop") {
-    const ok = r.v >= 80 || (r.v >= 75 && rnd() < 0.5);
+    const ok = r.v >= 30;      /* proposing is open as soon as you are dating */
     if (ok) {
       P.engaged = p.id; P.engagedSince = S.day; r.v = Math.max(r.v, 82);
       hear("YES! A thousand times yes! 💍"); toast("💍 You're engaged to " + p.name + "! Plan the wedding from the 👥 Life app.");
@@ -1027,3 +1033,29 @@ export const Lives = {
   closePanel,
 };
 if (typeof window !== "undefined") window.__ph3d_lives = Lives;
+
+/* Changing your gender ends any relationship that no longer fits, after a warning. */
+function genderGuard(newG) {
+  const P = S && S.player; if (!P) return true;
+  const ids = [...new Set([P.spouse, P.engaged, P.partner].filter(Boolean))];
+  const lose = ids.map(byId).filter((q) => q && !gCompat(newG, q));
+  if (!lose.length) return true;
+  const names = lose.map((q) => q.name).join(" and ");
+  let ok = true;
+  try { ok = window.confirm("Changing your gender will end your relationship with " + names + ". You will lose it. Continue?"); } catch (e) {}
+  if (!ok) return false;
+  for (const q of lose) {
+    const r = pRel(q);
+    if (P.spouse === q.id) { P.spouse = null; q.spouse = null; }
+    if (P.engaged === q.id) { P.engaged = null; try { const L = LSim(); L && L.onBreakEngagement && L.onBreakEngagement(q); } catch (e) {} }
+    if (P.partner === q.id) { P.partner = null; q.partner = null; }
+    if (r) r.v -= 40;
+    log("You and " + q.name + " split up");
+  }
+  toast("💔 Your relationship with " + names + " ended");
+  return true;
+}
+if (typeof window !== "undefined") {
+  window.__ph3d_genderGuard = genderGuard;
+  window.__ph3d_canDate = (npc) => { const p = npc && npc._life; return !p || compatible(p); };
+}

@@ -187,6 +187,7 @@ export const TalkChat = {
        landscape lock stay put. Hardware keys are kept away from WASD / Space / E too. */
     this._kb = GameKeyboard.attach(this._input, {
       maxLength: 200,
+      stickyHardware: true,
       onSubmit: () => this._send(),
       onEscape: () => this.close(),
       onResize: (h) => {
@@ -318,8 +319,8 @@ export const TalkChat = {
     add("joke", "😂 Joke");
     add("gift", "🎁 Gift");
     add("hang", "🚶 Hang out");
-    add("flirt", "😉 Flirt");
-    add("ask", "❤ Ask out");
+    let canDate = true; try { canDate = !window.__ph3d_canDate || window.__ph3d_canDate(npc); } catch (e) {}
+    if (canDate) { add("flirt", "😉 Flirt"); add("ask", "❤ Ask out"); }
     add("selfie", "📸 Selfie");
     /* money chips: say it in chat, the NPC answers through ChatBrain / NpcMoney */
     const say = (label, text) => {

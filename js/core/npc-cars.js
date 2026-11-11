@@ -50,6 +50,25 @@ const CAR_COLORS = [
    per-model correction. */
 
 const CAR_RADIUS = 2.9;
+const CAR_HALF_W = 1.05, CAR_HALF_L = 2.6;      /* real footprint of an NPC car (used for hit tests) */
+
+/* distance outside a car's rectangle (0 = touching / inside). yaw: car forward = (sin, cos). */
+function outsideBox(cx, cz, yaw, hw, hl, px, pz) {
+  const dx = px - cx, dz = pz - cz, s = Math.sin(yaw), c = Math.cos(yaw);
+  const lx = Math.abs(dx * c - dz * s) - hw, lz = Math.abs(dx * s + dz * c) - hl;
+  return Math.hypot(Math.max(lx, 0), Math.max(lz, 0));
+}
+/* two car rectangles overlapping (separating-axis test) */
+function boxesOverlap(ax, az, ay, ahw, ahl, bx, bz, by, bhw, bhl) {
+  const axes = [[Math.cos(ay), -Math.sin(ay)], [Math.sin(ay), Math.cos(ay)], [Math.cos(by), -Math.sin(by)], [Math.sin(by), Math.cos(by)]];
+  const dx = bx - ax, dz = bz - az;
+  for (const [ux, uz] of axes) {
+    const ra = ahw * Math.abs(ux * Math.cos(ay) - uz * Math.sin(ay)) + ahl * Math.abs(ux * Math.sin(ay) + uz * Math.cos(ay));
+    const rb = bhw * Math.abs(ux * Math.cos(by) - uz * Math.sin(by)) + bhl * Math.abs(ux * Math.sin(by) + uz * Math.cos(by));
+    if (Math.abs(dx * ux + dz * uz) > ra + rb) return false;
+  }
+  return true;
+}
 
 /* ── road graph ────────────────────────────────────────────────────
    Built from the REAL road centre-lines that phworld.js draws (passed in
@@ -430,8 +449,9 @@ export const NPC_Cars = {
       const d = Math.hypot(dx, dz) || 0.001;
       const speed = Math.hypot(car.vx, car.vz);
 
-      if (player.mode === "walk" && !player.ragdoll &&
-          d < car.radius + 0.5 && speed > 3.0) {
+      const cyaw = car.mesh.rotation.y;
+      if (player.mode === "walk" && !player.ragdoll && speed > 3.0 &&
+          outsideBox(car.mesh.position.x, car.mesh.position.z, cyaw, CAR_HALF_W, CAR_HALF_L, player.x, player.z) < 0.25) {
 
         const nx = dx / d, nz = dz / d;
         const impX = car.vx * 0.9 + nx * 4;
@@ -453,8 +473,9 @@ export const NPC_Cars = {
           _toast("\uD83D\uDCA5 Hit by " + (car.model === "taxi" ? "taxi" : "car"));
           car.hitCd = 2.5;
         }
-      } else if (player.mode === "drive" &&
-                 d < car.radius + 2.0 && speed > 4.0) {
+      } else if (player.mode === "drive" && speed > 4.0 &&
+                 boxesOverlap(car.mesh.position.x, car.mesh.position.z, cyaw, CAR_HALF_W, CAR_HALF_L,
+                              player.x, player.z, player.heading || 0, (player.halfW || 1.0), (player.halfL || 2.4))) {
 
         _hitPlayerCar(car.vx, car.vz, car.mass);
 

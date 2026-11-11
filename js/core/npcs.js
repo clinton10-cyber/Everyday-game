@@ -1699,9 +1699,11 @@ export const NPCs = {
       if (driveState && driveState.mode === "drive" && npc.hitCd <= 0) {
         const dxC = npc.ctl.pos.x - driveState.x;
         const dzC = npc.ctl.pos.z - driveState.z;
-        const dC = Math.sqrt(dxC * dxC + dzC * dzC);
+        const hy = driveState.heading || 0, hs = Math.sin(hy), hc = Math.cos(hy);
+        const lxC = Math.abs(dxC * hc - dzC * hs) - (driveState.halfW || 1.0), lzC = Math.abs(dxC * hs + dzC * hc) - (driveState.halfL || 2.4);
+        const dC = Math.hypot(Math.max(lxC, 0), Math.max(lzC, 0));      /* distance outside your car's body */
 
-        if (dC < 2.4) {
+        if (dC < 0.3 && Math.abs(driveState.speed || 0) > 2) {
           npc.hitCd = 3.0;
           npc.state = "flee";
           npc.stateT = 3.5;
@@ -1716,12 +1718,7 @@ export const NPCs = {
             if (Cr && Cr.addEvent) Cr.addEvent("kill", 100, "You");
           } catch (e) {}
 
-          try {
-            const C = window.__ph3d_combat;
-            const spd = Math.abs(driveState.speed || 0);
-            const dmg = Math.min(80, spd * 2);
-            if (C && C.damage && dmg > 0) C.damage(dmg, "vehicle_hit");
-          } catch (e) {}
+          /* running into a pedestrian never hurts YOU — only an NPC car touching you does */
 
           try {
             const So = window.__ph3d_social;

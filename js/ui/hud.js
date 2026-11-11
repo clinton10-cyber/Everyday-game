@@ -113,7 +113,7 @@ function adopt(node) {
   if (spec.ico && spec.z === "ctx") node.classList.add("h-lead");
   if (spec.o != null) node.style.order = String(spec.o);
   if (spec.title) { node.title = spec.title; node.setAttribute("aria-label", spec.title); }
-  if (spec.z === "pad" && !/h-jump|h-fire/.test(spec.cls || "")) routeDock(node);
+  if (spec.z === "pad" && !/h-jump|h-fire|h-fight/.test(spec.cls || "")) routeDock(node);
   else zones[spec.z].appendChild(node);
   if (spec.z === "ctx" || spec.z === "pad" || spec.z === "state" || spec.z === "rail") {
     tidyLabel(node);
@@ -340,7 +340,7 @@ function routeDock(n) {
 }
 function dockTick() {
   if (!dockGrid) return;
-  ["ph3d-atk", "ph3d-blk"].forEach((id) => {
+  ["ph3d-blk"].forEach((id) => {
     const n = $(id);
     if (n && n.parentNode !== dockGrid) {
       n.dataset.hud = "pad";

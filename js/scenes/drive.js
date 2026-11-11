@@ -1183,6 +1183,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
         x: carPos.x, z: carPos.z,
         carX: carPos.x, carZ: carPos.z,
         heading, speed,
+        halfW: carSize.x * 0.5, halfL: carSize.z * 0.5,
       };
     },
   };

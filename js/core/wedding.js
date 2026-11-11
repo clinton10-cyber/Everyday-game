@@ -44,7 +44,7 @@ export const Wedding = {
   renderTab(card, btn) {
     const P = Lives.player(), w = W(), fi = fiance();
     if (P && P.spouse) return card("💍 You're married" + (Lives.byId(P.spouse) ? " to <b>" + Lives.byId(P.spouse).name + "</b>" : "") + ". Your spouse shares your home.");
-    if (!fi) return card("<b>No engagement yet.</b><br><span style='opacity:.7'>Date someone, then propose from the relationship panel (needs a strong bond). A wedding requires: <b>Engaged</b> + <b>the church</b> + <b>invited guests</b>.</span>");
+    if (!fi) return card("<b>No engagement yet.</b><br><span style='opacity:.7'>Date someone, then propose from the relationship panel (open as soon as you're dating). A wedding requires: <b>Engaged</b> + <b>the church</b> + <b>invited guests</b>.</span>");
     let h = card(`<b>Wedding to ${fi.name}</b><br><span style="opacity:.75">Guests ${w.guests.length} (min ${MIN_GUESTS}) · total ${"₦" + cost(w).toLocaleString()}</span><br>
       ${btn("recep", w.reception ? "🥂 Reception: ON" : "🥂 Reception: OFF")}${w.paid ? "" : btn("book", "⛪ Book church · pay", w.guests.length < MIN_GUESTS || Economy.balance < cost(w))}
       ${w.paid ? `<br><b style="color:#7dff9a">✔ Booked.</b> Go to the Church and press <b>START WEDDING</b>.` : ""}`);
