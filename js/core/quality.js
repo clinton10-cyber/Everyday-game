@@ -8,23 +8,27 @@
  *   Quality.isHigh     - boolean shortcut
  */
 
+/* pixelRatio is the sharpest render scale a tier starts at (capped to the screen's own
+   devicePixelRatio); the router's dynamic resolution only lowers it when frames run long and
+   never below minPixelRatio. Old values (0.85-1.5) made most phones render under 1:1 and
+   upscale, which looked blurry. */
 const TIERS = {
   /* potato: lowest setting, picked for 2 GB devices or a score of -3 and below.
      Its tier name stays "low" so every existing `tier === "low"` check keeps working;
      Quality.potato is the flag for the extra cuts. */
-  potato: { pixelRatio:0.85, minPixelRatio:0.5, antialias:false, shadows:false, shadowMapSize:256,
+  potato: { pixelRatio:1.25, minPixelRatio:0.8, antialias:false, shadows:false, shadowMapSize:256,
             shadowType:"Basic", useLambert:true, lightsPerRoom:1,
             waterAnimated:false, fogNear:25, fogFar:80, frameCap:30,
             skySegments:8, treeCount:20, envMap:false, tier:"low", potato:true },
-  low:    { pixelRatio:1, minPixelRatio:0.6, antialias:false, shadows:false, shadowMapSize:512,
+  low:    { pixelRatio:1.5, minPixelRatio:0.9, antialias:false, shadows:false, shadowMapSize:512,
             shadowType:"Basic", useLambert:true, lightsPerRoom:1,
             waterAnimated:false, fogNear:30, fogFar:90, frameCap:30,
             skySegments:12, treeCount:40, envMap:false },
-  medium: { pixelRatio:1, minPixelRatio:0.7, antialias:false, shadows:false, shadowMapSize:1024,
+  medium: { pixelRatio:2, minPixelRatio:1, antialias:false, shadows:false, shadowMapSize:1024,
             shadowType:"PCF", useLambert:true, lightsPerRoom:1,
             waterAnimated:true, fogNear:50, fogFar:150, frameCap:60,
             skySegments:20, treeCount:80, envMap:false },
-  high:   { pixelRatio:1.5, minPixelRatio:0.9, antialias:true, shadows:true, shadowMapSize:2048,
+  high:   { pixelRatio:2, minPixelRatio:1.25, antialias:true, shadows:true, shadowMapSize:2048,
             shadowType:"PCFSoft", useLambert:false, lightsPerRoom:1,
             waterAnimated:true, fogNear:70, fogFar:220, frameCap:60,
             skySegments:32, treeCount:130, envMap:true },

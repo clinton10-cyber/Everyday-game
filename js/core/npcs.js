@@ -14,6 +14,7 @@ import {
   SHOE_COLORS, ACCENT_COLORS, NPC_HAIR_STYLES as HAIR_STYLES, NPC_TOP_STYLES as TOP_STYLES,
   NPC_BOTTOM_STYLES as BOTTOM_STYLES, NPC_SHOE_STYLES as SHOE_STYLES, NPC_PATTERNS as PATTERNS, GENDERS,
   NPC_HAT_STYLES as HAT_STYLES, NPC_GLASS_STYLES as GLASS_STYLES, TIE_STYLES,
+  Wardrobe, withPlayerLook,
 } from "./wardrobe.js";
 import { buildCharacter } from "../characters/lowpoly.js";
 import * as Animator from "../characters/animator.js";
@@ -646,7 +647,7 @@ export const NPCs = {
       x = pushed[0]; z = pushed[1];
     }
 
-    const cfg = forcedConfig || uniformFor(role) || randomConfig();
+    const cfg = withPlayerLook(forcedConfig || uniformFor(role) || randomConfig());
     const built = buildCharacter(cfg);
     const group = built.root;
     const rig = built.rig;
@@ -689,6 +690,7 @@ export const NPCs = {
   /* ── lives helpers ── */
   _reskin(npc, cfg) {
     if (!_scene || !cfg || !npc.group) return;
+    withPlayerLook(cfg);
     const old = npc.group, built = buildCharacter(cfg), g = built.root;
     g.position.copy(old.position); g.rotation.copy(old.rotation); g.visible = old.visible;
     _scene.add(g);
@@ -1845,3 +1847,25 @@ export const NPCs = {
   },
 };
 window.__ph3d_npcsList = () => NPCs.list;
+
+/* When the player switches look (classic <-> faceted) in the wardrobe, re-skin the NPCs that
+   already exist, a few at a time so there is no hitch. New NPCs pick the look up in _build. */
+try {
+  let _lastLook = Wardrobe.config.look || "classic", _reskinQ = null;
+  Wardrobe.onChange((cfg) => {
+    const l = cfg.look || "classic";
+    if (l === _lastLook) return;
+    _lastLook = l;
+    _reskinQ = NPCs.list.filter(n => n && !n.dead && n._cfg && n.group);
+    const step = () => {
+      let k = 0;
+      while (_reskinQ && _reskinQ.length && k++ < 2) {
+        const n = _reskinQ.shift();
+        if (n.dead || n.state === "downed" || !n.group || !n.group.parent) continue;
+        try { NPCs._reskin(n, n._cfg); } catch (e) {}
+      }
+      if (_reskinQ && _reskinQ.length) setTimeout(step, 60);
+    };
+    step();
+  });
+} catch (e) {}

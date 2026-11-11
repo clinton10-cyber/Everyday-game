@@ -15,6 +15,7 @@
 
 import { Limp } from "../characters/limp.js";
 import { buildCharacter } from "../characters/lowpoly.js";
+import { withPlayerLook } from "./wardrobe.js";
 import * as Animator from "../characters/animator.js";
 import { WRESTLING_MOVES, victimEmoteName, EMOTE_SPEED, IMPACT_AT } from "../characters/wrestling.js";
 import { Combat } from "./combat.js";
@@ -81,7 +82,7 @@ function getPlayer() {
 function attach(p, three) {
   if (p.group && p.group.parent) p.group.parent.remove(p.group);
   disposeTree(p.group);
-  const built = buildCharacter(p.cfg);
+  const built = buildCharacter(withPlayerLook(p.cfg));
   p.group = built.root; p.rig = built.rig;
   const old = p.ctl;
   p.ctl = makeCtl(p.rig, old ? old.pos.x : 0, old ? old.pos.z : 0, old ? old.yaw : 0);

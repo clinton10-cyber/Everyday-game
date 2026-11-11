@@ -18,7 +18,7 @@ import * as THREE from "three";
 import { Lives } from "./npc-lives.js";
 import { buildCharacter, liveApplyConfig } from "../characters/lowpoly.js";
 import * as Animator from "../characters/animator.js";
-import { Wardrobe, SHIRT_COLORS } from "./wardrobe.js";
+import { Wardrobe, SHIRT_COLORS, withPlayerLook } from "./wardrobe.js";
 import { playerFree } from "./death-pose.js";
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -200,7 +200,7 @@ const _V = new THREE.Vector3();
 function rootOf(o) { while (o && o.parent) o = o.parent; return o; }
 
 function makeAvatar(p, tp) {
-  const cfg = cfgOf(p);
+  const cfg = withPlayerLook(cfgOf(p));
   const built = buildCharacter(cfg);
   const group = built.root, rig = built.rig;
   const sc = p.age < 17 ? clamp(0.38 + p.age * 0.036, 0.38, 1) : 1;

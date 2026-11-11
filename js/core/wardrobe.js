@@ -524,3 +524,10 @@ export const WARDROBE_TABS = [
       when: c => !!c.costume },
   ]},
 ];
+
+/* NPCs wear whatever look (classic / faceted) the player has chosen, so the whole
+   world matches. Their own outfits, colours and accessories stay random. */
+export function withPlayerLook(cfg) {
+  if (cfg && typeof cfg === "object") cfg.look = (Wardrobe.config && Wardrobe.config.look) || "classic";
+  return cfg;
+}

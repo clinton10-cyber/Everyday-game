@@ -21,6 +21,7 @@ import {
   NPC_HAT_STYLES as HAT_STYLES, NPC_GLASS_STYLES as GLASS_STYLES, TIE_STYLES,
 } from "./wardrobe.js";
 import { buildCharacter } from "../characters/lowpoly.js";
+import { withPlayerLook } from "./wardrobe.js";
 import * as Animator from "../characters/animator.js";
 
 const TAU = Math.PI * 2;
@@ -152,7 +153,7 @@ export function createPlaneNPCs(opts) {
   for (let i = 0; i < count; i++) {
     const p = spawnOne();
     if (!p) continue;
-    const built = buildCharacter(randomConfig());
+    const built = buildCharacter(withPlayerLook(randomConfig()));
     const group = built.root, rig = built.rig;
     const heading = rnd() < 0.5 ? 0 : Math.PI;
     group.position.set(p.x, floorY, p.z);

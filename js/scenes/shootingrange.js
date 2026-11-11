@@ -16,6 +16,7 @@ import { Multiplayer } from "../core/multiplayer.js";
 import { Gun } from "../core/guns.js";
 import { Limp } from "../characters/limp.js";
 import { buildCharacter } from "../characters/lowpoly.js";
+import { withPlayerLook } from "../core/wardrobe.js";
 import * as Animator from "../characters/animator.js";
 import { pickFall, poseFall, restY } from "../core/death-pose.js";
 
@@ -124,7 +125,7 @@ class TacticalEnemy {
     this.coverPos = null; this.flankPos = null; this._stuckT = 0; this._hiddenT = 0;
     this.skill = clamp(0.35 + wave * 0.05 + rnd() * 0.1, 0.35, 0.8);
 
-    const built = buildCharacter(cfg);
+    const built = buildCharacter(withPlayerLook(cfg));
     this.rig = built.rig; this.group = built.root;
     this.group.position.set(spawn.x, 0, spawn.z);
     game.three.add(this.group);
