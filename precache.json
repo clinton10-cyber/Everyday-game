@@ -483,6 +483,7 @@
 "js/scenes/zonedrive.js",
 "js/scenes/zonewalk.js",
 "js/ui/auth.js",
+"js/ui/game-keyboard.js",
 "js/ui/houses-panel.js",
 "js/ui/hud.js",
 "js/ui/hunt-confirm.js",

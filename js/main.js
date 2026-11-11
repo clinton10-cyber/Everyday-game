@@ -478,3 +478,16 @@ window.addEventListener("ph3d:player-dead", async () => {
   function start(){ setTimeout(idle, 4000); }
   if (document.readyState === "complete") start(); else window.addEventListener("load", start);
 })();
+
+/* Browser / installed-PWA only: go fullscreen on the first tap so the address bar and
+   notification area get out of the way. (The Android app does this natively.) */
+try {
+  const isApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (!isApp) {
+    const goFS = () => {
+      const el = document.documentElement;
+      if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    };
+    window.addEventListener("pointerup", goFS, { once: true, passive: true });
+  }
+} catch (e) {}

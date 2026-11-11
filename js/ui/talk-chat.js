@@ -11,6 +11,7 @@
 
 import { ChatBrain } from "../core/chat-brain.js";
 import { NpcMoney } from "../core/npc-money.js";
+import { GameKeyboard } from "./game-keyboard.js";
 
 const STORE_KEY = "ph3d.talkchat.v1";
 const CSS_ID    = "ph3d-talkchat-css";
@@ -24,8 +25,8 @@ function injectCSS() {
   s.textContent = `
     #tc-scrim{position:fixed;inset:0;z-index:9440;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .22s}
     #tc-scrim.on{opacity:1;pointer-events:auto}
-    #tc-sheet{position:fixed;left:50%;bottom:0;transform:translate(-50%,105%);
-      width:min(96vw,440px);height:min(88vh,720px);z-index:9441;background:#ECE5DD;
+    #tc-sheet{position:fixed;left:50%;bottom:var(--tc-kb,0px);transform:translate(-50%,105%);
+      width:min(96vw,440px);height:min(88vh,720px,calc(100vh - var(--tc-kb,0px) - 6px));z-index:9441;background:#ECE5DD;
       color:#000;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
       border-radius:20px 20px 0 0;overflow:hidden;display:flex;flex-direction:column;
       box-shadow:0 -20px 60px rgba(0,0,0,.8);transition:transform .32s cubic-bezier(.2,.9,.3,1.05);pointer-events:none}
@@ -89,7 +90,9 @@ function injectCSS() {
       padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 10px);background:#ECE5DD;
       border-top:1px solid rgba(0,0,0,.08)}
     #tc-input{flex:1;min-width:0;padding:10px 14px;border-radius:22px;border:none;background:#fff;
-      font:14px 'Inter',sans-serif;outline:none;color:#000}
+      font:14px 'Inter',sans-serif;outline:none;color:#000;line-height:20px;height:20px}
+    @media (max-height:520px){#tc-sheet.kb #tc-rel,#tc-sheet.kb #tc-quick,#tc-sheet.kb #tc-emoji-picker{display:none!important}
+      #tc-sheet.kb #tc-header{padding:5px 10px}#tc-sheet.kb #tc-input-bar{padding-bottom:6px}}
     .tc-icon-btn{width:40px;height:40px;flex-shrink:0;border-radius:50%;border:none;background:#fff;
       display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer}
     .tc-icon-btn:active{background:#ddd}
@@ -119,7 +122,7 @@ export const TalkChat = {
   _current: null,
   _history: {},
   _scrim: null, _sheet: null, _msgs: null, _quick: null,
-  _input: null, _picker: null,
+  _input: null, _kb: null, _picker: null,
   _relBar: null, _relNum: null, _relLbl: null,
   _typingEl: null, _emojiQuickEl: null, _dismiss: null,
 
@@ -153,7 +156,7 @@ export const TalkChat = {
         <div id="tc-emoji-picker"></div>
         <div id="tc-input-bar">
           <div class="tc-icon-btn" id="tc-emoji-btn">😊</div>
-          <input id="tc-input" placeholder="Message" autocomplete="off"/>
+          <div id="tc-input" data-placeholder="Message"></div>
           <button class="tc-icon-btn" id="tc-send">➤</button>
         </div>
       </div>
@@ -180,23 +183,25 @@ export const TalkChat = {
     root.querySelector("#tc-emoji-btn").onclick = () => this._picker.classList.toggle("on");
     root.querySelector("#tc-send").onclick = () => this._send();
 
-    /* The game listens for WASD / Space / E on window. Keep typing in the chat box
-       from also walking, jumping or interacting. */
-    this._input.addEventListener("keydown", (e) => {
-      e.stopPropagation();
-      if (e.key === "Enter") { e.preventDefault(); this._send(); }
-      else if (e.key === "Escape") this.close();
+    /* Custom in-game keyboard: the phone's system keyboard never opens, so the HUD and
+       landscape lock stay put. Hardware keys are kept away from WASD / Space / E too. */
+    this._kb = GameKeyboard.attach(this._input, {
+      maxLength: 200,
+      onSubmit: () => this._send(),
+      onEscape: () => this.close(),
+      onResize: (h) => {
+        this._sheet.style.setProperty("--tc-kb", h + "px");
+        this._sheet.classList.toggle("kb", h > 0);
+        if (h > 0) requestAnimationFrame(() => { this._msgs.scrollTop = this._msgs.scrollHeight; });
+      },
     });
-    this._input.addEventListener("keyup", (e) => e.stopPropagation());
+    this._msgs.addEventListener("pointerdown", () => this._kb && this._kb.close());
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && this._current) this.close(); });
 
     EMOJIS.forEach((em) => {
       const b = document.createElement("button"); b.textContent = em;
       b.onclick = () => {
-        const input = this._input;
-        const start = input.selectionStart != null ? input.selectionStart : input.value.length;
-        input.value = input.value.slice(0, start) + em + input.value.slice(start);
-        input.focus();
+        this._input.value = this._input.value + em;
       };
       this._picker.appendChild(b);
     });
@@ -222,6 +227,7 @@ export const TalkChat = {
     this._buildQuickActions(npc);
     this._scrim.classList.add("on");
     this._sheet.classList.add("on");
+    if (this._kb) this._kb.activate();
   },
 
   close() {
@@ -231,7 +237,8 @@ export const TalkChat = {
     this._picker.classList.remove("on");
     this._emojiQuickEl.classList.remove("on");
     this._showTyping(false);
-    try { this._input.blur(); } catch (e) {}
+    if (this._kb) this._kb.deactivate();
+    this._sheet.style.removeProperty("--tc-kb"); this._sheet.classList.remove("kb");
     this._current = null;
     this._save();
   },
