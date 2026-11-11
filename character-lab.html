@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Character Lab · faceted low-poly</title>
+<script async src="vendor/es-module-shims.js"></script>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script>
+<style>
+  :root{color-scheme:light}
+  html,body{margin:0;height:100%;background:#e4e7ec;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1d232b;overflow:hidden}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .lbl{position:fixed;bottom:2.2vh;font-weight:500;letter-spacing:.02em;font-size:clamp(11px,2.6vh,26px);transform:translateX(-50%);pointer-events:none;color:#14181e}
+  .sep{position:fixed;top:0;bottom:0;width:2px;background:#15181d;pointer-events:none}
+  #panel{position:fixed;top:8px;left:8px;z-index:5;max-width:min(330px,92vw);max-height:calc(100% - 16px);overflow:auto;
+    background:rgba(255,255,255,.94);border:1px solid #c9ced6;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:10px 12px;font-size:13px}
+  #panel h1{font-size:13px;letter-spacing:.14em;margin:0 0 8px;text-transform:uppercase}
+  #panel.min .body{display:none}
+  .row{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
+  .row>label{min-width:64px;color:#55606d;font-size:12px}
+  .pills{display:flex;gap:4px;flex-wrap:wrap}
+  .pills button,#panel select,#panel .btn{border:1px solid #b9c0ca;background:#f4f6f9;border-radius:9px;padding:6px 10px;font:inherit;color:inherit;cursor:pointer}
+  .pills button.on{background:#1f66c9;border-color:#1f66c9;color:#fff}
+  #panel input[type=range]{flex:1;min-width:110px}
+  #panel input[type=color]{width:34px;height:26px;border:1px solid #b9c0ca;border-radius:7px;padding:0;background:none}
+  .cols{display:flex;gap:8px;flex-wrap:wrap}
+  .cols label{display:flex;flex-direction:column;align-items:center;font-size:10px;color:#55606d;gap:2px}
+  #tog{float:right;border:0;background:none;font-size:16px;cursor:pointer}
+  body.noui #panel,body.noui .tip{display:none}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+<div id="panel"><button id="tog" title="hide / show">▾</button><h1>Character lab</h1><div class="body">
+  <div class="row"><label>Body</label><div class="pills" id="pBody"></div></div>
+  <div class="row"><label>Outfit</label><select id="sOutfit"></select></div>
+  <div class="row"><label>Dress</label><select id="sDress"></select></div>
+  <div class="row"><label>Length</label><input id="rLen" type="range" min="0.2" max="0.95" step="0.01"></div>
+  <div class="row"><label>Flare</label><input id="rFlare" type="range" min="0.5" max="1.8" step="0.01"></div>
+  <div class="row"><label>Pleats</label><input id="rPleat" type="range" min="0" max="24" step="1"></div>
+  <div class="row"><label>Hair</label><select id="sHair"></select></div>
+  <div class="row"><label>Shoes</label><select id="sShoe"></select></div>
+  <div class="row"><label>Build</label><input id="rBuild" type="range" min="-1" max="1" step="0.05"></div>
+  <div class="row"><label>Height</label><input id="rHeight" type="range" min="0.9" max="1.1" step="0.01"></div>
+  <div class="cols">
+    <label>Skin<input id="cSkin" type="color"></label><label>Hair<input id="cHair" type="color"></label>
+    <label>Top<input id="cTop" type="color"></label><label>Bottom<input id="cBottom" type="color"></label>
+    <label>Shoes<input id="cShoe" type="color"></label><label>Dress<input id="cDress" type="color"></label>
+  </div>
+  <div class="row"><label>View</label><div class="pills"><button id="vSheet" class="on">4-view sheet</button><button id="vOrbit">Orbit</button><button id="vWalk">Walk</button></div></div>
+  <div class="row"><button class="btn" id="bRand">Randomize</button></div>
+</div></div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { buildFaceted, applyFaceted, BODY_TYPES, DRESS_STYLES, HAIR_STYLES, SHOE_STYLES, DEFAULTS } from "./js/characters/faceted.js";
+
+const Q = new URLSearchParams(location.search);
+if (Q.get("ui") === "0") document.body.classList.add("noui");
+
+const OUTFITS = {
+  "Hoodie + trousers": { top: "hoodie", bottom: "pants" },
+  "T-shirt + jeans":   { top: "tshirt", bottom: "jeans" },
+  "Sweater + skirt":   { top: "sweater", bottom: "skirt" },
+  "Tank + shorts":     { top: "tank", bottom: "shorts" },
+  "Dress":             { top: "dress", bottom: "none" },
+};
+const S = Object.assign({}, DEFAULTS, {
+  dress: Object.assign({}, DEFAULTS.dress, { color: "#c2415a" }),
+  outfit: "Hoodie + trousers",
+});
+if (Q.get("body")) S.body = Q.get("body");
+if (Q.get("outfit")) S.outfit = Q.get("outfit");
+if (Q.get("dressStyle")) S.dress.style = Q.get("dressStyle");
+if (Q.get("hair")) S.hair = Q.get("hair");
+if (Q.get("hairColor")) S.hairColor = "#" + Q.get("hairColor");
+if (Q.get("topColor")) S.topColor = "#" + Q.get("topColor");
+if (Q.get("shoe")) S.shoeStyle = Q.get("shoe");
+if (Q.get("skin")) S.skin = "#" + Q.get("skin");
+if (Q.get("pleats")) S.dress.pleats = +Q.get("pleats");
+if (Q.get("length")) S.dress.length = +Q.get("length");
+if (Q.get("flare")) S.dress.flare = +Q.get("flare");
+if (Q.get("build")) S.build = +Q.get("build");
+let VIEW = Q.get("view") || "sheet", WALK = Q.get("walk") === "1";
+
+/* ── scene ── */
+const canvas = document.getElementById("gl");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdfe3e8);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xaab1bb, 1.35));
+const sun = new THREE.DirectionalLight(0xffffff, 1.15);
+sun.position.set(2.6, 5, 3.4); sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 3, bottom: -1, near: 1, far: 12 });
+sun.shadow.radius = 5; sun.shadow.bias = -0.0006;
+scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: 0.22 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+let ch = null;
+function opts() {
+  const of = OUTFITS[S.outfit] || OUTFITS["Hoodie + trousers"];
+  return {
+    body: S.body, build: S.build, height: S.height || 1, skin: S.skin, hair: S.hair, hairColor: S.hairColor,
+    top: of.top, bottom: of.bottom, topColor: of.top === "dress" ? S.dress.color : S.topColor,
+    bottomColor: S.bottomColor, shoeStyle: S.shoeStyle, shoeColor: S.shoeColor,
+    dress: S.dress,
+  };
+}
+function rebuild() {
+  if (ch) { scene.remove(ch.root); ch.root.traverse((n) => { if (n.geometry) n.geometry.dispose(); }); }
+  ch = buildFaceted(opts());
+  scene.add(ch.root);
+  for (const el of document.querySelectorAll("[data-sync]")) sync(el);
+}
+
+/* ── cameras / viewports ── */
+const VIEWS = [
+  { name: "FRONT VIEW",     pos: [0, 0.98, 5.4] },
+  { name: "BACK VIEW",      pos: [0, 0.98, -5.4] },
+  { name: "SIDE VIEW",      pos: [5.4, 0.98, 0] },
+  { name: "ISOMETRIC VIEW", pos: [3.7, 1.55, 3.9] },
+];
+const cams = VIEWS.map((v) => { const c = new THREE.PerspectiveCamera(26, 1, 0.1, 50); c.position.set(...v.pos); c.lookAt(0, 0.9, 0); return c; });
+const orbitCam = new THREE.PerspectiveCamera(30, 1, 0.1, 50); orbitCam.position.set(3.2, 1.5, 4.2);
+const orbit = new OrbitControls(orbitCam, canvas); orbit.target.set(0, 0.9, 0); orbit.enableDamping = true; orbit.update();
+
+const labelsEl = document.getElementById("labels");
+function layoutLabels() {
+  labelsEl.innerHTML = "";
+  if (VIEW !== "sheet") return;
+  const w = innerWidth, n = VIEWS.length;
+  VIEWS.forEach((v, i) => {
+    const l = document.createElement("div"); l.className = "lbl"; l.textContent = v.name; l.style.left = ((i + 0.5) / n * 100) + "%"; labelsEl.appendChild(l);
+    if (i) { const s = document.createElement("div"); s.className = "sep"; s.style.left = (i / n * 100) + "%"; labelsEl.appendChild(s); }
+  });
+}
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  layoutLabels();
+}
+addEventListener("resize", resize); resize();
+
+/* ── walk test: drives the same joints the game's Animator drives ── */
+let T0 = performance.now();
+function animate(t) {
+  const rig = ch && ch.rig;
+  if (rig) {
+    const s = (t - T0) / 1000, w = WALK ? 1 : 0;
+    const p = s * 5.2;
+    const swing = Math.sin(p) * 0.55 * w;
+    rig.legL.hip.rotation.x = swing;  rig.legR.hip.rotation.x = -swing;
+    rig.legL.knee.rotation.x = Math.max(0, -Math.sin(p)) * 0.9 * w;
+    rig.legR.knee.rotation.x = Math.max(0, Math.sin(p)) * 0.9 * w;
+    rig.armL.shoulder.rotation.x = -swing * 0.8;  rig.armR.shoulder.rotation.x = swing * 0.8;
+    rig.armL.elbow.rotation.x = -0.25 - 0.4 * w; rig.armR.elbow.rotation.x = -0.25 - 0.4 * w;
+    rig.armL.shoulder.rotation.z = 0.06; rig.armR.shoulder.rotation.z = -0.06;
+    rig.spine.rotation.y = Math.sin(p) * 0.08 * w;
+    rig.hips.position.y = 0.935 + Math.abs(Math.sin(p)) * 0.02 * w;
+    rig.head.rotation.y = Math.sin(s * 0.7) * 0.25 * (WALK ? 1 : 0);
+  }
+  const W = canvas.width, H = canvas.height;
+  renderer.setScissorTest(true);
+  if (VIEW === "sheet") {
+    const n = VIEWS.length, pw = Math.floor(W / n);
+    for (let i = 0; i < n; i++) {
+      renderer.setViewport(i * pw, 0, pw, H); renderer.setScissor(i * pw, 0, pw, H);
+      cams[i].aspect = pw / H; cams[i].updateProjectionMatrix();
+      renderer.render(scene, cams[i]);
+    }
+  } else {
+    orbit.update();
+    renderer.setViewport(0, 0, W, H); renderer.setScissor(0, 0, W, H);
+    orbitCam.aspect = W / H; orbitCam.updateProjectionMatrix();
+    renderer.render(scene, orbitCam);
+  }
+  requestAnimationFrame(animate);
+}
+
+/* ── UI ── */
+const $ = (id) => document.getElementById(id);
+function pills(el, list, get, set) {
+  el.innerHTML = "";
+  list.forEach((v) => { const b = document.createElement("button"); b.textContent = v; b.onclick = () => { set(v); upd(); rebuild(); }; b.dataset.v = v; el.appendChild(b); });
+  el._get = get;
+}
+function upd() { for (const b of $("pBody").children) b.classList.toggle("on", b.dataset.v === S.body); }
+function fill(sel, list, get, set) { sel.innerHTML = list.map((v) => `<option>${v}</option>`).join(""); sel.value = get(); sel.onchange = () => { set(sel.value); rebuild(); }; }
+pills($("pBody"), BODY_TYPES, () => S.body, (v) => (S.body = v));
+fill($("sOutfit"), Object.keys(OUTFITS), () => S.outfit, (v) => (S.outfit = v));
+fill($("sDress"), DRESS_STYLES, () => S.dress.style, (v) => { S.dress.style = v; S.dress.length = null; S.dress.pleats = 0; syncAll(); });
+fill($("sHair"), HAIR_STYLES, () => S.hair, (v) => (S.hair = v));
+fill($("sShoe"), SHOE_STYLES, () => S.shoeStyle, (v) => (S.shoeStyle = v));
+function rng(id, get, set) { const e = $(id); e.value = get(); e.oninput = () => { set(+e.value); rebuild(); }; }
+rng("rLen", () => S.dress.length || 0.62, (v) => (S.dress.length = v));
+rng("rFlare", () => S.dress.flare, (v) => (S.dress.flare = v));
+rng("rPleat", () => S.dress.pleats, (v) => (S.dress.pleats = v));
+rng("rBuild", () => S.build, (v) => (S.build = v));
+rng("rHeight", () => S.height || 1, (v) => (S.height = v));
+function col(id, get, set) { const e = $(id); e.value = get(); e.oninput = () => { set(e.value); rebuild(); }; }
+col("cSkin", () => S.skin, (v) => (S.skin = v)); col("cHair", () => S.hairColor, (v) => (S.hairColor = v));
+col("cTop", () => S.topColor, (v) => (S.topColor = v)); col("cBottom", () => S.bottomColor, (v) => (S.bottomColor = v));
+col("cShoe", () => S.shoeColor, (v) => (S.shoeColor = v)); col("cDress", () => S.dress.color, (v) => (S.dress.color = v));
+function syncAll() { $("rLen").value = S.dress.length || 0.62; $("rPleat").value = S.dress.pleats; }
+function sync() {}
+$("tog").onclick = () => { $("panel").classList.toggle("min"); $("tog").textContent = $("panel").classList.contains("min") ? "▸" : "▾"; };
+function setView(v) { VIEW = v; $("vSheet").classList.toggle("on", v === "sheet"); $("vOrbit").classList.toggle("on", v === "orbit"); layoutLabels(); }
+$("vSheet").onclick = () => setView("sheet"); $("vOrbit").onclick = () => setView("orbit");
+$("vWalk").onclick = () => { WALK = !WALK; $("vWalk").classList.toggle("on", WALK); };
+$("bRand").onclick = () => {
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const hsl = (h, s, l) => "#" + new THREE.Color().setHSL(h, s, l).getHexString();
+  S.body = pick(BODY_TYPES); S.outfit = pick(Object.keys(OUTFITS)); S.hair = pick(HAIR_STYLES); S.shoeStyle = pick(SHOE_STYLES);
+  S.skin = pick(["#f1c9a8", "#e0ac84", "#c68a60", "#9a6340", "#6b4128", "#4a2c1b"]);
+  S.hairColor = pick(["#1b1411", "#4a3426", "#7a5230", "#b08a4a", "#8a2f22", "#2b2b30"]);
+  S.topColor = hsl(Math.random(), 0.55, 0.5); S.bottomColor = hsl(Math.random(), 0.3, 0.45); S.shoeColor = hsl(Math.random(), 0.2, 0.3);
+  S.dress.style = pick(DRESS_STYLES); S.dress.color = hsl(Math.random(), 0.6, 0.5); S.dress.length = null; S.dress.pleats = 0;
+  ["pBody", "sOutfit", "sDress", "sHair", "sShoe"].forEach(() => {});
+  $("sOutfit").value = S.outfit; $("sDress").value = S.dress.style; $("sHair").value = S.hair; $("sShoe").value = S.shoeStyle;
+  $("cSkin").value = S.skin; $("cHair").value = S.hairColor; $("cTop").value = S.topColor; $("cBottom").value = S.bottomColor; $("cShoe").value = S.shoeColor; $("cDress").value = S.dress.color;
+  upd(); syncAll(); rebuild();
+};
+setView(VIEW); if (WALK) $("vWalk").classList.add("on");
+upd(); rebuild(); requestAnimationFrame(animate);
+window.__lab = { S, rebuild, get ch() { return ch; }, THREE };
+</script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import { buildTop, buildSleeves } from "./lp-tops.js";
 import { buildHair, buildBeard } from "./lp-hair.js";
 import { buildHat, buildGlasses, buildAccessories } from "./lp-extras.js";
 import { buildCostume, COSTUMES } from "./lp-costumes.js";
+import { buildFacetedInto } from "./faceted.js";
 
 export { HIP_HEIGHT, COSTUMES };
 
@@ -80,6 +81,8 @@ function disposeTree(node) {
 }
 
 function buildInto(root, rig, config, mats) {
+  /* optional faceted look (Body tab › Look). Classic stays the default. */
+  if (config.look === "faceted") { buildFacetedInto(root, rig, config, mats); return; }
   const M = mats;
   const B = measures(config);
   const female = B.female;

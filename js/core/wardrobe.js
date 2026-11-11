@@ -186,6 +186,7 @@ export function resolveColor(palette, v, fallback) {
 }
 
 const DEFAULT = {
+  look: "classic",
   gender: "neutral",
   build: 0,
   skinTone: 3,
@@ -459,6 +460,7 @@ export const Wardrobe = {
    ═══════════════════════════════════════════════════════════════ */
 export const WARDROBE_TABS = [
   { id: "body", label: "Body", groups: [
+    { label: "Look",        kind: "pills",  key: "look", options: ["classic", "faceted"] },
     { label: "Gender",      kind: "pills",  key: "gender", options: GENDERS },
     { label: "Skin tone",   kind: "color",  key: "skinTone", palette: SKIN_TONES },
     { label: "Build",       kind: "slider", key: "build", min: -1, max: 1, step: 0.05, lo: "Slim", hi: "Full" },
