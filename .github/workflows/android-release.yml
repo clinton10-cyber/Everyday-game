@@ -96,6 +96,12 @@ jobs:
           print("splash replaced in", len(files), "files")
           EOF
 
+      - name: Lock app to landscape
+        run: |
+          F=android/app/src/main/AndroidManifest.xml
+          grep -q 'android:screenOrientation' "$F" || sed -i '0,/<activity/s//<activity android:screenOrientation="sensorLandscape"/' "$F"
+          grep -n 'screenOrientation' "$F"
+
       - name: Set version from tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
