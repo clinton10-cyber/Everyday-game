@@ -120,6 +120,40 @@ function injectCSS() {
     .sr-card-price { font-size: 9px; font-weight: 700; letter-spacing: .04em; color: #ffd76a; margin-top: 4px; font-variant-numeric: tabular-nums; }
     .sr-card-owned-tag { font-size: 9px; font-weight: 900; letter-spacing: .14em; color: #7dff9b; margin-top: 4px; }
     .sr-card-active-tag { font-size: 9px; font-weight: 900; letter-spacing: .14em; color: #7dff9b; margin-top: 4px; text-shadow: 0 0 10px rgba(125,255,155,.8); }
+
+    /* Landscape phones and short windows: car on the left, controls in a right column */
+    @media (orientation: landscape) and (max-height: 560px) {
+      #ph3d-showroom-ui {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) clamp(250px, 44vw, 420px);
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
+        box-sizing: border-box;
+      }
+      .sr-title { grid-column: 1 / -1; grid-row: 1; padding-top: calc(env(safe-area-inset-top) + 6px); font-size: 9px; letter-spacing: .26em; }
+      .sr-title::after { margin-top: 4px; }
+      .sr-stage { grid-column: 1; grid-row: 2 / 4; }
+      .sr-custom {
+        grid-column: 2; grid-row: 2; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+        margin: 6px 8px 6px 0; padding: 9px 12px 10px; border-radius: 14px;
+        transform: none; transition: opacity .3s; scrollbar-width: none;
+      }
+      .sr-custom::-webkit-scrollbar { display: none; }
+      .sr-name { font-size: 13px; }
+      .sr-price { font-size: 12px; }
+      .sr-sub { margin-top: 2px; }
+      .sr-row-label { margin: 8px 0 4px; }
+      .sr-sw { width: 24px; height: 24px; }
+      .sr-actions { margin-top: 10px; }
+      .sr-btn { padding: 10px; }
+      .sr-grid-wrap { grid-column: 2; grid-row: 3; padding: 0 8px calc(env(safe-area-inset-bottom) + 6px) 0; }
+      .sr-card { min-width: 96px; padding: 7px 10px; }
+    }
+    @media (orientation: landscape) and (max-height: 360px) {
+      .sr-row-label { margin: 6px 0 3px; }
+      .sr-custom { padding: 7px 10px 8px; }
+      .sr-card { padding: 6px 8px; }
+    }
   `;
   document.head.appendChild(s);
 }
@@ -451,6 +485,22 @@ export async function showroomScene(params, router) {
   const onCtx = (e) => e.preventDefault();
   dom.addEventListener("contextmenu", onCtx);
 
+  /* Landscape: the controls sit in a right column, so shift the render left to keep the car centred in the free area. */
+  function applyLayout() {
+    const w = innerWidth, h = innerHeight;
+    const side = w > h && h <= 560;
+    const wrap = ui.querySelector(".sr-grid-wrap");
+    const colW = side && wrap ? wrap.getBoundingClientRect().width + 8 : 0;
+    camera.aspect = w / h;
+    if (side && colW > 0 && colW < w * 0.7) camera.setViewOffset(w, h, colW / 2, 0, w, h);
+    else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
+  }
+  const onLayout = () => { applyLayout(); setTimeout(applyLayout, 250); };
+  window.addEventListener("resize", onLayout);
+  window.addEventListener("orientationchange", onLayout);
+  applyLayout();
+
   const startModel = (State.vehicle && State.vehicle.model) || "gwagon";
   const startCar = CARS.find(c => c.id === startModel) || CARS[0];
   selectCar(startCar);
@@ -518,6 +568,9 @@ export async function showroomScene(params, router) {
       dom.removeEventListener("pointerup", onPU);
       dom.removeEventListener("pointercancel", onPU);
       dom.removeEventListener("contextmenu", onCtx);
+      window.removeEventListener("resize", onLayout);
+      window.removeEventListener("orientationchange", onLayout);
+      try { camera.clearViewOffset(); } catch (e) {}
       try { if (_cur) { _cur.pause(); _cur = null; } } catch (e) {}
       disposeGroup(carRoot);
       try { ui.remove(); } catch (e) {}

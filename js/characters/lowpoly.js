@@ -76,13 +76,37 @@ export function liveApplyConfig(root, rig, config) {
   return true;
 }
 
+/* Faceted look: the classic head props (hat, glasses, beard, ears, bag, mask) and
+   the costume pieces are authored for the classic head, so they hang off an adapter
+   group that matches the faceted head's size and height. */
+function buildFacetedExtras(rig, config, M) {
+  if (!rig.head || !rig.spine || !rig.hips) return;
+  const hs = (rig.measures && rig.measures.headScale) || 1.24;
+  const adapter = new THREE.Group();
+  adapter.scale.set(1 / hs, 1.18 / hs, 1 / hs);
+  adapter.position.y = 0.055;
+  rig.head.add(adapter);
+  const B = measures(config);
+  try {
+    buildBeard(config, M, adapter, B);
+    buildGlasses(config.glasses, M, adapter);
+    buildHat(config.hat, M, adapter, config);
+    buildAccessories(config, M, { head: adapter, neck: rig.neck, spine: rig.spine, hips: rig.hips, B });
+    buildCostume(config, M, adapter, rig.spine, rig.hips, B);
+  } catch (e) { console.warn("[faceted extras]", e); }
+}
+
 function disposeTree(node) {
   node.traverse(o => { if (o.geometry) o.geometry.dispose(); });
 }
 
 function buildInto(root, rig, config, mats) {
   /* optional faceted look (Body tab › Look). Classic stays the default. */
-  if (config.look === "faceted") { buildFacetedInto(root, rig, config, mats); return; }
+  if (config.look === "faceted") {
+    buildFacetedInto(root, rig, config, mats);
+    buildFacetedExtras(rig, config, mats);
+    return;
+  }
   const M = mats;
   const B = measures(config);
   const female = B.female;

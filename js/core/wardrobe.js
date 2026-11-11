@@ -100,6 +100,7 @@ export const EAR_STYLES    = ["studs","hoops","drops","headphones"];
 export const WRIST_STYLES  = ["watch","band","bangles","bracelet"];
 export const BAG_STYLES    = ["backpack","satchel","sling"];
 export const MASK_STYLES   = ["surgical","bandana"];
+export const DRESS_SHAPES  = ["auto","aline","skater","maxi","ball","pencil","tulip","pleated","handkerchief"];
 
 /* Costumes. P / S = default primary / secondary colour (the player can
    recolour both). outfit = clothing the costume puts on the body ("P" / "S"
@@ -196,6 +197,7 @@ const DEFAULT = {
   hairColor: 1,
   beard: null,
   topStyle: "tshirt",
+  dressStyle: "auto",
   topColor: 0,
   topPattern: "solid",
   topAccent: 0,
@@ -478,6 +480,8 @@ export const WARDROBE_TABS = [
     { label: "Colour",      kind: "color",  key: "topColor", palette: SHIRT_COLORS },
     { label: "Pattern",     kind: "pills",  key: "topPattern", options: PATTERNS },
     { label: "Accent / trim", kind: "color", key: "topAccent", palette: ACCENT_COLORS },
+    { label: "Dress shape", kind: "pills",  key: "dressStyle", options: DRESS_SHAPES,
+      when: c => c.look === "faceted" && c.topStyle === "dress" },
     { label: "Tie",         kind: "pills",  key: "tie", options: TIE_STYLES, when: c => c.topStyle === "suit" },
     { label: "Tie colour",  kind: "color",  key: "tieColor", palette: SHIRT_COLORS, auto: "Auto",
       when: c => c.topStyle === "suit" && c.tie && c.tie !== "none" },
@@ -485,6 +489,8 @@ export const WARDROBE_TABS = [
   { id: "bottom", label: "Bottom", groups: [
     { label: "Style",       kind: "pills",  key: "bottomStyle", options: BOTTOM_STYLES,
       note: c => ONE_PIECE_TOPS.includes(c.topStyle) ? "Your dress covers the bottoms — pick another top to show them." : "" },
+    { label: "Skirt shape", kind: "pills",  key: "dressStyle", options: DRESS_SHAPES,
+      when: c => c.look === "faceted" && (c.bottomStyle === "skirt" || c.bottomStyle === "miniskirt") && c.topStyle !== "dress" },
     { label: "Colour",      kind: "color",  key: "bottomColor", palette: BOTTOM_COLORS },
     { label: "Pattern",     kind: "pills",  key: "bottomPattern", options: PATTERNS },
     { label: "Accent / trim", kind: "color", key: "bottomAccent", palette: ACCENT_COLORS },

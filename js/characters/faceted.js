@@ -387,13 +387,26 @@ export function skirtRings(style, o, B) {
 
 /* ── clothing: torso shells, sleeves, hood ──────────────────────────── */
 const TOPS = {
-  /*            ease   sleeve (upper,lower lengths)  hem band   notes */
+  /*            ease   sleeve (upper,lower lengths)  hem band   notes
+     hem  = y of the lower edge (default just under the waist)   top = y of the upper edge */
   hoodie:     { ease: 0.020, up: 0.27, lo: 0.25, cuff: true, hood: true, pocket: true, hemBand: 0.018 },
   sweater:    { ease: 0.020, up: 0.27, lo: 0.25, cuff: true, collar: "crew", hemBand: 0.016 },
   longsleeve: { ease: 0.012, up: 0.27, lo: 0.25, cuff: false, collar: "crew" },
   tshirt:     { ease: 0.012, up: 0.15, lo: 0.00, cuff: false, collar: "crew" },
   vneck:      { ease: 0.010, up: 0.14, lo: 0.00, cuff: false, collar: "v" },
   tank:       { ease: 0.008, up: 0.00, lo: 0.00, cuff: false, collar: "scoop", tank: true },
+  jacket:     { ease: 0.028, up: 0.27, lo: 0.25, cuff: true, collar: "crew", hemBand: 0.012, placket: true, pocket: true },
+  bomber:     { ease: 0.030, up: 0.27, lo: 0.25, cuff: true, collar: "crew", hemBand: 0.024, placket: true, hem: 0.00 },
+  suit:       { ease: 0.022, up: 0.27, lo: 0.25, cuff: false, collar: "v", lapel: true, hem: -0.10 },
+  polo:       { ease: 0.012, up: 0.15, lo: 0.00, cuff: false, collar: "crew", placket: true },
+  jersey:     { ease: 0.016, up: 0.10, lo: 0.00, cuff: false, collar: "v", hem: -0.06 },
+  croptop:    { ease: 0.008, up: 0.14, lo: 0.00, cuff: false, collar: "scoop", hem: 0.16 },
+  turtleneck: { ease: 0.014, up: 0.27, lo: 0.25, cuff: false, collar: "turtle" },
+  singlet:    { ease: 0.008, up: 0.00, lo: 0.00, cuff: false, collar: "scoop", tank: true, hem: -0.04 },
+  tube:       { ease: 0.008, up: 0.00, lo: 0.00, cuff: false, tank: true, strapless: true, topY: 0.30 },
+  dashiki:    { ease: 0.026, up: 0.15, lo: 0.00, cuff: false, collar: "crew", hem: -0.16, flare: 0.6, trim: true },
+  kaftan:     { ease: 0.030, up: 0.27, lo: 0.25, cuff: false, collar: "crew", hem: -0.30, flare: 0.9 },
+  agbada:     { ease: 0.046, up: 0.27, lo: 0.25, cuff: false, collar: "crew", hem: -0.36, flare: 1.2, wide: 0.034, trim: true },
 };
 export const TOP_STYLES = [...Object.keys(TOPS), "dress", "none"];
 
@@ -422,13 +435,19 @@ function buildTopShell(rig, B, M, o, T) {
   if (style === "none" || style === "dress") return;
   const S = TOPS[style] || TOPS.tshirt;
   const e = S.ease;
-  const y0 = S.tank ? 0.00 : -0.02;
-  const y1 = S.tank ? 0.33 : T_Y1;
+  const y0 = S.hem !== undefined ? S.hem : (S.tank ? 0.00 : -0.02);
+  const y1 = S.topY !== undefined ? S.topY : (S.tank ? 0.33 : T_Y1);
   const rr = [];
-  const n = 11;
+  const n = y0 < -0.05 ? 14 : 11;
+  const hipW = B.pelvRx[2] + 0.016, hipD = B.pelvRz[2] + 0.016;
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1), y = lerp(y0, y1, t), tt = (y - T_Y0) / (T_Y1 - T_Y0);
     let w = spline(B.torsoRx, tt) + e, d = spline(B.torsoRz, tt) + e;
+    if (y < -0.02) {                       /* below the waist: cover the hips, optionally flare */
+      const k = clamp((-0.02 - y) / 0.34, 0, 1);
+      w = Math.max(w, hipW * lerp(0.94, 1, k)) * (1 + 0.20 * (S.flare || 0) * k);
+      d = Math.max(d, hipD * lerp(0.94, 1, k)) * (1 + 0.14 * (S.flare || 0) * k);
+    }
     if (i === 0 && S.hemBand) { w += S.hemBand; d += S.hemBand; }
     if (i === 1 && S.hemBand) { w += S.hemBand * 0.4; d += S.hemBand * 0.4; }
     rr.push({ y, t, rx: w, rz: d, cx: 0, cz: 0 });
@@ -438,7 +457,7 @@ function buildTopShell(rig, B, M, o, T) {
     skip: S.tank ? null : null });
   mesh(shell, M.top, spine);
   /* closed top for tanks: straps */
-  if (S.tank) {
+  if (S.tank && !S.strapless) {
     for (const sd of [-1, 1]) {
       const st = mesh(boxGeo(0.040, 0.090, 0.020), M.top, spine, (B.shoulderX - 0.070) * sd, 0.352, 0.0);
       st.rotation.z = 0.10 * sd;
@@ -460,6 +479,24 @@ function buildTopShell(rig, B, M, o, T) {
   } else if (S.collar === "crew") {
     const ring = mesh(new THREE.TorusGeometry(neckR + 0.014, 0.012, 5, 9).toNonIndexed(), M.topD, spine, 0, 0.432, 0.004);
     ring.geometry.computeVertexNormals(); ring.rotation.x = Math.PI / 2 - 0.22;
+  } else if (S.collar === "turtle") {
+    mesh(loft([
+      { y: 0.405, t: 0, rx: neckR + 0.026, rz: neckR + 0.026, cx: 0, cz: 0.004 },
+      { y: 0.470, t: 1, rx: neckR + 0.020, rz: neckR + 0.020, cx: 0, cz: 0.004 },
+    ], { seg: 8, caps: false }), M.topD, spine);
+  }
+  if (S.lapel) {
+    for (const sd of [-1, 1]) {
+      const lp = mesh(boxGeo(0.044, 0.150, 0.012), M.topD, spine, 0.050 * sd, 0.330, spline(B.torsoRz, 0.78) + 0.014);
+      lp.rotation.z = -0.38 * sd; lp.rotation.x = -0.10;
+    }
+  }
+  if (S.placket) {
+    mesh(boxGeo(0.016, 0.300, 0.010), M.topD, spine, 0, 0.250, spline(B.torsoRz, 0.58) + 0.010);
+  }
+  if (S.trim) {
+    const zb = spline(B.torsoRz, 0.62) + 0.012;
+    mesh(boxGeo(0.090, 0.200, 0.008), M.topD, spine, 0, 0.300, zb);
   }
   if (S.pocket) {
     const p = mesh(boxGeo(0.170, 0.070, 0.020), M.topD, spine, 0, 0.075, spline(B.torsoRz, 0.17) + 0.016);
@@ -469,7 +506,7 @@ function buildTopShell(rig, B, M, o, T) {
 
 function buildSleeve(group, B, M, o, side, which, S) {
   /* which: "up" (in shoulder group, y 0 → -0.27)  | "lo" (in elbow group, y 0 → -0.25) */
-  const e = S.ease * 0.55 + 0.004;
+  const e = S.ease * 0.55 + 0.004 + (S.wide || 0) * (which === "lo" ? 1.2 : 0.7);
   if (which === "up") {
     const len = Math.min(0.27, S.up);
     if (len <= 0) return;
@@ -550,6 +587,9 @@ const BOTTOMS = {
   pants:    { kind: "pants",  ease: 0.020, hem: 0.000, taper: 1.00 },
   jeans:    { kind: "pants",  ease: 0.018, hem: 0.000, taper: 0.96 },
   baggy:    { kind: "pants",  ease: 0.034, hem: 0.000, taper: 1.30 },
+  tracksuit:{ kind: "pants",  ease: 0.022, hem: 0.000, taper: 1.02 },
+  cargo:    { kind: "pants",  ease: 0.028, hem: 0.000, taper: 1.10 },
+  palazzo:  { kind: "pants",  ease: 0.046, hem: 0.000, taper: 1.62 },
   leggings: { kind: "pants",  ease: 0.004, hem: 0.000, taper: 0.94 },
   shorts:   { kind: "shorts", ease: 0.016, len: 0.24 },
   bermuda:  { kind: "shorts", ease: 0.020, len: 0.38 },
@@ -753,11 +793,11 @@ function buildInto(root, rig, o, ext) {
 
 /* convenience: map the game's Wardrobe config onto faceted options (used by the
    optional "Faceted" look in lowpoly.js). Unknown styles fall back to the nearest. */
-const TOP_MAP = { tshirt: "tshirt", longsleeve: "longsleeve", hoodie: "hoodie", tank: "tank", singlet: "tank", vneck: "vneck",
-  sweater: "sweater", turtleneck: "sweater", polo: "tshirt", jersey: "tshirt", croptop: "tank", tube: "tank", jacket: "hoodie",
-  bomber: "hoodie", suit: "longsleeve", dashiki: "tshirt", kaftan: "longsleeve", agbada: "longsleeve", dress: "dress" };
-const BOTTOM_MAP = { jeans: "jeans", shorts: "shorts", tracksuit: "pants", baggy: "baggy", cargo: "pants", bermuda: "bermuda",
-  leggings: "leggings", skirt: "skirt", miniskirt: "skirt", palazzo: "baggy" };
+const TOP_MAP = { tshirt: "tshirt", longsleeve: "longsleeve", hoodie: "hoodie", tank: "tank", singlet: "singlet", vneck: "vneck",
+  sweater: "sweater", turtleneck: "turtleneck", polo: "polo", jersey: "jersey", croptop: "croptop", tube: "tube", jacket: "jacket",
+  bomber: "bomber", suit: "suit", dashiki: "dashiki", kaftan: "kaftan", agbada: "agbada", dress: "dress" };
+const BOTTOM_MAP = { jeans: "jeans", shorts: "shorts", tracksuit: "tracksuit", baggy: "baggy", cargo: "cargo", bermuda: "bermuda",
+  leggings: "leggings", skirt: "skirt", miniskirt: "skirt", palazzo: "palazzo" };
 const SHOE_MAP = { sneakers: "sneaker", hightops: "sneaker", cleats: "sneaker", boots: "boot", wellies: "boot", formal: "formal",
   loafers: "formal", heels: "heels", barefoot: "barefoot", sandals: "barefoot", slippers: "barefoot", flipflops: "barefoot" };
 const HAIR_MAP = { short: "short", buzz: "buzz", curly: "afro", long: "long", ponytail: "ponytail", bald: "bald", afro: "afro", bun: "bun",
@@ -767,7 +807,11 @@ export function facetedOptionsFromConfig(cfg, colors) {
   const body = cfg.gender === "masculine" ? "male" : cfg.gender === "feminine" ? "female" : "neutral";
   const top = TOP_MAP[cfg.topStyle] || "tshirt";
   const bs = cfg.bottomStyle;
-  const skirtStyle = bs === "miniskirt" ? { style: "skater", length: 0.28 } : bs === "skirt" ? { style: "aline", length: 0.50 } : { style: "aline" };
+  const ds = cfg.dressStyle && cfg.dressStyle !== "auto" && DRESS_STYLES.includes(cfg.dressStyle) ? cfg.dressStyle : null;
+  const skirtStyle = ds ? { style: ds }
+    : bs === "miniskirt" ? { style: "skater", length: 0.28 }
+    : bs === "skirt" ? { style: "aline", length: 0.50 }
+    : { style: "aline" };
   return Object.assign({
     body, build: cfg.build || 0,
     hair: HAIR_MAP[cfg.hairStyle] || "short",
