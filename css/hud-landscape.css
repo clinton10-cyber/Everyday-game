@@ -1,78 +1,96 @@
 /* ════════════════════════════════════════════════════════════════
-   HUD · LANDSCAPE · GTA-style layout (loaded after hud.css)
+   HUD · LANDSCAPE · "console" layout (loaded after hud.css)
 
-     ┌──────────────────────────────────────────────────────────┐
-     │ [card hp] [home][menu]        ◂ banner ▸      [bag][₦ $] │  top row
-     │                                                  ★★★     │  wanted
-     │                                        [ctx ][ctx ]      │  prompts, grow
-     │                                        [ctx ][ctx ]      │  left in columns
-     │ (  joystick  )  state/ammo     [item row]  [Moves][Jump] │  bottom row
-     └──────────────────────────────────────────────────────────┘
+   Fixed lanes, so nothing can sit on top of anything else:
 
-   Nothing here moves a control to a new zone; it only re-lays the same
-   six zones for a wide, short screen so they can never overlap.
+     ┌────────────────────────────────────────────────────────────┐
+     │ ┌card────────┐          · banner ·       [★★★]  [bag][₦ $]  │
+     │ └────────────┘                                              │
+     │ [⌂ │ ≡ │ ♪ │ ⚙]                                            │
+     │                                              [chip][chip][chip]
+     │                                              [chip][chip][chip]
+     │ (  joystick  ) │ items │                     [dock][ jump ]  │
+     │                │ ammo  │                                     │
+     │                │ state │                                     │
+     └────────────────────────────────────────────────────────────┘
+      LEFT LANE         CENTRE LANE                   RIGHT LANE
+
+   • left lane   : player card + system capsule (top), joystick (bottom)
+   • centre lane : top = banner/toasts, bottom = state · ammo · held items
+                   (three fixed slots stacked upward, never share a row)
+   • right lane  : money/bag (top), action chips in a 3-wide block that
+                   grows UP from the thumb buttons, jump + dock (bottom)
    ════════════════════════════════════════════════════════════════ */
 @media (orientation:landscape){
   :root{
     --h-top:calc(env(safe-area-inset-top,0px) + 8px);
     --h-left:calc(env(safe-area-inset-left,0px) + 14px);
     --h-right:calc(env(safe-area-inset-right,0px) + 14px);
-    --h-bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
+    --h-bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
     --h-banner-top:calc(env(safe-area-inset-top,0px) + 8px);
-    --row-h:58px;
-    --stack-bottom:calc(var(--h-bottom) + var(--row-h) + 12px);
+    --row-h:54px;
+    --chip-w:104px;
+    --chip-h:32px;
+    --joy:150px;
+    --ctx-cols:3;
+    --lane-l:calc(var(--h-left) + var(--joy) + 10px);          /* centre lane starts after the joystick */
+    --stack-bottom:calc(var(--h-bottom) + var(--row-h) + 10px);
     --dk-gap:calc(var(--h-bottom) + 4px);
   }
 
-  /* ── top-left: compact player card, system buttons beside it ── */
-  #hud-tl{flex-direction:row!important;align-items:flex-start!important;gap:8px!important;
-    max-width:calc(50vw - var(--h-left) - 60px)!important}
-  #hud-rail{order:2;flex-wrap:nowrap!important;gap:6px!important}
-  #player-panel{padding:5px 10px 5px 5px!important;border-radius:14px!important;gap:8px!important}
+  /* ── LEFT LANE · top: player card, then the system capsule under it ── */
+  #hud-tl{flex-direction:column!important;align-items:flex-start!important;gap:6px!important;max-width:none!important}
+  #player-panel{padding:4px 12px 4px 4px!important;border-radius:14px!important;gap:8px!important}
   #pp-face{width:34px!important;height:34px!important;border-radius:10px!important}
-  .pp-name{font-size:12px!important;max-width:86px!important}
+  .pp-name{font-size:12px!important;max-width:84px!important}
   .pp-info{gap:4px!important}
-  .pp-hp-bar{min-width:56px!important;height:6px!important}
-  .pp-stats,.pp-meters{display:none!important}   /* keep the card small; health stays */
-  .h-rail{min-width:34px!important;height:34px!important;line-height:34px!important;border-radius:11px!important}
+  .pp-hp-bar{min-width:60px!important;height:5px!important}
+  .pp-stats,.pp-meters{display:none!important}
+  #hud-rail{order:2;display:inline-flex!important;flex-wrap:nowrap!important;gap:0!important;padding:3px!important;
+    border-radius:14px;background:var(--h-glass);border:1px solid var(--h-line);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 6px 18px rgba(0,0,0,.32)}
+  .h-rail{min-width:34px!important;height:30px!important;line-height:30px!important;border-radius:10px!important;
+    background:transparent!important;border:0!important;box-shadow:none!important}
   .h-rail:not(.h-labelled){width:34px!important}
-  .h-rail::before{width:17px!important;height:17px!important}
-  .h-rail.h-labelled{padding:0 10px 0 8px!important;font-size:12px!important}
+  .h-rail::before{width:16px!important;height:16px!important}
+  .h-rail.h-labelled{padding:0 10px 0 8px!important;font-size:11.5px!important}
+  .h-rail+.h-rail{box-shadow:inset 1px 0 0 var(--h-line)!important}
 
-  /* ── top-right: money like GTA, bag beside it ── */
-  #hud-tr{flex-direction:row-reverse!important;align-items:center!important;gap:8px!important}
-  .h-chip,.h-wallet,#ph3d-pocket-btn{height:32px!important;border-radius:10px!important}
-  .tpill.h-wallet .tamt{font-size:15px!important;font-weight:900!important;letter-spacing:.02em}
-  #ph3d-wanted{top:calc(env(safe-area-inset-top,0px) + 48px)!important;right:var(--h-right)!important}
+  /* ── RIGHT LANE · top: wallet + bag in one row, stars underneath ── */
+  #hud-tr{flex-direction:row-reverse!important;align-items:center!important;gap:6px!important}
+  .h-chip,.h-wallet,#ph3d-pocket-btn{height:30px!important;border-radius:10px!important}
+  .tpill.h-wallet .tamt{font-size:14px!important;font-weight:900!important}
+  #ph3d-wanted{top:calc(env(safe-area-inset-top,0px) + 44px)!important;right:var(--h-right)!important}
 
-  /* ── top-centre banner (speed, wave, jail timer, combo) + toasts under it ── */
-  #drive-hud,#ph3d-wave,#ph3d-prison-hud,#pc-combo{padding:5px 12px!important;font-size:12px!important}
-  .ttoast{top:calc(env(safe-area-inset-top,0px) + 46px)!important;padding:8px 14px!important;font-size:12px!important;max-width:44vw}
+  /* ── CENTRE LANE · top: banner + toasts (kept narrow, between the two corners) ── */
+  #drive-hud,#ph3d-wave,#ph3d-prison-hud,#pc-combo{padding:5px 12px!important;font-size:12px!important;max-width:min(34vw,300px)!important}
+  .ttoast{top:calc(env(safe-area-inset-top,0px) + 44px)!important;padding:7px 12px!important;font-size:12px!important;max-width:min(34vw,300px)!important}
 
-  /* ── bottom-left: joystick, with the state / ammo readout to its right ── */
-  #hud-bl{left:calc(var(--h-left) + 150px)!important;bottom:calc(var(--h-bottom) + 56px)!important}
-  #ph3d-gun-hud{left:calc(var(--h-left) + 150px)!important;right:auto!important;bottom:var(--h-bottom)!important;padding:6px 10px!important}
-  #ph3d-gun-ammo{font-size:18px!important}
+  /* ── CENTRE LANE · bottom: three fixed slots stacked upward ── */
+  #hud-bl{left:var(--lane-l)!important;bottom:var(--h-bottom)!important;max-width:calc(100vw - var(--lane-l) - var(--h-right) - var(--chip-w)*var(--ctx-cols) - 24px)!important}
+  #ph3d-gun-hud{left:var(--lane-l)!important;right:auto!important;bottom:calc(var(--h-bottom) + 32px)!important;padding:5px 10px!important}
+  #ph3d-gun-ammo{font-size:17px!important}
+  #hud-item{left:var(--lane-l)!important;right:auto!important;bottom:calc(var(--h-bottom) + 82px)!important;transform:none!important;
+    flex-direction:column!important;align-items:flex-start!important;gap:6px!important}
 
-  /* ── right thumb zone ── */
+  /* ── RIGHT LANE · action chips: a 3-wide block growing UP from the thumb buttons ── */
+  #hud-ctx{left:auto!important;right:var(--h-right)!important;bottom:var(--stack-bottom)!important;
+    width:calc(var(--chip-w)*var(--ctx-cols) + (var(--ctx-cols) - 1)*6px)!important;max-width:none!important;max-height:none!important;
+    flex-direction:row-reverse!important;flex-wrap:wrap-reverse!important;justify-content:flex-start!important;
+    align-items:flex-end!important;align-content:flex-start!important;gap:6px!important}
+  .h-ctx{width:var(--chip-w)!important;height:var(--chip-h)!important;min-height:0!important;line-height:var(--chip-h)!important;
+    padding:0 8px!important;font-size:11.5px!important;border-radius:10px!important;
+    white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;text-align:left}
+  .h-ctx.h-lead::before{margin-right:.4em!important}
+
+  /* ── RIGHT LANE · bottom: jump + dock, same spots every scene ── */
   #hud-pad{width:var(--row-h)!important;height:var(--row-h)!important;right:var(--h-right)!important;bottom:var(--h-bottom)!important}
   .h-jump{width:var(--row-h)!important;height:var(--row-h)!important}
-  .h-fire{width:72px!important;height:72px!important;right:-6px!important;bottom:-8px!important}
-  #hud-dockbtn{width:46px!important;height:46px!important;right:calc(var(--h-right) + var(--row-h) + 12px)!important;bottom:calc(var(--h-bottom) + 6px)!important}
-  #hud-dock{right:calc(var(--h-right) + var(--row-h) + 70px)!important;bottom:var(--h-bottom)!important;width:236px!important;
+  .h-fire{width:62px!important;height:62px!important;right:calc(var(--row-h) + 64px)!important;bottom:-4px!important}
+  .h-reload{width:46px!important;height:46px!important;right:calc(var(--row-h) + 134px)!important;bottom:4px!important}
+  #hud-dockbtn{width:44px!important;height:44px!important;right:calc(var(--h-right) + var(--row-h) + 10px)!important;bottom:calc(var(--h-bottom) + 5px)!important}
+  #hud-dock{right:calc(var(--h-right) + var(--row-h) + 64px)!important;bottom:var(--h-bottom)!important;width:236px!important;
     max-height:calc(100vh - var(--h-top) - var(--h-bottom) - 12px)!important;overflow-y:auto!important;z-index:5}
-
-  /* prompts: columns that grow leftwards instead of one tall stack */
-  #hud-ctx{right:var(--h-right)!important;bottom:var(--stack-bottom)!important;
-    flex-direction:column-reverse!important;flex-wrap:wrap-reverse!important;align-content:flex-start!important;
-    gap:6px 8px!important;max-height:calc(100vh - var(--stack-bottom) - 96px)!important;max-width:calc(60vw)}
-  .h-ctx{width:128px!important;min-height:36px!important;line-height:36px!important;padding:0 10px!important;
-    font-size:12px!important;border-radius:13px!important}
-  .h-ctx.h-lead::before{margin-right:.45em!important}
-
-  /* held-item actions: a row at the bottom centre, never over the prompts */
-  #hud-item{left:50%!important;right:auto!important;bottom:var(--h-bottom)!important;transform:translateX(-50%)!important;
-    flex-direction:row!important;gap:8px!important}
 
   /* driving: pedals left, steering right, both inside the thumb zones */
   #dr-left-container,#dr-right-container{padding:4px!important}
@@ -97,11 +115,13 @@
   .tphone .tnotch{margin:6px auto 2px!important;height:24px!important;width:96px!important}
 }
 
-/* very short landscape screens (small phones) */
+/* wider phones / tablets: a 4-wide chip block keeps it shorter */
+@media (orientation:landscape) and (min-width:800px){ :root{--ctx-cols:4} }
+
+/* very short landscape screens (small phones): slightly smaller chips, same lanes */
 @media (orientation:landscape) and (max-height:380px){
-  :root{--row-h:52px}
-  .h-ctx{width:116px!important;min-height:32px!important;line-height:32px!important;font-size:11.5px!important}
-  #hud-ctx{max-height:calc(100vh - var(--stack-bottom) - 80px)!important}
+  :root{--row-h:50px;--chip-w:100px;--chip-h:30px;--joy:140px}
+  .h-ctx{font-size:11px!important}
   .pp-hp-num{display:none}
 }
 
