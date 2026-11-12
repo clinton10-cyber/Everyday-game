@@ -1,12 +1,12 @@
 {
   "name": "portharcourt3d",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "scripts": {
     "start": "npx --yes serve . -l 8080",
     "py": "python3 -m http.server 8080",
     "desktop": "electron .",
-    "dist": "electron-builder --win nsis portable"
+    "dist": "electron-builder --win nsis portable --publish never"
   },
   "main": "electron-main.cjs",
   "devDependencies": {
