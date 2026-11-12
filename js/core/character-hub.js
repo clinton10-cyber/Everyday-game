@@ -18,6 +18,7 @@
    • Camera auto-frames the character for portrait screens.
    ============================================================ */
 
+import { GameKeyboard } from "../ui/game-keyboard.js";
 import * as THREE from "three";
 import { Quality } from "./quality.js";
 import { Wardrobe, WARDROBE_TABS, COSTUME_INFO, resolveColor } from "./wardrobe.js";
@@ -707,6 +708,103 @@ function injectCSS() {
       .tb-drag-hint { bottom: 14%; }
     }
 
+
+    /* name field (game keyboard) */
+    .tb-name-field {
+      flex: 1; min-width: 0;
+      background: transparent; border: none; border-bottom: 1px solid var(--ink);
+      color: var(--ink); font-family: var(--serif); font-style: italic;
+      font-size: 20px; font-weight: 500; padding: 2px 0 4px; line-height: 1.25; height: 1.25em;
+    }
+    .tb-name-field.gk-empty::before { color: var(--ink-faint) !important; }
+    /* typing: everything else steps aside so the name slip sits right above the keyboard */
+    #ph3d-hub.tb-typing .tb-tabs, #ph3d-hub.tb-typing .tb-rack,
+    #ph3d-hub.tb-typing .tb-stamps, #ph3d-hub.tb-typing .tb-drag-hint { opacity: 0; pointer-events: none; }
+    #ph3d-hub.tb-typing .tb-slip {
+      left: 50%; right: auto; transform: translateX(-50%);
+      width: min(360px, calc(100vw - 32px));
+      bottom: calc(var(--tb-kb, 0px) + 10px); z-index: 8;
+    }
+
+    /* ══ LANDSCAPE PHONE: tabs left · character middle · options panel right ══ */
+    @media (orientation: landscape) and (max-height: 520px) {
+      #ph3d-hub { --tb-lw: 118px; --tb-rw: min(40vw, 300px); }
+      .tb-masthead {
+        top: calc(env(safe-area-inset-top) + 6px);
+        left: calc(env(safe-area-inset-left) + 14px);
+        right: calc(env(safe-area-inset-right) + 14px);
+        align-items: center;
+      }
+      .tb-mast-left { display: flex; align-items: baseline; gap: 10px; }
+      .tb-mast-title { font-size: 20px; }
+      .tb-mast-rule { display: none; }
+      .tb-mast-sub { margin: 0; font-size: 8px; letter-spacing: 0.22em; }
+      .tb-close { padding: 6px 11px; }
+      .tb-help { width: 28px; height: 28px; font-size: 14px; }
+
+      /* tabs: compact vertical list in the left column */
+      .tb-tabs {
+        top: 40px; bottom: calc(env(safe-area-inset-bottom) + 84px);
+        left: calc(env(safe-area-inset-left) + 8px); right: auto;
+        width: var(--tb-lw);
+        transform: none; flex-direction: column; gap: 0;
+        padding: 0 6px 0 0; overflow-x: hidden; overflow-y: auto;
+        border-bottom: none; border-right: 1px solid var(--rule);
+      }
+      .tb-tab {
+        padding: 8px 6px 8px 9px; font-size: 9px; letter-spacing: 0.12em;
+        border-bottom: none; border-left: 2px solid transparent; margin: 0; width: 100%;
+        display: flex; align-items: center; justify-content: space-between; gap: 4px;
+      }
+      .tb-tab.on { border-bottom-color: transparent; border-left-color: var(--accent); }
+
+      /* character: tall mirror centred between the columns */
+      .tb-mirror-frame {
+        left: var(--tb-cx, 50%); top: 40px; bottom: auto;
+        height: calc(100vh - 96px); width: auto; aspect-ratio: 0.5; max-height: none; max-width: none;
+        transform: translateX(-50%);
+        transition: left 0.24s ease;
+      }
+      .tb-mirror-frame::before { top: 28px; } .tb-mirror-frame::after { bottom: 28px; }
+      .tb-drag-hint { left: var(--tb-cx, 50%); bottom: 52px; transition: left 0.24s ease, opacity 0.4s ease; }
+
+      /* stamps: a row under the character */
+      .tb-stamps {
+        left: var(--tb-cx, 50%); right: auto; top: auto;
+        bottom: calc(env(safe-area-inset-bottom) + 8px);
+        transform: translateX(-50%); flex-direction: row; gap: 7px;
+        transition: left 0.24s ease, opacity 0.2s ease;
+      }
+      .tb-stamp { width: 38px; height: 38px; }
+
+      /* name slip: bottom of the left column */
+      .tb-slip {
+        left: calc(env(safe-area-inset-left) + 8px); transform: none;
+        bottom: calc(env(safe-area-inset-bottom) + 8px);
+        width: var(--tb-lw); padding: 6px 8px 7px;
+      }
+      .tb-slip-row { flex-direction: column; gap: 5px; }
+      .tb-slip-row .tb-name-field { font-size: 14px; }
+      .tb-save { align-self: flex-start; padding: 5px 10px; font-size: 8px; }
+
+      /* options: a side panel (not a bottom sheet) so you always see the character */
+      .tb-rack {
+        top: 40px; bottom: 8px; right: calc(env(safe-area-inset-right) + 8px); left: auto;
+        width: var(--tb-rw); max-height: none; height: auto;
+        transform: translateX(calc(100% + 24px)); opacity: 1;
+        border-top: none; border-left: 1px solid var(--ink); border-radius: 0;
+        padding: 4px 10px 10px 14px; z-index: 4;
+      }
+      .tb-rack.on { transform: translateX(0); }
+      .tb-rack-handle { display: none; }
+      .tb-rack-head { padding-bottom: 6px; }
+      .tb-rack-title { font-size: 15px; }
+      .tb-group { margin-bottom: 12px; }
+      #ph3d-hub.tb-rack-open .tb-slip, #ph3d-hub.tb-rack-open .tb-stamps { opacity: 1; pointer-events: auto; }
+      #ph3d-hub.tb-typing .tb-tabs, #ph3d-hub.tb-typing .tb-rack,
+      #ph3d-hub.tb-typing .tb-stamps, #ph3d-hub.tb-typing .tb-drag-hint { opacity: 0; pointer-events: none; }
+    }
+
     /* Smallest phones */
     @media (max-width: 380px) {
       .tb-mast-title { font-size: 21px; }
@@ -798,6 +896,7 @@ export class CharacterHub {
     this.visible = true;
     this._dom.root.classList.add("on");
     this._resize();
+    requestAnimationFrame(() => this._layout());
     this._rebuildAvatar();
     this._rebuildCar();
     this._startLoop();
@@ -814,10 +913,11 @@ export class CharacterHub {
 
   close() {
     this.visible = false;
+    if (this._nameKb) this._nameKb.deactivate();
     this._stopLoop();
     if (this._dom && this._dom.root) {
       this._dom.root.classList.remove("on");
-      this._dom.root.classList.remove("tb-rack-open");
+      this._dom.root.classList.remove("tb-rack-open", "tb-typing");
       this._dom.rack.classList.remove("on");
       this._dom.root.querySelectorAll(".tb-tab").forEach(b => b.classList.remove("on"));
     }
@@ -867,7 +967,7 @@ export class CharacterHub {
       <div class="tb-slip">
         <div class="tb-slip-lbl">Name on the order</div>
         <div class="tb-slip-row">
-          <input id="tb-name" type="text" maxlength="16" placeholder="your name" autocomplete="off"/>
+          <div id="tb-name" class="tb-name-field" data-placeholder="your name"></div>
           <button class="tb-save" id="tb-save">Save</button>
         </div>
       </div>
@@ -901,7 +1001,7 @@ export class CharacterHub {
     /* three.js */
     const lowTier = Quality.current && Quality.current.tier === "low";
     this.renderer = new THREE.WebGLRenderer({ canvas: this._dom.canvas, antialias: !lowTier, alpha: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowTier ? 1 : 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowTier ? 1.5 : 2));
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color("#ece4d2");
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
@@ -947,7 +1047,13 @@ export class CharacterHub {
       nameInput.blur();
     };
     root.querySelector("#tb-save").onclick = saveName;
-    nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") saveName(); });
+    /* the game's own keyboard — the system keyboard never opens, so the hub never jumps around */
+    this._nameKb = GameKeyboard.attach(nameInput, {
+      maxLength: 16,
+      onSubmit: saveName,
+      onEscape: () => this.close(),
+      onResize: (h) => { root.style.setProperty("--tb-kb", h + "px"); root.classList.toggle("tb-typing", h > 0); this._layout(); },
+    });
 
     /* Drag to rotate */
     const cv = this._dom.canvas;
@@ -979,6 +1085,30 @@ export class CharacterHub {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this._adjustCamera();
+    this._layout();
+  }
+
+  /* Landscape phones: tabs left · character middle · options panel right. The character is nudged
+     (camera view offset) so it stays centred in the free space between the two columns. */
+  _isLand() { return window.innerWidth > window.innerHeight && window.innerHeight <= 520; }
+  _layout() {
+    if (!this._dom || !this._dom.root) return;
+    const root = this._dom.root, W = window.innerWidth;
+    if (!this._isLand()) { root.style.removeProperty("--tb-cx"); this._viewTarget = 0; return; }
+    const tr = this._dom.tabs.getBoundingClientRect();
+    const left = tr.right + 8;
+    const open = root.classList.contains("tb-rack-open");
+    const right = open ? this._dom.rack.offsetLeft - 8 : W - 12;
+    const cx = Math.round((left + right) / 2);
+    root.style.setProperty("--tb-cx", cx + "px");
+    this._viewTarget = W / 2 - cx;
+  }
+  _stepView(dt) {
+    const tgt = this._viewTarget || 0;
+    this._viewCur = (this._viewCur || 0) + (tgt - (this._viewCur || 0)) * Math.min(1, dt * 9);
+    const W = window.innerWidth, H = window.innerHeight;
+    if (Math.abs(this._viewCur) > 0.4) this.camera.setViewOffset(W, H, this._viewCur, 0, W, H);
+    else if (this.camera.view && this.camera.view.enabled) this.camera.clearViewOffset();
   }
 
   _adjustCamera() {
@@ -1015,6 +1145,7 @@ export class CharacterHub {
       root.classList.remove("tb-rack-open");
       root.querySelectorAll(".tb-tab").forEach(b => b.classList.remove("on"));
       rack.classList.remove("on");
+      this._layout();
       return;
     }
     this._activeCategory = catId;
@@ -1024,6 +1155,7 @@ export class CharacterHub {
     this._renderRack(catId, cat.label);
     rack.classList.add("on");
     root.classList.add("tb-rack-open");
+    this._layout();
   }
 
   _renderRack(catId, title) {
@@ -1476,6 +1608,7 @@ export class CharacterHub {
       const dt = Math.min(0.05, (t - this._lastT) / 1000);
       this._lastT = t;
       if (!this.visible) return;
+      this._stepView(dt);
 
       const tier = Quality.current.tier;
       const cap = tier === "low" ? 30 : tier === "medium" ? 45 : 60;
