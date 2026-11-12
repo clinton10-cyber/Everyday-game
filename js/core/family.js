@@ -18,7 +18,12 @@ import * as THREE from "three";
 import { Lives } from "./npc-lives.js";
 import { buildCharacter, liveApplyConfig } from "../characters/lowpoly.js";
 import * as Animator from "../characters/animator.js";
-import { Wardrobe, SHIRT_COLORS, withPlayerLook } from "./wardrobe.js";
+import {
+  Wardrobe, SHIRT_COLORS, withPlayerLook,
+  TOP_STYLES, BOTTOM_STYLES, SHOE_STYLES, PATTERNS, DRESS_SHAPES, HAT_STYLES, GLASS_STYLES,
+  NECK_STYLES, EAR_STYLES, WRIST_STYLES, BAG_STYLES, TIE_STYLES,
+  BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, GEAR_COLORS,
+} from "./wardrobe.js";
 import { playerFree } from "./death-pose.js";
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -389,39 +394,208 @@ function css() {
   if (document.getElementById("fam-css")) return;
   const s = document.createElement("style"); s.id = "fam-css";
   s.textContent = `
-#fam-panel{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);transform:translateX(-50%);z-index:9600;width:min(94vw,430px);max-height:70vh;overflow:auto;background:rgba(10,16,13,.97);border:1px solid rgba(255,122,168,.45);border-radius:18px;color:#eaf6ff;font:600 13px Inter,system-ui,sans-serif;box-shadow:0 16px 40px rgba(0,0,0,.6);padding:12px 14px}
-#fam-panel h3{margin:0 0 8px;font:900 16px Inter,system-ui,sans-serif;display:flex;justify-content:space-between;align-items:center}
-#fam-panel .row{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
-#fam-panel button{border:1px solid #ffffff33;background:#1c2b24;color:#fff;border-radius:10px;padding:8px 10px;font:700 12px Inter,system-ui,sans-serif;touch-action:manipulation}
+#fam-panel{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);transform:translateX(-50%);z-index:9600;width:min(94vw,470px);max-height:72vh;display:flex;flex-direction:column;background:rgba(10,16,13,.97);border:1px solid rgba(255,122,168,.45);border-radius:16px;padding:10px 12px 12px;color:#fff;font-family:Inter,system-ui,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+#fam-panel h3{margin:0 0 6px;display:flex;align-items:center;gap:10px;flex:none}
+#fam-panel h3 .t{flex:1;font:900 16px Inter,system-ui,sans-serif;display:flex;flex-direction:column;line-height:1.15}
+#fam-panel h3 .t small{font:600 11px Inter,system-ui,sans-serif;opacity:.65}
+#fam-panel h3 .pv{display:flex;flex-direction:column;gap:2px}
+#fam-panel h3 .pv i{display:block;width:26px;height:9px;border-radius:5px;border:1px solid #fff3}
+#fam-panel .row{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0}
+#fam-panel .row.tabs,#fam-panel .row.who{flex-wrap:nowrap;overflow-x:auto;flex:none;scrollbar-width:none}
+#fam-panel .row.tabs::-webkit-scrollbar,#fam-panel .row.who::-webkit-scrollbar{display:none}
+#fam-panel .body{overflow-y:auto;flex:1;min-height:0;-webkit-overflow-scrolling:touch;padding-top:2px}
+#fam-panel .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:6px 0}
+#fam-panel button{border:1px solid #ffffff33;background:#1c2b24;color:#fff;border-radius:10px;padding:8px 10px;font:700 12px Inter,system-ui,sans-serif;touch-action:manipulation;white-space:nowrap}
 #fam-panel button.on{border-color:#ff7aa8;background:#5a2a40}
-#fam-panel .sw{width:30px;height:30px;padding:0;border-radius:50%}
-#fam-panel .lbl{opacity:.7;font-size:11px;margin-top:8px;letter-spacing:.06em;text-transform:uppercase}`;
+#fam-panel .card{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px;white-space:normal;text-align:center;line-height:1.15;font-size:11px}
+#fam-panel .card .ic{font-size:22px}
+#fam-panel .chip.wide{flex:1}
+#fam-panel .sw{width:30px;height:30px;padding:0;border-radius:50%;flex:none}
+#fam-panel .sw.on{outline:2px solid #fff;outline-offset:1px}
+#fam-panel .lbl{opacity:.7;font-size:11px;margin-top:8px;letter-spacing:.06em;text-transform:uppercase}
+#fam-panel .hint{opacity:.55;font-size:11px;margin:2px 0}
+@media (max-height:520px){#fam-panel{left:auto;right:8px;bottom:8px;transform:none;width:min(52vw,460px);max-height:calc(100vh - 16px)}#fam-panel .grid{grid-template-columns:repeat(4,1fr)}}`;
+
   document.head.appendChild(s);
 }
 function closeDress() { if (panel) { panel.remove(); panel = null; } }
+
+/* ── dress & formal-wear catalogue ───────────────────────────────
+   Each entry is a complete look. accessories use { style, color } (colour = index into the gear / shirt palettes). */
+const DRESSES = [
+  { id: "lbd",      icon: "🖤", name: "Little black",   v: { topStyle: "dress", dressStyle: "pencil", topColor: "#111827", topPattern: "solid", shoeStyle: "heels", neck: { style: "pearls", color: 1 } } },
+  { id: "redparty", icon: "❤️", name: "Red party",      v: { topStyle: "dress", dressStyle: "skater", topColor: "#dc2626", topPattern: "solid", shoeStyle: "heels", ears: { style: "hoops", color: 3 } } },
+  { id: "sundress", icon: "🌻", name: "Sundress",       v: { topStyle: "dress", dressStyle: "aline", topColor: "#fbbf24", topPattern: "dots", topAccent: "#ffffff", shoeStyle: "sandals" } },
+  { id: "maxi",     icon: "🌿", name: "Maxi",           v: { topStyle: "dress", dressStyle: "maxi", topColor: "#0f766e", topPattern: "solid", shoeStyle: "sandals", wrist: { style: "bangles", color: 3 } } },
+  { id: "ankara",   icon: "🧵", name: "Ankara gown",    v: { topStyle: "dress", dressStyle: "aline", topColor: "#e84a5f", topPattern: "ankara", topAccent: "#fbbf24", shoeStyle: "heels", hat: { style: "gele", color: 3 } } },
+  { id: "kente",    icon: "👑", name: "Kente ball gown",v: { topStyle: "dress", dressStyle: "ball", topColor: "#f59e0b", topPattern: "kente", topAccent: "#16a34a", shoeStyle: "heels", neck: { style: "beads", color: 3 } } },
+  { id: "church",   icon: "⛪", name: "Church white",   v: { topStyle: "dress", dressStyle: "maxi", topColor: "#f5f5f4", topPattern: "solid", shoeStyle: "sandals", hat: { style: "headscarf", color: 5 } } },
+  { id: "office",   icon: "💼", name: "Office pleated", v: { topStyle: "dress", dressStyle: "pleated", topColor: "#3a5a7a", topPattern: "solid", shoeStyle: "heels" } },
+  { id: "tulip",    icon: "🌷", name: "Pink tulip",     v: { topStyle: "dress", dressStyle: "tulip", topColor: "#ec4899", topPattern: "solid", shoeStyle: "heels" } },
+  { id: "hanky",    icon: "🦋", name: "Handkerchief",   v: { topStyle: "dress", dressStyle: "handkerchief", topColor: "#7c3aed", topPattern: "solid", shoeStyle: "heels" } },
+  { id: "wedding",  icon: "💍", name: "Wedding gown",   v: { topStyle: "dress", dressStyle: "ball", topColor: "#ffffff", topPattern: "solid", shoeStyle: "heels", neck: { style: "pearls", color: 1 }, ears: { style: "drops", color: 2 } } },
+  { id: "gala",     icon: "✨", name: "Gala maxi",      v: { topStyle: "dress", dressStyle: "maxi", topColor: "#7f1d1d", topPattern: "solid", shoeStyle: "heels", ears: { style: "drops", color: 3 }, wrist: { style: "bangles", color: 3 } } },
+  { id: "stripe",   icon: "🎀", name: "Striped skater", v: { topStyle: "dress", dressStyle: "skater", topColor: "#3a7bd5", topPattern: "stripes-h", topAccent: "#ffffff", shoeStyle: "sneakers" } },
+  { id: "beach",    icon: "🏖", name: "Beach dress",    v: { topStyle: "dress", dressStyle: "skater", topColor: "#14b8a6", topPattern: "solid", shoeStyle: "flipflops", glasses: { style: "shades", color: 0 } } },
+  { id: "princess", icon: "👸", name: "Princess",       v: { topStyle: "dress", dressStyle: "ball", topColor: "#f9a8d4", topPattern: "solid", shoeStyle: "sandals", hat: { style: "crown", color: 3 } }, kidOnly: true },
+];
+const FORMAL = [
+  { id: "suit",    icon: "🤵", name: "Suit & tie",   v: { topStyle: "suit", tie: "classic", topColor: "#1e293b", topPattern: "solid", bottomStyle: "baggy", bottomColor: "#1e293b", shoeStyle: "formal" } },
+  { id: "tux",     icon: "🎩", name: "Tuxedo",       v: { topStyle: "suit", tie: "bow", topColor: "#111827", topPattern: "solid", bottomStyle: "baggy", bottomColor: "#111827", shoeStyle: "formal" } },
+  { id: "agbada",  icon: "🧵", name: "Agbada",       v: { topStyle: "agbada", topColor: "#f5f5f4", topPattern: "solid", topAccent: "#d4af37", bottomStyle: "baggy", bottomColor: "#f3e9d2", shoeStyle: "formal", hat: { style: "fila", color: 5 } } },
+  { id: "dashiki", icon: "🌍", name: "Dashiki",      v: { topStyle: "dashiki", topColor: "#16a34a", topPattern: "dots", topAccent: "#ffffff", bottomStyle: "baggy", bottomColor: "#f5f5f4", shoeStyle: "sandals" } },
+  { id: "kaftan",  icon: "🕌", name: "Kaftan",       v: { topStyle: "kaftan", topColor: "#1e3a8a", topPattern: "solid", bottomStyle: "baggy", bottomColor: "#1e3a8a", shoeStyle: "formal" } },
+  { id: "blazer",  icon: "🧥", name: "Blazer",       v: { topStyle: "jacket", topColor: "#1e293b", topPattern: "solid", bottomStyle: "jeans", bottomColor: "#3a5a7a", shoeStyle: "loafers" } },
+  { id: "polo",    icon: "👔", name: "Smart polo",   v: { topStyle: "polo", topColor: "#f0f0f0", topPattern: "solid", bottomStyle: "cargo", bottomColor: "#111827", shoeStyle: "loafers" } },
+  { id: "beachm",  icon: "🏖", name: "Beach",        v: { topStyle: "singlet", topColor: "#0ea5e9", topPattern: "solid", bottomStyle: "bermuda", bottomColor: "#f5f5f4", shoeStyle: "flipflops" } },
+];
+const BY_ID = Object.fromEntries(DRESSES.concat(FORMAL).map((d) => [d.id, d]));
+/* one-tap sets for the whole family: [mum/woman, man, girl, boy] */
+const FAMILY_SETS = [
+  { id: "church",  icon: "⛪", label: "Church Sunday", f: "church",   m: "agbada", g: "church",   b: "dashiki" },
+  { id: "wedding", icon: "💍", label: "Wedding day",   f: "wedding",  m: "tux",    g: "princess", b: "suit" },
+  { id: "party",   icon: "🎉", label: "Party night",   f: "redparty", m: "blazer", g: "stripe",   b: "polo" },
+  { id: "gala",    icon: "✨", label: "Gala",          f: "gala",     m: "suit",   g: "tulip",    b: "suit" },
+  { id: "beach",   icon: "🏖", label: "Beach day",     f: "beach",    m: "beachm", g: "beach",    b: "beachm" },
+  { id: "ankara",  icon: "🧵", label: "Ankara & traditional", f: "ankara", m: "agbada", g: "ankara", b: "dashiki" },
+];
+const GIRLISH = (p) => p.g === "feminine";
+const LABELS = { dress: "Dress", tube: "Tube top", croptop: "Crop top", vneck: "V-neck", longsleeve: "Long sleeve", tshirt: "T-shirt", hoodie: "Hoodie", tank: "Tank", jacket: "Jacket", singlet: "Singlet",
+  suit: "Suit", polo: "Polo", sweater: "Sweater", turtleneck: "Turtleneck", bomber: "Bomber", jersey: "Jersey", dashiki: "Dashiki", kaftan: "Kaftan", agbada: "Agbada",
+  jeans: "Jeans", shorts: "Shorts", tracksuit: "Tracksuit", baggy: "Baggy", cargo: "Cargo", bermuda: "Bermuda", leggings: "Leggings", skirt: "Skirt", miniskirt: "Mini skirt", palazzo: "Palazzo",
+  aline: "A-line", skater: "Skater", maxi: "Maxi", ball: "Ball gown", pencil: "Pencil", tulip: "Tulip", pleated: "Pleated", handkerchief: "Handkerchief", auto: "Auto",
+  "stripes-h": "Stripes ↔", "stripes-v": "Stripes ↕", checkers: "Checkers", plaid: "Plaid", camo: "Camo", ankara: "Ankara", kente: "Kente", solid: "Plain", dots: "Dots", gradient: "Gradient" };
+const lab = (k) => { k = String(k || ""); return LABELS[k] || (k.charAt(0).toUpperCase() + k.slice(1)); };
+const isKid = (p) => p.age < 17;
+
+/* apply a ready-made look to one person (kids don't wear heels; adults-only pieces are skipped for kids) */
+function applyLook(p, entry, opts = {}) {
+  const cfg = cfgOf(p);
+  const v = JSON.parse(JSON.stringify(entry.v));
+  if (isKid(p) && v.shoeStyle === "heels") v.shoeStyle = "sandals";
+  cfg.hat = null; cfg.neck = null; cfg.ears = null; cfg.wrist = null; cfg.glasses = cfg.glasses && opts.keepGlasses ? cfg.glasses : null; cfg.tie = "none";
+  Object.assign(cfg, v);
+  p.outfit = Object.assign({}, p.outfit, { key: "custom", name: entry.name, auto: false, topColor: null });
+  refreshLook(p); Lives.save();
+  if (!opts.silent) toast(entry.icon + " " + first(p.name) + " is wearing " + entry.name.toLowerCase());
+}
+function setField(p, field, value) {
+  const cfg = cfgOf(p);
+  cfg[field] = value;
+  p.outfit = Object.assign({}, p.outfit, { key: "custom", name: "Your mix", auto: false });
+  refreshLook(p); Lives.save();
+}
+function setAcc(p, field, style) {
+  const cfg = cfgOf(p), prev = cfg[field];
+  setField(p, field, style ? { style, color: prev && prev.color != null ? prev.color : 3 } : null);
+}
+function setAccColor(p, field, idx) { const cfg = cfgOf(p); if (cfg[field]) setField(p, field, { style: cfg[field].style, color: idx }); }
+
+function dressTheFamily(setId) {
+  const set = FAMILY_SETS.find((x) => x.id === setId); if (!set) return;
+  for (const { p } of members()) {
+    const key = isKid(p) ? (GIRLISH(p) ? set.g : set.b) : (GIRLISH(p) ? set.f : set.m);
+    const e = BY_ID[key]; if (e) applyLook(p, e, { silent: true });
+  }
+  toast(set.icon + " The family is dressed for: " + set.label.toLowerCase());
+}
+function matchColour(hex) {
+  for (const { p } of members()) setField(p, "topColor", hex);
+  toast("🎨 Everyone's top is now the same colour");
+}
+
+let dressTab = "outfits";
+const TABS = [["outfits", "✨ Outfits"], ["dresses", "👗 Dresses"], ["tops", "👕 Tops"], ["bottoms", "👖 Bottoms"], ["shoes", "👟 Shoes"], ["extras", "🎩 Extras"], ["colours", "🎨 Colours"], ["family", "👨‍👩‍👧 Family"]];
+
 function openDress(id) {
   const list = members(); if (!list.length) { toast("You have no spouse or children to dress yet"); return; }
-  css(); closeDress();
-  const m = list.find((x) => x.p.id === id) || list[0]; panelWho = m.p.id;
-  const p = m.p, o = p.outfit || {};
-  panel = document.createElement("div"); panel.id = "fam-panel";
+  css();
+  const keepScroll = panel ? panel.querySelector(".body").scrollTop : 0;
+  closeDress();
+  const m = list.find((x) => x.p.id === id) || list.find((x) => x.p.id === panelWho) || list[0]; panelWho = m.p.id;
+  const p = m.p, cfg = cfgOf(p), o = p.outfit || {};
+  const fem = GIRLISH(p), kid = isKid(p);
+  const dressTabLabel = fem ? "👗 Dresses" : "🤵 Formal";
   const who = list.map((x) => `<button data-w="${x.p.id}" class="${x.p.id === p.id ? "on" : ""}">${x.role === "spouse" ? "💍" : "👶"} ${first(x.p.name)}</button>`).join("");
-  const outs = Object.keys(OUTFITS).map((k) => `<button data-o="${k}" class="${o.key === k && o.auto === false ? "on" : ""}">${OUTFITS[k].icon} ${OUTFITS[k].label}</button>`).join("");
-  const sws = SWATCHES.map((c) => `<button class="sw ${o.topColor === c ? "on" : ""}" data-c="${c}" style="background:${c}"></button>`).join("");
-  panel.innerHTML = `<h3><span>👗 Dress ${first(p.name)}</span><button data-x="1">✕</button></h3>
-    <div class="row">${who}</div>
-    <div class="lbl">Outfit</div><div class="row">${outs}</div>
-    <div class="lbl">Top colour</div><div class="row">${sws}</div>
-    <div class="row"><button data-auto="1" class="${o.auto !== false ? "on" : ""}">✨ Auto — changes for the place &amp; time</button></div>`;
+  const tabs = TABS.map(([k, l]) => `<button data-t="${k}" class="${dressTab === k ? "on" : ""}">${k === "dresses" ? dressTabLabel : l}</button>`).join("");
+  const card = (attr, e, on) => `<button class="card ${on ? "on" : ""}" ${attr}><span class="ic">${e.icon}</span><span>${e.name}</span></button>`;
+  const chip = (attr, label, on) => `<button class="chip ${on ? "on" : ""}" ${attr}>${label}</button>`;
+  const swatch = (attr, c, on) => `<button class="sw ${on ? "on" : ""}" ${attr} style="background:${c}"></button>`;
+  const hexOf = (v, list2) => (typeof v === "number" ? list2[v] : v);
+  let body = "";
+
+  if (dressTab === "outfits") {
+    body += `<div class="lbl">Ready-made outfits</div><div class="grid">` +
+      Object.keys(OUTFITS).map((k) => card(`data-o="${k}"`, { icon: OUTFITS[k].icon, name: OUTFITS[k].label }, o.key === k && o.auto === false)).join("") + `</div>` +
+      `<div class="row"><button data-auto="1" class="chip wide ${o.auto !== false ? "on" : ""}">✨ Auto — changes for the place &amp; time</button></div>`;
+  } else if (dressTab === "dresses") {
+    const cat = fem ? DRESSES.filter((d) => !d.kidOnly || kid) : FORMAL;
+    body += `<div class="lbl">${fem ? "Choose a dress" : "Formal &amp; traditional"}</div><div class="grid">` +
+      cat.map((d) => card(`data-l="${d.id}"`, d, o.name === d.name && o.auto === false)).join("") + `</div>`;
+    if (fem) body += `<div class="lbl">Dress shape</div><div class="row">` + DRESS_SHAPES.map((sh) => chip(`data-f="dressStyle:${sh}"`, lab(sh), (cfg.dressStyle || "auto") === sh)).join("") + `</div>` +
+      `<div class="hint">Shapes show best in the Faceted look.</div>`;
+  } else if (dressTab === "tops") {
+    const tops = TOP_STYLES.filter((t) => fem || t !== "dress");
+    body += `<div class="lbl">Top</div><div class="row">` + tops.map((t) => chip(`data-f="topStyle:${t}"`, lab(t), cfg.topStyle === t)).join("") + `</div>`;
+    if (cfg.topStyle === "dress") body += `<div class="lbl">Dress shape</div><div class="row">` + DRESS_SHAPES.map((sh) => chip(`data-f="dressStyle:${sh}"`, lab(sh), (cfg.dressStyle || "auto") === sh)).join("") + `</div>`;
+    if (cfg.topStyle === "suit") body += `<div class="lbl">Tie</div><div class="row">` + TIE_STYLES.map((t) => chip(`data-f="tie:${t}"`, lab(t), (cfg.tie || "none") === t)).join("") + `</div>`;
+    body += `<div class="lbl">Pattern</div><div class="row">` + PATTERNS.map((t) => chip(`data-f="topPattern:${t}"`, lab(t), (cfg.topPattern || "solid") === t)).join("") + `</div>`;
+  } else if (dressTab === "bottoms") {
+    body += `<div class="lbl">Bottom</div><div class="row">` + BOTTOM_STYLES.map((t) => chip(`data-f="bottomStyle:${t}"`, lab(t), cfg.bottomStyle === t)).join("") + `</div>` +
+      (cfg.topStyle === "dress" ? `<div class="hint">A dress covers the bottom — pick another top to show these.</div>` : "") +
+      `<div class="lbl">Pattern</div><div class="row">` + PATTERNS.map((t) => chip(`data-f="bottomPattern:${t}"`, lab(t), (cfg.bottomPattern || "solid") === t)).join("") + `</div>`;
+  } else if (dressTab === "shoes") {
+    const shoes = SHOE_STYLES.filter((t) => !(kid && (t === "heels" || t === "cleats")));
+    body += `<div class="lbl">Shoes</div><div class="row">` + shoes.map((t) => chip(`data-f="shoeStyle:${t}"`, lab(t), cfg.shoeStyle === t)).join("") + `</div>`;
+  } else if (dressTab === "extras") {
+    const acc = (title, field, styles) => {
+      const cur = cfg[field] && cfg[field].style;
+      let h = `<div class="lbl">${title}</div><div class="row">` + chip(`data-a="${field}:"`, "None", !cur) + styles.map((t) => chip(`data-a="${field}:${t}"`, lab(t), cur === t)).join("") + `</div>`;
+      if (cur) h += `<div class="row">` + GEAR_COLORS.slice(0, 14).map((c, i) => swatch(`data-ac="${field}:${i}"`, c, cfg[field].color === i)).join("") + `</div>`;
+      return h;
+    };
+    body += acc("Hat / headwear", "hat", HAT_STYLES) + acc("Glasses", "glasses", GLASS_STYLES) + acc("Necklace", "neck", NECK_STYLES) +
+      acc("Earrings", "ears", EAR_STYLES) + acc("Wrist", "wrist", WRIST_STYLES) + acc("Bag", "bag", BAG_STYLES);
+  } else if (dressTab === "colours") {
+    const sw = (title, field, colors) => `<div class="lbl">${title}</div><div class="row">` +
+      colors.map((c) => swatch(`data-c="${field}:${c}"`, c, String(cfg[field]).toLowerCase() === c)).join("") + `</div>`;
+    body += sw(cfg.topStyle === "dress" ? "Dress colour" : "Top colour", "topColor", SHIRT_COLORS) + sw("Pattern accent", "topAccent", ACCENT_COLORS) +
+      sw("Bottom colour", "bottomColor", BOTTOM_COLORS) + sw("Shoe colour", "shoeColor", SHOE_COLORS);
+  } else if (dressTab === "family") {
+    body += `<div class="lbl">Dress the whole family</div><div class="grid">` +
+      FAMILY_SETS.map((x) => card(`data-fs="${x.id}"`, { icon: x.icon, name: x.label }, false)).join("") + `</div>` +
+      `<div class="lbl">Match everyone's top colour</div><div class="row">` + SWATCHES.map((c) => swatch(`data-mc="${c}"`, c, false)).join("") + `</div>` +
+      `<div class="row"><button class="chip wide" data-allauto="1">✨ Everyone back to Auto</button></div>`;
+  }
+
+  /* a little preview strip of what they're wearing */
+  const tc = hexOf(cfg.topColor, SHIRT_COLORS) || "#888", bc = hexOf(cfg.bottomColor, BOTTOM_COLORS) || "#444", sc = hexOf(cfg.shoeColor, SHOE_COLORS) || "#222";
+  const wearing = cfg.topStyle === "dress" ? lab(cfg.dressStyle || "auto") + " dress" : lab(cfg.topStyle) + " · " + lab(cfg.bottomStyle);
+  panel = document.createElement("div"); panel.id = "fam-panel";
+  panel.innerHTML = `<h3><span class="pv"><i style="background:${tc}"></i><i style="background:${bc}"></i><i style="background:${sc}"></i></span><span class="t">${first(p.name)}<small>${o.name ? o.name + " · " : ""}${wearing}</small></span><button data-x="1">✕</button></h3>
+    <div class="row who">${who}</div>
+    <div class="row tabs">${tabs}</div>
+    <div class="body">${body}</div>`;
   panel.onclick = (e) => {
     const b = e.target.closest("button"); if (!b) return;
-    if (b.dataset.x) return closeDress();
-    if (b.dataset.w) return openDress(b.dataset.w);
-    if (b.dataset.o) { setOutfit(p, b.dataset.o, { auto: false, topColor: (p.outfit && p.outfit.topColor) || null }); return openDress(p.id); }
-    if (b.dataset.c) { const key = (p.outfit && p.outfit.key) || "casual"; setOutfit(p, key, { auto: false, topColor: b.dataset.c }); return openDress(p.id); }
-    if (b.dataset.auto) { p.outfit = Object.assign({}, p.outfit, { auto: true }); Lives.save(); autoDress(); return openDress(p.id); }
+    const d = b.dataset;
+    if (d.x) return closeDress();
+    if (d.w) return openDress(d.w);
+    if (d.t) { dressTab = d.t; return openDress(p.id); }
+    if (d.o) { setOutfit(p, d.o, { auto: false, topColor: (p.outfit && p.outfit.topColor) || null }); }
+    else if (d.auto) { p.outfit = Object.assign({}, p.outfit, { auto: true }); Lives.save(); autoDress(); }
+    else if (d.l) { applyLook(p, BY_ID[d.l]); }
+    else if (d.f) { const [k, v] = d.f.split(":"); setField(p, k, v); }
+    else if (d.a) { const [k, v] = d.a.split(":"); setAcc(p, k, v || null); }
+    else if (d.ac) { const [k, v] = d.ac.split(":"); setAccColor(p, k, +v); }
+    else if (d.c) { const i = d.c.indexOf(":"); setField(p, d.c.slice(0, i), d.c.slice(i + 1)); }
+    else if (d.fs) { dressTheFamily(d.fs); }
+    else if (d.mc) { matchColour(d.mc); }
+    else if (d.allauto) { for (const x of members()) { x.p.outfit = Object.assign({}, x.p.outfit, { auto: true }); } Lives.save(); autoDress(); toast("✨ Everyone is on Auto"); }
+    openDress(p.id);
   };
   document.body.appendChild(panel);
+  const bodyEl = panel.querySelector(".body"); if (bodyEl) bodyEl.scrollTop = keepScroll;
 }
 
 /* ═══ public API ════════════════════════════════════════════════ */
