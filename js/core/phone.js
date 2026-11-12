@@ -284,6 +284,7 @@ export class Phone{
           <div class="tstat-panel" style="padding:8px;display:flex;gap:8px;background:transparent;margin-bottom:10px">
             <button data-shoptab="guns" class="shoptabbtn">Weapons</button>
             <button data-shoptab="food" class="shoptabbtn">Food</button>
+            <button data-shoptab="limited" class="shoptabbtn">Limited Fits</button>
           </div>
           <div id="shop-list"></div>
         </div>
@@ -778,6 +779,7 @@ export class Phone{
     });
 
     if (this.shopTab === "food") return this._renderShopFood(el, Eco);
+    if (this.shopTab === "limited") return this._renderLimitedFits(el, Eco);
     this._renderShopGuns(el);
   }
 
@@ -804,6 +806,29 @@ export class Phone{
         this._toast("Bought " + f.name);
         this._renderShop();
       };
+    });
+  }
+
+  _renderLimitedFits(el, Eco){
+    const drops = [
+      {id:"royal_agbada",name:"Royal Agbada Set",desc:"A premium ceremonial look with a clean royal finish.",costume:"king",price:28000,stock:120,tag:"LIMITED DROP"},
+      {id:"neon_runner",name:"Neon Runner Outfit",desc:"Streetwear colours inspired by the Garden City at night.",costume:"superhero",price:22000,stock:180,tag:"CITY EDITION"},
+      {id:"shadow_ninja",name:"Shadow Ninja Suit",desc:"A stealth-inspired limited outfit.",costume:"ninja",price:35000,stock:75,tag:"RARE"},
+      {id:"orbit_explorer",name:"Orbit Explorer Suit",desc:"A futuristic exploration suit.",costume:"astronaut",price:42000,stock:45,tag:"ULTRA RARE"},
+      {id:"angelic_dress",name:"Angelic Limited Dress",desc:"A graceful formal dress with a premium finish.",costume:"angel",price:26000,stock:90,tag:"LIMITED DRESS"}
+    ];
+    const KEY="ph3d.limited-fits.owned";let owned=[];try{owned=JSON.parse(localStorage.getItem(KEY)||"[]");}catch(_){}
+    let h='<div style="font-size:10px;letter-spacing:.18em;color:rgba(244,244,244,.6);font-weight:800;margin:8px 0 10px">LIMITED FASHION COLLECTION · EXCLUSIVE OUTFITS</div>';
+    h+=drops.map(d=>`<div class="ttx"><div><div class="who">${d.name} <span style="font-size:9px;color:#72dfff">${d.tag}</span></div><div class="when">${d.desc}<br>Limited collection · ${d.stock} release units</div></div><button data-fit="${d.id}" class="${owned.includes(d.id)?"ghost":"buy"}">${owned.includes(d.id)?"OWNED":"₦"+d.price.toLocaleString()}</button></div>`).join("");
+    el.innerHTML=h;
+    el.querySelectorAll("[data-fit]").forEach(b=>b.onclick=async()=>{
+      const d=drops.find(x=>x.id===b.dataset.fit);if(!d)return;
+      if(owned.includes(d.id)){const {Wardrobe}=await import("./wardrobe.js");Wardrobe.set("costume",d.costume);this._toast("Equipped "+d.name);return;}
+      if(Eco.balance<d.price){this._toast("Not enough money");return;}
+      if(!Eco.withdraw(d.price)){this._toast("Payment failed");return;}
+      owned.push(d.id);try{localStorage.setItem(KEY,JSON.stringify(owned));}catch(_){}
+      const {Wardrobe}=await import("./wardrobe.js");Wardrobe.set("costume",d.costume);
+      this._toast("Purchased and equipped "+d.name);this._renderShop();
     });
   }
 

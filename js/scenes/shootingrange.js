@@ -108,6 +108,30 @@ function buildArena(three) {
     add(new THREE.CylinderGeometry(0.45, 0.45, 1.1, 12), M(0x8a3a2a), x, 0.55, z);
     colliders.push({ minX: x - 0.45, maxX: x + 0.45, minZ: z - 0.45, maxZ: z + 0.45, y0: 0, y1: 1.1, level: 0 });
   }
+  /* advanced arena dressing: neon pylons, gantries, warning lights and floor lanes */
+  const neonCyan = new THREE.MeshStandardMaterial({ color: 0x19d9ff, emissive: 0x00aaff, emissiveIntensity: 1.8, metalness: .25, roughness: .28 });
+  const neonPink = new THREE.MeshStandardMaterial({ color: 0xff3da8, emissive: 0xc90072, emissiveIntensity: 1.45, metalness: .2, roughness: .3 });
+  const darkMetal = M(0x171d2c, .42);
+  for (const x of [-20, -10, 10, 20]) {
+    const pylon = add(new THREE.BoxGeometry(.24, 5.8, .24), darkMetal, x, 2.9, -20);
+    const strip = add(new THREE.BoxGeometry(.08, 5.5, .08), neonCyan, x + .15, 2.9, -20);
+    const pylon2 = add(new THREE.BoxGeometry(.24, 5.8, .24), darkMetal, x, 2.9, 20);
+    add(new THREE.BoxGeometry(.08, 5.5, .08), neonPink, x - .15, 2.9, 20);
+  }
+  for (const z of [-18, -6, 6, 18]) {
+    add(new THREE.BoxGeometry(ARENA_W - 3, .12, .16), neonCyan, 0, .04, z);
+    for (const x of [-18, 18]) {
+      const lamp = add(new THREE.BoxGeometry(.7, .18, .7), neonPink, x, 5.8, z);
+      lamp.material = neonPink;
+    }
+  }
+  /* industrial overhead gantries */
+  for (const z of [-15, 15]) {
+    add(new THREE.BoxGeometry(ARENA_W - 5, .28, .42), darkMetal, 0, 6.1, z);
+    add(new THREE.BoxGeometry(ARENA_W - 5, .08, .12), neonCyan, 0, 5.92, z);
+    for (const x of [-18, 18]) add(new THREE.BoxGeometry(.32, 6, .32), darkMetal, x, 3, z);
+  }
+  mats.push(neonCyan, neonPink);
   return { colliders, coverBoxes, mats, geos };
 }
 
@@ -328,7 +352,21 @@ export async function shootingRangeScene(params, router) {
       <div style="position:absolute;left:3px;top:11px;width:20px;height:3px;background:#fff;transform:rotate(45deg);box-shadow:0 0 4px #000"></div>
       <div style="position:absolute;left:3px;top:11px;width:20px;height:3px;background:#fff;transform:rotate(-45deg);box-shadow:0 0 4px #000"></div></div>
     <div id="rg-banner" style="position:absolute;left:0;right:0;top:32%;text-align:center;font:900 26px Inter;letter-spacing:.14em;text-shadow:0 2px 10px #000;opacity:0;transition:opacity .3s"></div>
-    <div id="rg-dead" style="position:absolute;inset:0;background:rgba(120,0,0,.55);display:flex;align-items:center;justify-content:center;font:900 28px Inter;letter-spacing:.2em;opacity:0;transition:opacity .25s">DOWN</div>`;
+    <div id="rg-dead" style="position:absolute;inset:0;background:rgba(120,0,0,.55);display:flex;align-items:center;justify-content:center;font:900 28px Inter;letter-spacing:.2em;opacity:0;transition:opacity .25s">DOWN</div>
+    <div class="rg-weaponbar"><button id="rg-pistol">PISTOL · 3</button><button id="rg-sniper">SNIPER · 4</button></div>
+    <div class="rg-skills"><button id="rg-shield"><b>▰</b><span>GLOW WALL</span><small id="rg-shield-cd">READY</small></button><button id="rg-dash"><b>➤</b><span>BLINK DASH</span><small id="rg-dash-cd">READY</small></button><button id="rg-heal"><b>✚</b><span>MED KIT</span><small id="rg-heal-cd">READY</small></button></div>
+    <div id="rg-skill-msg" class="rg-skill-msg"></div>`;
+  const rangeStyle = document.createElement("style");
+  rangeStyle.textContent = `
+    .rg-weaponbar{position:absolute;right:14px;bottom:112px;display:flex;gap:7px;pointer-events:auto}
+    .rg-weaponbar button,.rg-skills button{color:#eafaff;background:linear-gradient(145deg,rgba(10,22,45,.94),rgba(25,14,52,.92));border:1px solid rgba(38,218,255,.65);box-shadow:0 0 16px rgba(0,190,255,.18),inset 0 0 12px rgba(0,180,255,.08);border-radius:12px;font:800 10px Inter,system-ui;letter-spacing:.08em;padding:10px 12px;pointer-events:auto;touch-action:manipulation}
+    .rg-skills{position:absolute;right:14px;bottom:18px;display:flex;gap:8px;pointer-events:auto}
+    .rg-skills button{min-width:76px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 7px;border-color:rgba(255,69,181,.7);box-shadow:0 0 16px rgba(255,30,160,.2)}
+    .rg-skills b{font-size:19px;color:#62eaff;text-shadow:0 0 12px #00cfff}.rg-skills span{font-size:9px}.rg-skills small{font-size:9px;color:#8dffcc}
+    .rg-skills button:disabled{opacity:.48;filter:grayscale(.6)}.rg-skill-msg{position:absolute;left:50%;bottom:100px;transform:translateX(-50%);font:900 13px Inter;color:#8ffaff;text-shadow:0 0 14px #00cfff;opacity:0;transition:opacity .2s;white-space:nowrap}
+    @media(max-width:600px){.rg-weaponbar{right:8px;bottom:128px}.rg-skills{right:8px;bottom:14px;gap:5px}.rg-skills button{min-width:67px;padding:8px 5px}.rg-skills span{font-size:8px}}
+  `;
+  document.head.appendChild(rangeStyle);
   document.body.appendChild(hud);
   const $h = (id) => hud.querySelector("#" + id);
   const elHp = $h("rg-hp"), elBar = $h("rg-hpbar"), elWave = $h("rg-wave"), elScore = $h("rg-score"), elFeed = $h("rg-feed"), elHit = $h("rg-hit"), elBanner = $h("rg-banner"), elDead = $h("rg-dead");
@@ -347,6 +385,41 @@ export async function shootingRangeScene(params, router) {
     tracers: [],
   };
   const player = { x: PLAYER_SPAWN.x, z: PLAYER_SPAWN.z, alive: true };
+  const skills = { shield: 0, dash: 0, heal: 0, wall: null, wallCollider: null, wallLife: 0, dashGlow: 0 };
+  const skillMsg = $h("rg-skill-msg");
+  function skillToast(message) { skillMsg.textContent = message; skillMsg.style.opacity = "1"; clearTimeout(skillToast._t); skillToast._t = setTimeout(() => skillMsg.style.opacity = "0", 1200); }
+  function cooldownLabel(id, value) { const el = $h(id); if (el) el.textContent = value > 0 ? value.toFixed(1) + "s" : "READY"; }
+  function useGlowWall() {
+    if (!G.alive || skills.shield > 0 || skills.wall) return;
+    const dir = new THREE.Vector3(Math.sin(ctl.yaw), 0, Math.cos(ctl.yaw));
+    const pos = new THREE.Vector3(ctl.pos.x, 0, ctl.pos.z).addScaledVector(dir, 3.0);
+    const geo = new THREE.BoxGeometry(5.2, 3.2, .28);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x16cfff, emissive: 0x008cff, emissiveIntensity: 2.2, transparent: true, opacity: .34, metalness: .3, roughness: .2, side: THREE.DoubleSide });
+    const wall = new THREE.Mesh(geo, mat); wall.position.set(pos.x, 1.6, pos.z); wall.rotation.y = ctl.yaw; three.add(wall);
+    const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x8ffaff, transparent: true, opacity: .95 })); wall.add(edge);
+    skills.wall = wall; skills.wallLife = 6; skills.shield = 18;
+    skills.wallCollider = { minX: pos.x - 2.6, maxX: pos.x + 2.6, minZ: pos.z - .22, maxZ: pos.z + .22, y0: 0, y1: 3.2, level: 0, _glowWall: true };
+    /* oriented wall collision approximation, adequate for the arena's near-axis tactical cover */
+    if (Math.abs(Math.sin(ctl.yaw)) > .7) { const c = skills.wallCollider; c.minX = pos.x - .22; c.maxX = pos.x + .22; c.minZ = pos.z - 2.6; c.maxZ = pos.z + 2.6; }
+    G.colliders.push(skills.wallCollider); G.coverBoxes.push(skills.wallCollider);
+    skillToast("GLOW WALL DEPLOYED");
+  }
+  function useDash() {
+    if (!G.alive || skills.dash > 0) return;
+    const dir = new THREE.Vector3(Math.sin(ctl.yaw), 0, Math.cos(ctl.yaw));
+    const target = new THREE.Vector3(ctl.pos.x, 0, ctl.pos.z).addScaledVector(dir, 5.5);
+    target.x = clamp(target.x, bounds.minX, bounds.maxX); target.z = clamp(target.z, bounds.minZ, bounds.maxZ);
+    const hit = arena.colliders.some(c => !c._glowWall && target.x > c.minX - .45 && target.x < c.maxX + .45 && target.z > c.minZ - .45 && target.z < c.maxZ + .45);
+    if (!hit) { ctl.pos.set(target.x, 0, target.z); player.x = target.x; player.z = target.z; }
+    skills.dash = 12; skills.dashGlow = .45; skillToast("BLINK DASH");
+  }
+  function useMedkit() {
+    if (!G.alive || skills.heal > 0 || G.hp >= 100) return;
+    G.hp = Math.min(100, G.hp + 38); G.hurtT = 0; skills.heal = 24; skillToast("+38 HP · MED KIT");
+  }
+  $h("rg-shield").addEventListener("pointerdown", e => { e.preventDefault(); useGlowWall(); });
+  $h("rg-dash").addEventListener("pointerdown", e => { e.preventDefault(); useDash(); });
+  $h("rg-heal").addEventListener("pointerdown", e => { e.preventDefault(); useMedkit(); });
 
   function banner(txt, secs = 2) { elBanner.textContent = txt; elBanner.style.opacity = "1"; G.bannerT = secs; }
   function feed(txt, color) {
@@ -442,6 +515,8 @@ export async function shootingRangeScene(params, router) {
     onGunFire: (info) => { if (info && info.hit) { elHit.style.opacity = "1"; G.hitT = 0.12; } },
   });
   try { ctl.weapons.select("pistol"); } catch (e) {}
+  $h("rg-pistol").addEventListener("pointerdown", e => { e.preventDefault(); try { ctl.weapons.select("pistol"); skillToast("PISTOL EQUIPPED"); } catch (_) {} });
+  $h("rg-sniper").addEventListener("pointerdown", e => { e.preventDefault(); try { ctl.weapons.select("sniper"); skillToast("SNIPER EQUIPPED"); } catch (_) {} });
   banner("TACTICAL RANGE", 1.8);
 
   return {
@@ -456,13 +531,20 @@ export async function shootingRangeScene(params, router) {
       for (const t of G.tracers) { three.remove(t.line); if (t.geo) t.geo.dispose(); t.mat.dispose(); }
       flashGeo.dispose();
       try { ctl.dispose(); } catch (e) {}
-      [hud, exitBtn].forEach((el) => { try { el.remove(); } catch (e) {} });
+      if (skills.wall) { three.remove(skills.wall); skills.wall.geometry.dispose(); skills.wall.material.dispose(); }
+      [hud, exitBtn, rangeStyle].forEach((el) => { try { el.remove(); } catch (e) {} });
       arena.geos.forEach((g) => g.dispose()); arena.mats.forEach((m) => m.dispose()); stripGeo.dispose(); stripMat.dispose();
     },
     update: (dt) => {
       dt = Math.min(dt, 0.05);
       ctl.update(dt);
       player.x = ctl.pos.x; player.z = ctl.pos.z;
+      skills.shield = Math.max(0, skills.shield - dt); skills.dash = Math.max(0, skills.dash - dt); skills.heal = Math.max(0, skills.heal - dt);
+      cooldownLabel("rg-shield-cd", skills.shield); cooldownLabel("rg-dash-cd", skills.dash); cooldownLabel("rg-heal-cd", skills.heal);
+      $h("rg-shield").disabled = skills.shield > 0 || !!skills.wall || !G.alive;
+      $h("rg-dash").disabled = skills.dash > 0 || !G.alive; $h("rg-heal").disabled = skills.heal > 0 || G.hp >= 100 || !G.alive;
+      if (skills.wall) { skills.wallLife -= dt; skills.wall.material.opacity = .25 + Math.sin(performance.now() * .006) * .08; if (skills.wallLife <= 0) { three.remove(skills.wall); skills.wall.geometry.dispose(); skills.wall.material.dispose(); skills.wall.traverse(o => { if (o.material && o.material.dispose) o.material.dispose(); }); G.colliders = G.colliders.filter(c => c !== skills.wallCollider); G.coverBoxes = G.coverBoxes.filter(c => c !== skills.wallCollider); arena.colliders.splice(arena.colliders.indexOf(skills.wallCollider), 1); skills.wall = null; skills.wallCollider = null; } }
+      if (skills.dashGlow > 0) skills.dashGlow = Math.max(0, skills.dashGlow - dt);
 
       /* waves */
       if (G.alive) {
