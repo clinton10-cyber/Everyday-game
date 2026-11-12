@@ -61,7 +61,7 @@ const LM_COLOR = {
   pleasurepark:"#9dd1ff", hospital:"#e8f4f8", church:"#d8c8a8", mosque:"#c8e0d0",
   vatican:"#f0e4c0", statehouse:"#e4e0d4", zoo:"#7aba6a", vastcity:"#6a8aae",
   duplex:"#e8e4dc", lagosflat:"#e8c668", forest:"#3f7d3a", village:"#c8a070", canteen:"#e8a860", beach:"#35a9b4",
-  realestate:"#f8ecd4", jobcenter:"#4aa0ff", nightclub:"#b04aff",
+  realestate:"#f8ecd4", jobcenter:"#4aa0ff", nightclub:"#b04aff", phoneshop:"#2f9bff",
 };
 
 /* Tier-2 layout (kept identical to the old file). */
@@ -86,6 +86,7 @@ function tier2Pos(lm) {
   return null;
 }
 function compoundPos(lm, i) {
+  if (lm.id === "phoneshop") return { x: 120, z: 320, side: 2 };
   if (lm.id === "airplane") return { x: 0, z: 420, side: -1 };
   const t2 = tier2Pos(lm);
   if (t2) return t2;

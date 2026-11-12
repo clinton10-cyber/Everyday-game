@@ -656,3 +656,48 @@
   width:58px!important;height:58px!important;border-radius:50%!important;padding-top:13px!important}
 #ph3d-blk{right:calc(var(--h-right) + var(--row-h) + 12px)!important}
 #hud-dockbtn{right:calc(var(--h-right) + var(--row-h) + 82px)!important}
+
+
+/* ── FIX: keep Fight clear of the Moves toggle and Jump ─────────
+   Fight is pinned to its own fixed screen position, rather than
+   inheriting the HUD pad's local positioning. It stays tappable
+   while the Moves panel is open. */
+.h-fight,
+#ph3d-atk{
+  position:fixed!important;
+  right:calc(var(--h-right) + var(--row-h) + 82px + 52px + 12px)!important;
+  bottom:calc(var(--h-bottom) + 4px)!important;
+  z-index:80!important;
+  pointer-events:auto!important;
+  width:58px!important;
+  height:58px!important;
+  border-radius:50%!important;
+}
+.h-fight{
+  background:var(--g-bg)!important;
+  border:1.5px solid rgba(255,90,60,.65)!important;
+  color:var(--h-flare)!important;
+  box-shadow:var(--g-shadow),0 0 16px rgba(255,90,60,.16)!important;
+}
+#ph3d-atk{
+  padding-top:13px!important;
+  background:var(--g-bg)!important;
+  border:1.5px solid rgba(255,90,60,.65)!important;
+  color:var(--h-flare)!important;
+  box-shadow:var(--g-shadow),0 0 16px rgba(255,90,60,.16)!important;
+}
+.h-fight:active,
+#ph3d-atk:active{
+  background:var(--h-flare)!important;
+  color:#fff!important;
+  transform:scale(.93)!important;
+}
+@media (orientation:landscape) and (max-height:480px){
+  .h-fight,
+  #ph3d-atk{
+    right:calc(var(--h-right) + var(--row-h) + 82px + 52px + 8px)!important;
+    bottom:calc(var(--h-bottom) + 2px)!important;
+    width:52px!important;
+    height:52px!important;
+  }
+}

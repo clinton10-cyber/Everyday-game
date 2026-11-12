@@ -10,14 +10,45 @@
 
 import { Sfx } from "./sfx.js";
 
+/* The shared HUD creates this control in combat-capable scenes. Hold to guard;
+   release to lower the guard. Pointer and touch are handled by Pointer Events. */
+if (typeof document !== "undefined") {
+  document.addEventListener("pointerdown", (e) => {
+    if (e.target && e.target.closest && e.target.closest("#ph3d-blk")) {
+      e.preventDefault();
+      Combat.setGuard(true);
+    }
+  }, { passive: false });
+  const releaseGuard = () => Combat.setGuard(false);
+  document.addEventListener("pointerup", releaseGuard);
+  document.addEventListener("pointercancel", () => Combat.setGuard(false));
+}
+
 export const Combat = {
   hp: 100, maxHp: 100, stamina: 100, maxStamina: 100, downed: false,
   downedAt: 0, reviveWindow: 60000,
+  guarding: false, guardUntil: 0, dodgeUntil: 0, guardCostPerHit: 12, dodgeCost: 22,
   weapons: { fists:10, knife:35, cleaver:40, pistol:60 },
   onDamage: null, onDowned: null, onRevive: null,
 
   damage(amount, by) {
     if (this.downed) return;
+    /* Defensive window: a well-timed guard reduces melee damage; dodge avoids
+       a hit completely. Both consume stamina and recover naturally. */
+    const now = performance.now();
+    if (now < this.dodgeUntil && this.stamina >= 0) {
+      this.dodgeUntil = 0;
+      this.onEvade && this.onEvade(by);
+      try { Sfx.play("whoosh", { vol: 0.35 }); } catch (_) {}
+      return;
+    }
+    if (this.guarding && now < this.guardUntil && this.stamina >= this.guardCostPerHit) {
+      this.stamina = Math.max(0, this.stamina - this.guardCostPerHit);
+      amount = Math.max(1, Math.round(amount * 0.32));
+      this.onGuard && this.onGuard(amount, by, this.stamina);
+    } else if (this.guarding) {
+      this.guarding = false;
+    }
     this.hp = Math.max(0, this.hp - amount);
     /* Sound feedback */
     try {
@@ -55,6 +86,32 @@ export const Combat = {
     } catch (e) {}
   },
 
+  setGuard(active) {
+    if (this.downed) return false;
+    this.guarding = !!active && this.stamina > 0;
+    this.guardUntil = this.guarding ? performance.now() + 1800 : 0;
+    return this.guarding;
+  },
+
+  dodge() {
+    if (this.downed || this.stamina < this.dodgeCost) return false;
+    this.stamina = Math.max(0, this.stamina - this.dodgeCost);
+    this.guarding = false;
+    this.guardUntil = 0;
+    this.dodgeUntil = performance.now() + 420;
+    this.onDodge && this.onDodge(this.stamina);
+    return true;
+  },
+
+  update(dt) {
+    const delta = Math.max(0, Math.min(0.1, Number(dt) || 0));
+    if (this.downed && performance.now() - this.downedAt > this.reviveWindow) this.revive();
+    if (!this.guarding && performance.now() >= this.dodgeUntil) {
+      this.stamina = Math.min(this.maxStamina, this.stamina + 18 * delta);
+    }
+    if (this.guarding && performance.now() >= this.guardUntil) this.guarding = false;
+  },
+
   heal(amount) {
     if (this.downed) return;
     this.hp = Math.min(this.maxHp, this.hp + amount);
@@ -67,10 +124,6 @@ export const Combat = {
     this.onRevive && this.onRevive();
   },
 
-  update(dt) {
-    if (this.downed && performance.now() - this.downedAt > this.reviveWindow) this.revive();
-  },
-
-  reset() { this.hp = this.maxHp; this.stamina = this.maxStamina; this.downed = false; },
+  reset() { this.hp = this.maxHp; this.stamina = this.maxStamina; this.downed = false; this.guarding = false; this.guardUntil = 0; this.dodgeUntil = 0; },
 };
 

@@ -1,7 +1,9 @@
 /* js/ui/market-shop.js -- the Mile 1 buy modal. Touch-first, landscape-friendly, no emoji.
    MarketShop.open(item) from a stall's USE prompt. Close with X, CLOSE, tapping outside, or Escape. */
+import * as THREE from "three";
 import { Economy } from "../core/economy.js";
 import { Pocket, POCKET_ITEMS } from "../core/pocket.js";
+import { createMarketItemMesh } from "../core/market-item-models.js";
 import { Combat } from "../core/combat.js";
 import { Engagement } from "../core/engagement.js";
 
@@ -23,7 +25,8 @@ function injectCSS() {
     transform:translateY(8px);opacity:0;transition:transform .22s cubic-bezier(.2,.8,.2,1),opacity .22s}
   #${ROOT_ID}.on .sheet{transform:none;opacity:1}
   #${ROOT_ID} .x{position:absolute;top:10px;right:10px;width:44px;height:44px;border-radius:50%;border:1px solid var(--line-hi);background:var(--paper);color:var(--ink);font:700 20px/1 inherit;cursor:pointer}
-  #${ROOT_ID} .icon{width:84px;height:84px;border-radius:20px;display:grid;place-items:center;font:800 30px/1 inherit;letter-spacing:.04em;color:var(--gold);background:rgba(255,255,255,.06);border:1px solid var(--line)}
+  #${ROOT_ID} .icon{width:84px;height:84px;border-radius:20px;display:grid;place-items:center;overflow:hidden;color:var(--gold);background:rgba(255,255,255,.06);border:1px solid var(--line)}
+  #${ROOT_ID} .icon canvas{display:block;width:84px;height:84px}
   #${ROOT_ID} .col{display:flex;flex-direction:column;gap:4px;min-width:0;padding-right:44px}
   #${ROOT_ID} .kind{font:800 9px/1 inherit;letter-spacing:.24em;text-transform:uppercase;color:var(--mist)}
   #${ROOT_ID} .name{font:800 20px/1.1 inherit}
@@ -49,6 +52,8 @@ const canAdd = (id) => !Pocket.isFull() || stacked(id);
 
 export const MarketShop = {
   _root: null, _item: null,
+  _previewRenderer: null, _previewScene: null, _previewCamera: null,
+  _previewMesh: null, _previewFrame: 0,
 
   _build() {
     if (this._root && document.body.contains(this._root)) return;
@@ -56,12 +61,13 @@ export const MarketShop = {
     const root = document.createElement("div"); root.id = ROOT_ID;
     root.innerHTML = `<div class="sheet">
       <button class="x" aria-label="Close">&times;</button>
-      <div class="icon" data-icon></div>
+      <div class="icon" data-icon><canvas data-preview width="168" height="168" aria-label="3D product preview"></canvas></div>
       <div class="col"><div class="kind" data-kind></div><div class="name" data-name></div><div class="desc" data-desc></div><div class="price" data-price></div></div>
       <div class="acts"><button class="btn buy" data-buy>BUY</button><button class="btn eat" data-eat style="display:none">BUY AND EAT</button><button class="btn close" data-close>CLOSE</button></div>
       <div class="bag"><span>Bag <b data-bag></b></span><span>Money <b data-money></b></span></div>
       <div class="toast" data-toast></div></div>`;
     document.body.appendChild(root); this._root = root;
+    this._initPreview(root.querySelector("[data-preview]"));
     root.querySelector(".x").addEventListener("click", () => this.close());
     root.querySelector("[data-close]").addEventListener("click", () => this.close());
     root.querySelector("[data-buy]").addEventListener("click", () => this._buy(false));
@@ -74,7 +80,8 @@ export const MarketShop = {
     if (!item) return;
     this._build(); this._item = item;
     const r = this._root, q = (s) => r.querySelector(s);
-    q("[data-icon]").textContent = item.icon || "";
+    this._setPreview(item);
+    if (!this._previewRenderer) q("[data-icon]").textContent = item.icon || "3D";
     q("[data-kind]").textContent = item.kind + " \u00B7 Mile 1 only";
     q("[data-name]").textContent = item.label; q("[data-desc]").textContent = item.desc;
     q("[data-price]").innerHTML = fmt(item.price) + (item.heal ? "<small>+" + item.heal + " HP</small>" : "");
@@ -82,7 +89,73 @@ export const MarketShop = {
     this._toast(""); this._refresh(); r.classList.add("on");
   },
 
-  close() { if (this._root) this._root.classList.remove("on"); this._item = null; },
+  close() {
+    if (this._root) this._root.classList.remove("on");
+    this._item = null;
+    if (this._previewFrame) cancelAnimationFrame(this._previewFrame);
+    this._previewFrame = 0;
+  },
+
+  _initPreview(canvas) {
+    try {
+      this._previewRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: "low-power" });
+      this._previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+      this._previewRenderer.setSize(84, 84, false);
+      this._previewRenderer.setClearColor(0x000000, 0);
+      this._previewScene = new THREE.Scene();
+      this._previewCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 10);
+      this._previewCamera.position.set(0, 0.24, 2.6);
+      this._previewCamera.lookAt(0, 0, 0);
+      this._previewScene.add(new THREE.HemisphereLight(0xffffff, 0x475447, 2.1));
+      const key = new THREE.DirectionalLight(0xffffff, 2.0); key.position.set(2, 3, 3); this._previewScene.add(key);
+      const fill = new THREE.DirectionalLight(0xd4e7ff, 0.7); fill.position.set(-2, 1, -2); this._previewScene.add(fill);
+      const base = new THREE.Mesh(new THREE.CircleGeometry(0.62, 32), new THREE.MeshBasicMaterial({ color: 0x29352e, transparent: true, opacity: 0.75 }));
+      base.rotation.x = -Math.PI / 2; base.position.y = -0.61; this._previewScene.add(base);
+    } catch (e) {
+      this._previewRenderer = null;
+      const icon = this._root && this._root.querySelector("[data-icon]");
+      if (icon) icon.textContent = "3D";
+    }
+  },
+
+  _disposePreviewMesh() {
+    if (!this._previewMesh) return;
+    this._previewScene && this._previewScene.remove(this._previewMesh);
+    this._previewMesh.traverse((o) => {
+      if (!o.isMesh) return;
+      o.geometry && o.geometry.dispose();
+      const materials = Array.isArray(o.material) ? o.material : [o.material];
+      materials.forEach((m) => m && m.dispose && m.dispose());
+    });
+    this._previewMesh = null;
+  },
+
+  _setPreview(item) {
+    if (!this._previewRenderer || !this._previewScene) return;
+    this._disposePreviewMesh();
+    const mesh = createMarketItemMesh(item);
+    const bounds = new THREE.Box3().setFromObject(mesh);
+    const center = bounds.getCenter(new THREE.Vector3());
+    const size = bounds.getSize(new THREE.Vector3());
+    const extent = Math.max(size.x, size.y, size.z, 0.1);
+    const scale = 1.12 / extent;
+    mesh.scale.setScalar(scale);
+    mesh.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+    this._previewMesh = mesh;
+    this._previewScene.add(mesh);
+    const draw = () => {
+      if (!this._root || !this._root.classList.contains("on") || !this._previewRenderer) {
+        this._previewFrame = 0;
+        return;
+      }
+      if (this._previewMesh) this._previewMesh.rotation.y += 0.012;
+      this._previewRenderer.render(this._previewScene, this._previewCamera);
+      this._previewFrame = requestAnimationFrame(draw);
+    };
+    if (this._previewFrame) cancelAnimationFrame(this._previewFrame);
+    this._previewRenderer.render(this._previewScene, this._previewCamera);
+    this._previewFrame = requestAnimationFrame(draw);
+  },
 
   _refresh() {
     const r = this._root, it = this._item; if (!r || !it) return;

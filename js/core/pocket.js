@@ -196,7 +196,21 @@ export class PocketUI {
       this.selected = null; this._render();
     };
     const db = document.getElementById("pk-drop");
-    if (db) db.onclick = () => { Pocket.remove(idx); this.selected = null; this._render(); };
+    if (db) db.onclick = () => {
+      const current = Pocket.slots[idx];
+      const world = window.__ph3d_world_objects;
+      const visual = current && world && typeof world.dropPocketItem === "function"
+        ? world.dropPocketItem({ ...spec, id: current.id }, window.__ph3d_player)
+        : null;
+      if (!visual) {
+        try { window.__ph3d_phone?._toast("Cannot drop an item in this scene."); } catch (e) {}
+        return;
+      }
+      Pocket.remove(idx, 1);
+      this.selected = null;
+      this._render();
+      try { window.__ph3d_phone?._toast("Dropped " + spec.name.toLowerCase() + " on the ground."); } catch (e) {}
+    };
   }
 }
 

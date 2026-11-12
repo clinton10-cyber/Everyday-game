@@ -22,6 +22,7 @@ export const Crime = {
     const entry = { kind, amount: Math.round(amount), by: by || "You", time: Date.now() };
     this.log.unshift(entry);
     if (this.log.length > 50) this.log.length = 50;
+    try { window.__ph3d_justice && window.__ph3d_justice.onCrime(entry); } catch (e) {}
     this.alert = Math.min(100, this.alert + amount);
     this.onAlertChange && this.onAlertChange(this.alert, entry);
     if (this.alert >= 100 && window.__ph3d_police) window.__ph3d_police.dispatch(by || "You");

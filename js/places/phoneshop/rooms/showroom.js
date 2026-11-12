@@ -66,8 +66,9 @@ const Shop = {
     if (this.tab === "phones") {
       for (const m of PHONE_MODELS) {
         const owned = Engagement.ownsPhone(m.id), sp = m.specs;
-        bd.appendChild(this.row(m.color, m.brand + " " + m.name, `${sp.ram} \u00B7 ${sp.storage} \u00B7 ${sp.cam} \u00B7 ${sp.battery}`,
-          owned ? "OWNED" : fmt(m.price), false, owned || Economy.balance < m.price, () => this.buy(m)));
+        const active = E.phones.active === m.id;
+        bd.appendChild(this.row(m.color, m.brand + " " + m.name, `${sp.ram} · ${sp.storage} · ${sp.cam} · ${sp.battery}${active ? " · ACTIVE DEVICE" : ""}`,
+          owned ? (active ? "ACTIVE" : "USE PHONE") : fmt(m.price), owned, !owned && Economy.balance < m.price, () => owned ? this.select(m) : this.buy(m)));
       }
     } else if (this.tab === "tradein") {
       const list = E.phones.owned;
@@ -85,8 +86,13 @@ const Shop = {
       for (const [cost, mb] of CFG.phones.dataPacks) bd.appendChild(this.row(0x1d4e89, mb >= 1024 ? (mb / 1024) + " GB data" : mb + " MB data", "Data bundle", fmt(cost), true, !has || Economy.balance < cost, () => this.top("data", cost, mb)));
     }
   },
+  select(m) {
+    if (!Engagement.ownsPhone(m.id)) return;
+    Engagement.state.phones.active = m.id; Engagement.save(); Engagement._emit();
+    this.msg("Active device changed to " + m.brand + " " + m.name + "."); toast("Phone interface updated."); this.render();
+  },
   buy(m) {
-    if (Engagement.ownsPhone(m.id)) return;
+    if (Engagement.ownsPhone(m.id)) return this.select(m);
     if (!Economy.withdraw(m.price)) { this.msg("Not enough money.", true); return; }
     Engagement.addPhone(m.id); this.msg("Bought the " + m.brand + " " + m.name + "."); toast("Phone bought: " + m.name); this.render();
   },

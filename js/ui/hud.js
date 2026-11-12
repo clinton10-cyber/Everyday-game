@@ -1,3 +1,5 @@
+import "../data/mile1-stalls.js";
+
 /* ════════════════════════════════════════════════════════════════
    HUD — one on-screen layout for every scene.
 
@@ -265,7 +267,15 @@ function buildBag() {
         r.appendChild(sell);
       }
       const drop = el("button", "h-mini", "Drop"); drop.type = "button";
-      drop.addEventListener("click", () => { P.remove(i, s.qty || 1); toast("Dropped " + spec.name.toLowerCase()); });
+      drop.addEventListener("click", () => {
+        const world = window.__ph3d_world_objects;
+        const visual = world && typeof world.dropPocketItem === "function"
+          ? world.dropPocketItem({ ...spec, id: s.id }, window.__ph3d_player)
+          : null;
+        if (!visual) { toast("Cannot drop an item in this scene."); return; }
+        P.remove(i, 1);
+        toast("Dropped " + spec.name.toLowerCase() + " on the ground.");
+      });
       r.appendChild(drop);
       body.appendChild(r);
     });

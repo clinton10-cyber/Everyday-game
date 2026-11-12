@@ -1018,7 +1018,15 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   document.body.appendChild(walkTalkBtn);
   walkTalkBtn.addEventListener("pointerdown", e => {
     e.preventDefault(); e.stopPropagation();
-    if (walkTalkBtn._npc) NPCs.talk(walkTalkBtn._npc);
+    const npc = walkTalkBtn._npc;
+    if (!npc) return;
+    /* In a vehicle, open the full message composer directly. On foot, keep
+       the familiar spoken greeting and let its line appear in the chat thread. */
+    if (mode === "drive") {
+      import("../ui/talk-chat.js").then(m => m.TalkChat.open(npc)).catch(err => console.warn("[drive] NPC chat", err));
+    } else {
+      NPCs.talk(npc);
+    }
   }, { passive: false });
 
   /* ── GRAB button (kidnap a downed NPC) ─────────────────── */
@@ -1846,8 +1854,24 @@ try {
 
       if (mode === "drive") {
         if (walkEnterBtn) walkEnterBtn.style.display = "none";
-        if (walkTalkBtn) walkTalkBtn.style.display = "none";
         if (grabBtn) grabBtn.style.display = "none";
+        /* Let the player chat with pedestrians from a stopped/slow vehicle.
+           Do not hide the talk control in drive mode: the old code did, making
+           NPC chat impossible unless the player got out first. */
+        let carNpc = null;
+        if (Math.abs(speed) < 2.2) {
+          try { carNpc = NPCs.nearest(carPos.x, carPos.z, 4.8); } catch (e) {}
+        }
+        if (walkTalkBtn) {
+          if (carNpc) {
+            walkTalkBtn._npc = carNpc;
+            walkTalkBtn.textContent = "CHAT";
+            walkTalkBtn.style.display = "block";
+          } else {
+            walkTalkBtn._npc = null;
+            walkTalkBtn.style.display = "none";
+          }
+        }
         let best = null, bd = 22 * 22;
         for (const c of compounds) {
           const dx = c.x - carPos.x, dz = c.z - carPos.z;

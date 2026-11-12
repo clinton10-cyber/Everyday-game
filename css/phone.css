@@ -753,3 +753,33 @@
 #gal-grid .gal-item .sv:active{background:#25D366}
 #gal-autosave{grid-column:1/-1;margin:0 0 6px;padding:9px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
   background:rgba(255,255,255,.06);color:#fff;font:700 12px Inter,system-ui,sans-serif}
+
+/* Active handset interface themes. Brand-inspired, original game UI skins. */
+.tphone.skin-ios .thdr .tlg{background:linear-gradient(145deg,#7d7d85,#35353b)}
+.tphone.skin-ios .tapp-ic .tico{border-radius:19px}
+.tphone.skin-ios .tapp:not(#app-home){background:rgba(17,18,24,.82)}
+.tphone.skin-oneui .thdr .tlg{background:linear-gradient(145deg,#477ee8,#21469d)}
+.tphone.skin-oneui .tapp-ic .tico{border-radius:22px 22px 16px 16px}
+.tphone.skin-oneui .tapp:not(#app-home){background:rgba(13,25,49,.86)}
+.tphone.skin-hios .thdr .tlg{background:linear-gradient(145deg,#18b8a4,#087a70)}
+.tphone.skin-hios .tapp-ic .tico{border-radius:13px;background-image:linear-gradient(145deg,#197e82,#24435c)}
+.tphone.skin-hios .tapp:not(#app-home){background:rgba(5,30,34,.84)}
+.tphone.skin-xos .thdr .tlg{background:linear-gradient(145deg,#f19b35,#c44829)}
+.tphone.skin-xos .tapp-ic .tico{border-radius:16px;background-image:linear-gradient(145deg,#a24b2b,#392b45)}
+.tphone.skin-xos .tapp:not(#app-home){background:rgba(34,19,34,.86)}
+.tphone.skin-pixel .thdr .tlg{background:linear-gradient(145deg,#74a9ff,#3972d4)}
+.tphone.skin-pixel .tapp-ic .tico{border-radius:21px}
+.tphone.skin-pixel .tapp:not(#app-home){background:rgba(18,27,44,.84)}
+.tphone.skin-android .thdr .tlg{background:linear-gradient(145deg,#39a77b,#176d55)}
+.tphone #t-battery-text{font-size:10px;font-weight:800;letter-spacing:0}
+.tphone.skin-ios .tnotch{width:145px;border-radius:24px}
+.tphone.skin-oneui .tnotch{width:18px;height:18px;border-radius:50%;margin:10px auto 22px}
+.tphone.skin-oneui .tnotch::after{display:none}
+.tphone.skin-hios .tnotch,.tphone.skin-xos .tnotch{width:92px;height:25px;border-radius:18px}
+
+.tphone.skin-ios{background:radial-gradient(circle at 18% 12%,rgba(80,145,255,.55),transparent 43%),linear-gradient(155deg,#111b37,#241735 58%,#070a12)}
+.tphone.skin-oneui{background:radial-gradient(circle at 80% 8%,rgba(85,132,255,.42),transparent 45%),linear-gradient(155deg,#0a1833,#152a4a 60%,#070d19)}
+.tphone.skin-hios{background:radial-gradient(circle at 20% 15%,rgba(24,184,164,.4),transparent 45%),linear-gradient(155deg,#092b2d,#122c39 58%,#061518)}
+.tphone.skin-xos{background:radial-gradient(circle at 80% 12%,rgba(255,142,60,.42),transparent 45%),linear-gradient(155deg,#281a2b,#3b2134 58%,#100c19)}
+.tphone.skin-pixel{background:radial-gradient(circle at 20% 10%,rgba(104,165,255,.4),transparent 45%),linear-gradient(155deg,#17243b,#202c45 58%,#080d18)}
+.tphone #t-data-text{font-size:9px;font-weight:800;opacity:.8;letter-spacing:0}

@@ -13,6 +13,7 @@ import { NPCs } from "./npcs.js";
 import { HUD } from "../ui/hud.js";
 import { Sanity } from "./sanity.js";
 import { InteriorPoses } from "./interior-poses.js";
+import { WorldObjects } from "./world-objects.js";
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -66,6 +67,14 @@ export class ThirdPersonControls {
     this.camera = camera; this.dom = dom; this.world = world; this.opts = opt;
     window.__ph3d_walkCtrl = this;
     this.scene = opt.scene || null;
+    if (this.scene) {
+      try {
+        WorldObjects.clear();
+        WorldObjects.init(this.scene);
+        window.__ph3d_world_objects = WorldObjects;
+      } catch (e) { console.warn("[thirdperson] world item scene setup:", e); }
+    }
+    window.__ph3d_player = this;
     this.camDist = opt.camDist != null ? opt.camDist : CAM_DIST;
 
     this.pos = new THREE.Vector3(opt.x || 0, 0, opt.z || 0);
@@ -726,6 +735,12 @@ export class ThirdPersonControls {
       this.opts.onUse(use, this);
       return;
     }
+    const nearbyWorldItem = window.__ph3d_nearObj;
+    const actions = window.__ph3d_playerActions;
+    if (nearbyWorldItem && actions && typeof actions.pickup === "function" && !actions.isBusy?.()) {
+      actions.pickup(this, nearbyWorldItem);
+      return;
+    }
     if (this.nearSit) { this.sit(this.nearSit); return; }
     const c = this._nearestCarryable();
     if (c) { this.pickUp(c); return; }
@@ -813,6 +828,9 @@ export class ThirdPersonControls {
       const use = this._nearestUse();
       if (inter) { t = inter.label || "USE"; ds = "interact"; }
       else if (use) { t = use.label || "USE"; ds = "interact"; }
+      /* Dropped inventory items and world pickups share the same nearby-item
+         prompt. Give the player a visible touch action as well as the E key. */
+      else if (window.__ph3d_nearObj && !window.__ph3d_nearObj.taken) { t = "PICK UP"; ds = "take"; }
       else if (this.nearSit) { t = this.nearSit.label || "SIT"; }
       else if (this._nearestCarryable()) { t = "TAKE"; ds = "take"; }
       else if (this.weapons && this.weapons.current === "knife")  { t = "STAB"; ds = "warn"; }
@@ -945,6 +963,8 @@ export class ThirdPersonControls {
   this._lastNow = _now;
   dt = Math.min(Math.max(this.driveFeel ? _real : dt, 0), this.driveFeel ? 0.25 : 0.08);
   if (!this._parity) this._autoParity();
+  window.__ph3d_player = this;
+  try { WorldObjects.tick(dt, this.pos.x, this.pos.z); } catch (e) {}
   if (this._WA) { try { this._WA.tick(dt, this.moving ? 4.6 : 0); } catch (e) {} }
 
   /* Keep a clamped copy for the animator so a dropped frame
@@ -1132,6 +1152,7 @@ this._lastVy = vyBeforeSnap;
     }
 
     this._animate(animDt);
+    try { window.__ph3d_playerActions?.tick?.(this, dt, this.camera); } catch (e) {}
     this._jetVis.update(dt, this.jet.on, this.jet.on && (this.jet.thrust || this.keys.Space) && this.jet.fuel > 0);
     {
       const flying = this.jet.on && !this.onGround;
@@ -1361,8 +1382,13 @@ _updateCamera(dt, snap) {
 
   dispose() {
     this._disposed = true;
+    const wasActiveWalkCtrl = window.__ph3d_walkCtrl === this;
     if (this._WA) { try { this._WA.unmount(); } catch (e) {} this._WA = null; }
-    if (window.__ph3d_walkCtrl === this) window.__ph3d_walkCtrl = null;
+    if (wasActiveWalkCtrl) {
+      try { WorldObjects.clear(); } catch (e) {}
+      if (window.__ph3d_player === this) window.__ph3d_player = null;
+      window.__ph3d_walkCtrl = null;
+    }
     window.removeEventListener("keydown", this._kd);
     window.removeEventListener("keyup", this._ku);
     const el = this.dom;

@@ -50,7 +50,7 @@ const ICONS = {
   lagosflat: "🏢",
   forest: "🌲",
   canteen: "🍽️",
-  phoneshop: "PH",
+  phoneshop: "📱",
   beach: "🏖️",
   citypark: "⛲",
   nightclub: "🪩",

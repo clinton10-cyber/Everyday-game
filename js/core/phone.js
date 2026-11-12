@@ -4,6 +4,9 @@ import { FOOD_ITEMS } from "./restaurants.js";
 import { Pocket } from "./pocket.js";
 import { SELFIE_POSES, SELFIE_POSE_ORDER } from "./thirdperson.js";
 import { Sfx } from "./sfx.js";
+import { Engagement } from "./engagement.js";
+import { PHONE_BY_ID, PHONE_MODELS } from "../data/phone-models.js";
+import { PhoneLife } from "./phone-life.js";
 
 const SHOP_FOODS = ["puffpuff","plantain","palmwine","coffee","pounded","beer",
                      "chapman","jollof","suya","cake"];
@@ -39,7 +42,8 @@ export class Phone{
           <span class="tstat-icons">
             <i class="fa-solid fa-signal"></i>
             <i class="fa-solid fa-wifi"></i>
-            <i class="fa-solid fa-battery-three-quarters"></i>
+            <span id="t-data-text">DATA</span>
+            <span id="t-battery-text">100%</span><i class="fa-solid fa-battery-full" id="t-battery-icon"></i>
           </span>
         </div>
 
@@ -65,6 +69,10 @@ export class Phone{
             <div class="tapp-ic" data-a="police">
               <div class="tico"><i class="fa-solid fa-shield-halved"></i></div>
               <div class="tnm">Police</div>
+            </div>
+            <div class="tapp-ic" data-a="justice">
+              <div class="tico"><i class="fa-solid fa-scale-balanced"></i></div>
+              <div class="tnm">Justice</div>
             </div>
             <div class="tapp-ic" data-a="mp">
               <div class="tico"><i class="fa-solid fa-users"></i></div>
@@ -106,6 +114,32 @@ export class Phone{
               <div class="tico"><i class="fa-solid fa-briefcase"></i></div>
               <div class="tnm">Jobs</div>
             </div>
+            <div class="tapp-ic" data-a="business">
+              <div class="tico"><i class="fa-solid fa-store"></i></div>
+              <div class="tnm">Business</div>
+            </div>
+            <div class="tapp-ic" data-a="property">
+              <div class="tico"><i class="fa-solid fa-house-chimney"></i></div>
+              <div class="tnm">Property</div>
+            </div>
+            <div class="tapp-ic" data-a="career">
+              <div class="tico"><i class="fa-solid fa-briefcase"></i></div>
+              <div class="tnm">Career</div>
+            </div>
+            <div class="tapp-ic" data-a="story">
+              <div class="tico"><i class="fa-solid fa-book-open"></i></div>
+              <div class="tnm">Story</div>
+            </div>
+            <div class="tapp-ic" data-a="comics">
+              <div class="tico"><i class="fa-solid fa-book-open-reader"></i></div>
+              <div class="tnm">Comics</div>
+            </div>
+            <div class="tapp-ic" data-a="education">
+              <div class="tico"><i class="fa-solid fa-graduation-cap"></i></div>
+              <div class="tnm">Education</div>
+            </div>
+            <div class="tapp-ic" data-a="social"><div class="tico"><i class="fa-solid fa-comments"></i></div><div class="tnm">Social</div></div>
+            <div class="tapp-ic" data-a="settings"><div class="tico"><i class="fa-solid fa-gear"></i></div><div class="tnm">Settings</div></div>
             <div class="tapp-ic" data-a="hunt"><div class="tico"><i class="fa-solid fa-crosshairs"></i></div><div class="tnm">Hunt</div></div>
             <div class="tapp-ic" data-a="games"><div class="tico"><i class="fa-solid fa-gamepad"></i></div><div class="tnm">Games</div></div>
             <div class="tapp-ic" data-a="about">
@@ -152,6 +186,20 @@ export class Phone{
   <div class="hunt-note">Restricted to melee weapons. Leaving the zone or dying forfeits the prize.</div>
 </div>
 
+        <!-- ── BUSINESS / STORY CAMPAIGN ───────────────── -->
+        <div class="tapp" id="app-business"></div>
+        <div class="tapp" id="app-property"></div>
+        <div class="tapp" id="app-career"></div>
+        <div class="tapp" id="app-story"></div>
+        <div class="tapp" id="app-justice"></div>
+        <div class="tapp" id="app-comics"></div>
+        <div class="tapp" id="app-education"></div>
+        <div class="tapp" id="app-social"></div>
+        <div class="tapp" id="app-settings">
+          <button class="tbk" data-back><i class="fa-solid fa-chevron-left"></i> Home</button>
+          <div id="phone-settings-body"></div>
+        </div>
+
         <!-- ── ABOUT ────────────────────────────────────── -->
         <div class="tapp" id="app-about">
           <button class="tbk" data-back><i class="fa-solid fa-chevron-left"></i> Home</button>
@@ -187,6 +235,7 @@ export class Phone{
             <button id="bh"><i class="fa-solid fa-clock-rotate-left"></i> History</button>
           </div>
           <div id="bbody"></div>
+          <div id="banking-panel"></div>
         </div>
 
         <!-- ── HEALTH ───────────────────────────────────── -->
@@ -429,6 +478,7 @@ export class Phone{
     };
 
     this._tick();
+    this._applyDeviceSkin();
     setInterval(() => this._tick(), 30000);
     this._renderMP();
     this._renderInv();
@@ -441,6 +491,46 @@ export class Phone{
     if (!e) return;
     const d = new Date();
     e.textContent = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+    PhoneLife.tick(); this._renderBatteryStatus();
+  }
+
+  _renderBatteryStatus(){
+    const snap = PhoneLife.snapshot(), pct = snap.battery;
+    const text = document.getElementById("t-battery-text"), icon = document.getElementById("t-battery-icon");
+    const dataText = document.getElementById("t-data-text");
+    if (dataText) dataText.textContent = snap.dataMb >= 1024 ? (snap.dataMb/1024).toFixed(1)+"G" : snap.dataMb+"M";
+    if (text) text.textContent = pct + "%";
+    if (icon) { icon.className = "fa-solid " + (pct <= 15 ? "fa-battery-quarter" : pct <= 45 ? "fa-battery-half" : pct <= 75 ? "fa-battery-three-quarters" : "fa-battery-full"); icon.style.color = pct <= 15 ? "#ff5b65" : "#fff"; }
+  }
+
+  _applyDeviceSkin(){
+    const shell = document.getElementById("tphone"); if (!shell) return;
+    shell.classList.remove("skin-ios","skin-oneui","skin-hios","skin-xos","skin-pixel","skin-android");
+    const id = Engagement.state.phones.active, model = PHONE_BY_ID[id];
+    let skin = "skin-android";
+    if (model?.brand === "Apple") skin = "skin-ios";
+    else if (model?.brand === "Samsung") skin = "skin-oneui";
+    else if (model?.brand === "Tecno" || model?.brand === "itel") skin = "skin-hios";
+    else if (model?.brand === "Infinix") skin = "skin-xos";
+    else if (model?.brand === "Google") skin = "skin-pixel";
+    shell.classList.add(skin); shell.dataset.phoneModel = id || "starter";
+    const brand = document.querySelector(".thdr .tbr span");
+    if (brand) brand.textContent = model ? `${model.brand} ${model.name}` : "Everyday Phone";
+    this._renderBatteryStatus();
+  }
+
+  _renderPhoneSettings(){
+    const root = document.getElementById("phone-settings-body"); if (!root) return;
+    const snap = PhoneLife.snapshot(), active = Engagement.state.phones.active, current = PHONE_BY_ID[active];
+    const data = snap.dataMb >= 1024 ? (snap.dataMb/1024).toFixed(2)+" GB" : snap.dataMb+" MB";
+    root.innerHTML = `<div class="tbal"><div class="tlbl">DEVICE</div><div class="tamt" style="font-size:21px">${current ? current.brand+" "+current.name : "No phone selected"}</div><div class="tlbl" style="margin-top:7px">${current ? current.specs.storage+" storage · "+current.specs.battery+" battery" : "Visit the Phone Shop to buy a device."}</div></div>
+      <div class="tstat-panel"><div class="tstat-row"><span class="k">Battery charge</span><span class="v">${snap.battery}%</span></div><div class="tbar"><i style="width:${snap.battery}%;background:${snap.battery<=15?'#ff5b65':'#30d158'}"></i></div><div class="tstat-row" style="margin-top:12px"><span class="k">Mobile data</span><span class="v">${data}</span></div><div class="tstat-row"><span class="k">Airtime</span><span class="v">₦${snap.airtime.toLocaleString()}</span></div></div>
+      <h3 style="font-size:12px;margin:18px 0 8px">CHARGE YOUR PHONE</h3><div class="tacts"><button data-charge="small">+25% · ₦300</button><button data-charge="full">FULL CHARGE · ₦900</button></div><p style="font-size:10px;color:#9fb0c6;line-height:1.5">Battery drains gradually as real time passes. Charging is simulated in-game.</p><h3 style="font-size:12px;margin:18px 0 8px">MY DEVICES</h3><div id="owned-phone-list"></div>`;
+    root.querySelectorAll("[data-charge]").forEach(b=>b.onclick=()=>{const r=PhoneLife.charge(b.dataset.charge);const msg={funds:"Not enough money to charge.",no_phone:"Buy a phone first.",full:"Battery is already full."};this._toast(r.ok?`Phone charged to ${r.battery}%.`:msg[r.reason]||"Unable to charge.");this._renderPhoneSettings();this._renderBatteryStatus();});
+    const list=root.querySelector("#owned-phone-list");
+    if (!Engagement.state.phones.owned.length) list.innerHTML='<div class="tempty">No phones owned yet. Visit the Phone Shop.</div>';
+    else list.innerHTML=Engagement.state.phones.owned.map(id=>{const m=PHONE_BY_ID[id];return m?`<div class="ttx"><div><div class="who">${m.brand} ${m.name}</div><div class="when">${m.specs.ram} · ${m.specs.storage}</div></div><button class="buy" data-select-phone="${id}">${id===active?"ACTIVE":"USE PHONE"}</button></div>`:"";}).join("");
+    list.querySelectorAll("[data-select-phone]").forEach(b=>b.onclick=()=>{PhoneLife.selectPhone(b.dataset.selectPhone);this._applyDeviceSkin();this._renderPhoneSettings();this._toast("Phone interface changed.");});
   }
 
   _compact(n){
@@ -522,21 +612,22 @@ export class Phone{
     const map = {
       home: "app-home", bank: "app-bank", health: "app-health",
       mp: "app-mp", inv: "app-inv", homeinfo: "app-homeinfo",
-      police: "app-police", shop: "app-shop", camera: "app-camera",
+      police: "app-police", justice: "app-justice", shop: "app-shop", camera: "app-camera",
       gallery: "app-gallery", map: "app-map", weather: "app-weather",
-      music: "app-music", jobs: "app-jobs", hunt: "app-hunt",
-      about: "app-about", games: "app-games",
+      music: "app-music", jobs: "app-jobs", business: "app-business", property: "app-property", career: "app-career", story: "app-story", hunt: "app-hunt",
+      about: "app-about", games: "app-games", comics: "app-comics", education: "app-education", social: "app-social", settings: "app-settings",
     };
     const id = map[n];
     const el = id && document.getElementById(id);
     if (el) el.classList.add("on");
     this.app = n;
 
-    if (n === "bank")    this._bmini();
+    if (n === "bank") { this._bmini(); import("../ui/banking-panel.js").then(m => m.BankingPanel.render()).catch(e => console.warn("[banking panel]",e)); }
     if (n === "health")  this._stats();
     if (n === "mp")      this._renderMP();
     if (n === "inv")     this._renderInv();
     if (n === "police")  this._renderPolice();
+    if (n === "justice") { import("../ui/justice-panel.js").then(m => m.JusticePanel.render()).catch(e => console.warn("[justice panel]",e)); }
     if (n === "shop")    this._renderShop();
     if (n === "camera")  this._renderCamera();
     if (n === "gallery") this._renderGallery();
@@ -546,6 +637,15 @@ export class Phone{
     if (n === "games")   { try { PhoneGames.hub(); } catch (e) { console.warn(e); } }
     if (n === "music")   this._renderMusic();
     if (n === "jobs")    this._renderJobs();
+    if (n === "business") { import("../ui/business-panel.js").then(m => m.BusinessPanel.render()).catch(e => console.warn("[business panel]",e)); }
+    if (n === "property") { import("../ui/property-panel.js").then(m => m.PropertyPanel.render()).catch(e => console.warn("[property panel]",e)); }
+    if (n === "career") { import("../ui/career-panel.js").then(m => m.CareerPanel.render()).catch(e => console.warn("[career panel]",e)); }
+    if (n === "story") { import("../ui/story-panel.js").then(m => m.StoryPanel.render()).catch(e => console.warn("[story panel]",e)); }
+    if (n === "comics") { import("../ui/comics-panel.js").then(m => m.ComicsPanel.render()).catch(e => console.warn("[comics panel]",e)); }
+    if (n === "education") { import("../ui/education-panel.js").then(m => m.EducationPanel.render()).catch(e => console.warn("[education panel]",e)); }
+    if (n === "social") { import("../ui/social-panel.js").then(m => m.SocialPanel.render()).catch(e => console.warn("[social panel]",e)); }
+    if (n === "settings") this._renderPhoneSettings();
+    this._applyDeviceSkin();
     if (n === "hunt")    this._renderHunt();
     this._stats();
   }

@@ -382,6 +382,53 @@ function buildRoads(){
    lamp with a glowing lens. Spaced ~34 m, alternating sides; skipped near
    junctions, over other roads, and wherever a building/tree is. Each pole
    registers a circle collider, so cars and the walker cannot pass through. */
+/* ── Nigerian street life: bus shelters, keke ranks and roadside kiosks ── */
+function buildCityLife(){
+  const red = rgb('#c74632'), blue = rgb('#24618a'), yellow = rgb('#e3b83f');
+  const cream = rgb('#e8dfc8'), dark = rgb('#34383c'), green = rgb('#367448');
+  /* Open-sided shelters placed beside, never in, the carriageway. */
+  const stops = [
+    [-174,  72, 0], [-28, -166, Math.PI/2], [188,  34, 0],
+    [  86, 226, Math.PI/2], [-302, 112, 0], [324, -72, Math.PI/2]
+  ];
+  for(const [x,z,rot] of stops){
+    const c=Math.cos(rot), sn=Math.sin(rot);
+    const pt=(a,b)=>[x+a*c-b*sn,z+a*sn+b*c];
+    const [lx,lz]=pt(-3,0), [rx,rz]=pt(3,0), [bx,bz]=pt(0,-2.1);
+    /* concrete pad, three posts, roof and bench */
+    box(x,0.025,z,8.2,0.12,5.2,K.walk,rot);
+    for(const [px,pz] of [[lx,lz],[rx,rz],[bx,bz]]) box(px,0.12,pz,0.18,2.7,0.18,dark,rot);
+    box(x,2.78,z,8.5,0.22,5.5,blue,rot);
+    box(x,0.72,z+0.85,4.5,0.18,0.55,K.wood,rot);
+    box(x,0.92,z+0.85,4.5,0.12,0.16,dark,rot);
+    /* yellow route strip makes the stop readable from the overhead map */
+    box(x,2.91,z-2.15,2.5,0.08,0.12,yellow,rot);
+  }
+  /* Small roadside kiosks: painted block walls, corrugated roof and awning. */
+  const kiosks = [
+    [226,126,red], [142,286,blue], [-178,278,green], [286,-194,yellow],
+    [-390,34,blue], [28,-318,red]
+  ];
+  for(const [x,z,paint] of kiosks){
+    box(x,0,z,5.2,2.7,4.2,cream);
+    box(x,2.72,z,5.8,0.18,4.8,dark);
+    box(x,2.9,z,5.5,0.12,4.5,paint);
+    /* serving hatch and counter face the street */
+    box(x,1.65,z+2.13,2.8,0.85,0.12,dark);
+    box(x,1.15,z+2.28,3.4,0.16,0.55,K.wood);
+    box(x,2.18,z+2.2,3.6,0.12,0.75,paint);
+    /* shop signboard */
+    box(x,2.35,z-2.16,3.4,0.55,0.12,yellow);
+  }
+  /* Keke / taxi rank bays with painted separators and a small shelter marker. */
+  for(const [x,z] of [[-80,92],[208,-86],[362,176]]){
+    box(x,0.035,z,13,0.07,5.8,dark);
+    for(let i=-1;i<=1;i++) box(x+i*4,0.08,z,0.12,0.035,5.2,yellow);
+    box(x,0.12,z-3.4,2.6,0.18,0.5,red);
+    box(x,0.32,z-3.4,0.18,0.55,0.18,dark);
+  }
+}
+
 function buildStreetlights(){
   const POLE = rgb('#16161a'), PLINTH = rgb('#0a0a0c'), CHROME = rgb('#5a5a66'), LENS = rgb('#fff2cc'), HOOD = rgb('#121216');
   const SP = 34, END_SKIP = 16;
@@ -543,7 +590,7 @@ const PLACE_RADIUS = {
   jobcenter: 22, hospital: 26, church: 28, mosque: 20, vatican: 38,
   statehouse: 34, classroom: 16, computerlab: 16, zoo: 20, statejail: 22,
   vastcity: 70, duplex: 18, lagosflat: 24, forest: 60, canteen: 22,
-  beach: 60, citypark: 55, village: 20, nightclub: 18
+  beach: 60, citypark: 55, village: 20, nightclub: 18, phoneshop: 20
 };
 function placeRadius(id){ return PLACE_RADIUS[id] || 26; }
 
@@ -1220,6 +1267,28 @@ function bLagosLife(x,z){
   collide(x-17, z-6, 9, 9, 28);
   B.flat(x, 0.12, z+16, 30, 8, K.walk);
 }
+function bPhoneShop(x,z){
+  /* Dedicated street-facing phone retailer with a blue storefront. */
+  B.flat(x, 0.09, z, 48, 38, rgb('#a9a9a2'));
+  box(x, 0, z, 28, 9, 18, rgb('#e8edf2'));
+  box(x, 9, z, 30, 1.0, 20, rgb('#2f9bff'));
+  /* glass front and dark entrance */
+  winRow(x-7, 2.2, z+9.15, 10, 4.4, 3, 0, rgb('#75b9d8'));
+  winRow(x+7, 2.2, z+9.15, 10, 4.4, 3, 0, rgb('#75b9d8'));
+  box(x, 0, z+9.2, 3.2, 5.2, 0.35, rgb('#172638'));
+  /* rooftop sign board */
+  box(x, 10.3, z+9.6, 18, 2.2, 0.65, rgb('#10243b'));
+  B.panelXY(x, 11.4, z+9.98, 15, 1.2, rgb('#f4f8ff'), 0);
+  /* phone display plinths visible through the windows */
+  for(let i=0;i<5;i++){
+    const px=x-8+i*4;
+    box(px, 0.15, z+4.2, 2.5, 1.1, 1.2, rgb('#26364a'));
+    box(px, 1.3, z+4.2, 0.55, 0.12, 1.0, [rgb('#2f9bff'),rgb('#35a878'),rgb('#8a3ffc'),rgb('#d7dce4'),rgb('#c9a961')][i]);
+  }
+  collide(x, z, 17, 11, 11);
+  B.flat(x, 0.12, z+15, 30, 8, K.walk);
+}
+
 function bCanteen(x,z){
   B.flat(x, 0.09, z, 40, 34, K.grass2);
   box(x, 0, z, 26, 6, 15, rgb('#ece6da'));
@@ -1336,7 +1405,8 @@ const PLACES = [
   ["beach",        "Beach",                  330,  260, bBeach],
   ["citypark",     "City Park",             -350,  200, bCityPark],
   ["village",      "Village",               -330, -310, bVillage],
-  ["nightclub",    "Club Eclipse",           120,  135, bNightclub]
+  ["nightclub",    "Club Eclipse",           120,  135, bNightclub],
+  ["phoneshop",    "Phone Shop",              120,  320, bPhoneShop]
 ];
 
 /* ── 10. Public entry point ───────────────────────────────────── */
@@ -1396,6 +1466,7 @@ export function buildPHWorld(){
   scatterTrees(150, 0, 0, 560, 520, 0.8, 1.5);
   scatterTrees(40, 430, 250, 200, 160, 0.9, 1.5);
   scatterTrees(40, -430, -60, 190, 220, 0.9, 1.5);
+  try { buildCityLife(); console.log("[phworld] Nigerian city-life details built"); } catch (e) { console.warn("[phworld] city-life details failed:", e); }
   try { console.log("[phworld] streetlights:", buildStreetlights()); } catch (e) { console.warn("[phworld] streetlights failed:", e); }
   try { console.log("[phworld] power poles:", buildPowerLines()); } catch (e) { console.warn("[phworld] power lines failed:", e); }
 

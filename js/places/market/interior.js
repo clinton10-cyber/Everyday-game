@@ -10,6 +10,7 @@ import { ThirdPersonControls } from "../../core/thirdperson.js";
 import meta from "./meta.js";
 import { MILE1_STALLS } from "../../data/mile1-stalls.js";
 import { Quality } from "../../core/quality.js";
+import { createMarketItemMesh } from "../../core/market-item-models.js";
 
 /* ══════════════════════════════════════════════════════════
    0.  SEEDED RANDOM (deterministic layout)
@@ -347,10 +348,20 @@ export async function buildInterior(router) {
     g.fillText("\u20A6" + item.price.toLocaleString(), 256, 106);
     const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
   }
-  function registerStall(cx, cz, slot) {
+  function registerStall(cx, cz, slot, ry, displayY, localZ = 0) {
     const item = MILE1_STALLS[slot];
     if (!item) return;
     market_uses.push({ kind: "market", label: item.label + " \u00B7 \u20A6" + item.price.toLocaleString(), x: cx, z: cz, y: 0, level: 0, r: 3.2, item: item });
+    // A distinct low-poly product model sits on every stall, matching the item sold there.
+    const product = createMarketItemMesh(item);
+    // Kiosk counters are on the front face; place the product outside the solid kiosk body.
+    const productX = cx + Math.sin(ry) * localZ;
+    const productZ = cz + Math.cos(ry) * localZ;
+    product.position.set(productX, displayY, productZ);
+    product.rotation.y = ry;
+    product.scale.setScalar(0.78);
+    product.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    scene.add(product);
     if (SIGNS) {
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: signTexFor(item), transparent: true, fog: true }));
       sp.scale.set(3.4, 0.85, 1); sp.position.set(cx, 3.75, cz);
@@ -365,12 +376,13 @@ export async function buildInterior(router) {
       const cz = ROWS[r];
       const ry = (rnd() < 0.5 ? 0 : Math.PI) + R(-0.09, 0.09);
       const t = rnd();
-      if (t < 0.05) stallPlain(cx, cz, ry);
-      else if (t < 0.50) stallTable(cx, cz, ry);
-      else if (t < 0.70) stallUmbrella(cx, cz, ry);
-      else if (t < 0.86) stallKiosk(cx, cz, ry);
-      else stallGround(cx, cz, ry);
-      registerStall(cx, cz, r * 13 + c);
+      let displayY = 0.55, displayZ = 0;
+      if (t < 0.05) { stallPlain(cx, cz, ry); displayY = 0.58; }
+      else if (t < 0.50) { stallTable(cx, cz, ry); displayY = 0.99; }
+      else if (t < 0.70) { stallUmbrella(cx, cz, ry); displayY = 0.58; }
+      else if (t < 0.86) { stallKiosk(cx, cz, ry); displayY = 1.18; displayZ = 1.22; }
+      else { stallGround(cx, cz, ry); displayY = 0.48; }
+      registerStall(cx, cz, r * 13 + c, ry, displayY, displayZ);
     }
   }
 

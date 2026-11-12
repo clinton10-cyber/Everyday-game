@@ -11,7 +11,15 @@ export function routeForLandmark(lm, router) {
   if (id === "prison")     return router.go("prisonScene");
   if (id === "governor")   return router.go("governorScene");
 
-  if (id === "university" || id === "pleasurepark") {
+  /* UNIPORT is a standalone walkable campus scene, not a parent-zone
+     minimap. Sending it to "minimap" throws because no university minimap
+     module is registered. Route city/drive landmark taps straight into the
+     same university interior used by the in-game Map app. */
+  if (id === "university") {
+    return router.go("interior", { id: "university" });
+  }
+
+  if (id === "pleasurepark") {
     return router.go("minimap", { id });
   }
 

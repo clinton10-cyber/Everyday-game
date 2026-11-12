@@ -34,6 +34,7 @@ export const Police={
         return;
       }
     } catch (e) {}
+    try { if (!this.target || this.target === "you" || this.target === "You") window.__ph3d_justice?.onArrest(name); } catch (e) {}
     ui&&ui._toast("Police arrested "+name);
     ui&&ui.notify("ARRESTED",name+" has been taken into custody.");
     try {

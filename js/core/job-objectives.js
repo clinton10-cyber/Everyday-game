@@ -192,6 +192,7 @@ export const JobObjectives = {
       if (E && E.receive) E.receive("JOB", j.reward, j.name);
     } catch (e) {}
     Rep.add(j.repGain);
+    try { window.dispatchEvent(new CustomEvent("ph3d:job-complete", { detail: { type: j.type, name: j.name, reward: j.reward, repGain: j.repGain } })); } catch (_) {}
     let _dl = "";
     try { _dl = Sfx.voiceText("job_done"); } catch (_) {}
     _toast("" + (_dl ? "\u201C" + _dl + "\u201D \u00b7 " : "") + j.name + " done · ₦" + j.reward.toLocaleString() + " · rep +" + j.repGain);

@@ -28,9 +28,12 @@ function looksLikeExistingPlayer() {
 }
 function loadState() {
   try { const j = localStorage.getItem(KEY); if (j) { const o = JSON.parse(j); if (o && o.v === 1) return o; } } catch (e) {}
-  return { v: 1, legacyHome: looksLikeExistingPlayer(), home: { owned: {} }, wedding: { guests: [], reception: true, done: false }, baby: { mood: 0.8 } };
+  return { v: 1, legacyHome: looksLikeExistingPlayer(), home: { owned: {} }, wedding: { guests: [], reception: true, done: false }, baby: { mood: 0.8 }, family: { happiness: 70, activities: 0, lastActivity: "" } };
 }
 const state = loadState();
+state.family = state.family || { happiness: 70, activities: 0, lastActivity: "" };
+state.family.happiness = clamp(Number(state.family.happiness) || 70, 0, 100);
+state.family.activities = Math.max(0, Number(state.family.activities) || 0);
 function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
 save();
 
@@ -89,6 +92,36 @@ export const LifeSim = {
   onDate(p, kind) {
     /* the camera is usable on dates — snap one together */
     setTimeout(() => { try { this.togetherSelfie(p._npc, p, true); } catch (e) {} }, 600);
+  },
+
+  /* ── family activities: low-friction bonding actions with persistent progress ── */
+  familyActivity(kind) {
+    const P = Lives.player(); if (!P) return false;
+    const partner = Lives.byId(P.spouse) || Lives.byId(P.partner);
+    const kids = (P.kids || []).map(Lives.byId).filter((k) => k && !k.dead);
+    const members = [partner, ...kids].filter(Boolean);
+    if (!members.length) { toast("Build a family first — invite a partner or welcome children."); return false; }
+    const options = {
+      game: { name: "Family game night", cost: 0, happiness: 6, bond: 5 },
+      picnic: { name: "Park picnic", cost: 3500, happiness: 10, bond: 8 },
+      dinner: { name: "Family dinner", cost: 9000, happiness: 14, bond: 11 },
+      celebrate: { name: "Family celebration", cost: 18000, happiness: 20, bond: 15 },
+    };
+    const activity = options[kind]; if (!activity) return false;
+    if (activity.cost && !Economy.withdraw(activity.cost)) { toast("Not enough money for this family activity."); return false; }
+    for (const person of members) {
+      const rel = Lives.rel(person);
+      rel.v = clamp((Number(rel.v) || 0) + activity.bond, -100, 100);
+      rel.met = (Number(rel.met) || 0) + 1;
+      rel.last = Lives.state().day;
+      person.mood = clamp((Number(person.mood) || 0.5) + 0.08, 0, 1);
+    }
+    state.family.happiness = clamp(state.family.happiness + activity.happiness, 0, 100);
+    state.family.activities += 1;
+    state.family.lastActivity = activity.name;
+    save(); Lives.save();
+    toast(activity.name + " completed · family bonds improved!");
+    return true;
   },
 
   /* ── photos ──────────────────────────────────────── */
@@ -204,8 +237,12 @@ function renderApp() {
     }
   } else if (tab === "wedding") h += Wedding.renderTab(card, btn);
   else if (tab === "family") {
-    const kids = P.kids.map(Lives.byId).filter(Boolean);
+    const kids = P.kids.map(Lives.byId).filter((k) => k && !k.dead);
+    const fam = state.family;
+    h += card(`<b>Household overview</b><br>Partner: ${partner ? partner.name : "No spouse or partner yet"}<br>Children: ${kids.length}<br><span style="opacity:.75">Family happiness · ${Math.round(fam.happiness)}%</span><div style="height:8px;border-radius:8px;background:#26302b;margin:8px 0"><i style="display:block;width:${fam.happiness}%;height:100%;background:linear-gradient(90deg,#ffb454,#7dff9a);border-radius:8px"></i></div><span style="opacity:.7">Family activities completed: ${fam.activities}</span>`);
+    if (partner) h += card(`<b>💑 ${partner.name}</b><br>${Lives.STAGE_LABEL[Lives.stageOf(partner)] || "Partner"}${partner.preg ? " · 🤰 expecting" : ""}<br><span style="opacity:.7">Relationship: ${Math.round((Lives.rel(partner).v + 100) / 2)}%</span>`);
     h += kids.length ? kids.map((k) => card(`<b>${k.name}</b> · ${k.age < 2 ? Math.max(0, Math.floor(k.age * 12)) + " months" : Math.floor(k.age) + " yrs"}${P.held === k.id ? " · 🤱 in your arms" : ""}<br>${k.age < Lives.INFANT_AGE ? (P.held === k.id ? btn("soothe", "🤫 Soothe") + btn("down", "🛏 Put down") : btn("fcarry:" + k.id, "🤱 Carry (front)") + btn("bcarry:" + k.id, "🎒 Carry (back)")) : ""}`)).join("") : card("No children yet. Married couples can try for a baby from the relationship panel.");
+    h += card(`<b>🎉 Family activities</b><br><span style="opacity:.7">Spend time together to strengthen family bonds and improve household happiness.</span><br>${btn("fam:game", "🎲 Game night · Free", !partner && !kids.length)}${btn("fam:picnic", "🧺 Park picnic · ₦3,500", !partner && !kids.length)}${btn("fam:dinner", "🍲 Family dinner · ₦9,000", !partner && !kids.length)}${btn("fam:celebrate", "🎊 Family celebration · ₦18,000", !partner && !kids.length)}<br><span style="opacity:.7">${fam.lastActivity ? "Last activity: " + fam.lastActivity : "Plan your first family activity."}</span>`);
   } else if (tab === "home") h += HomeProg.renderTab(card, btn);
   else {
     const n = Photos.list.length;
@@ -221,6 +258,7 @@ function renderApp() {
     if (a === "album") { appEl.style.display = "none"; import("./photo3d.js").then((m) => m.PhotoViewer3D.open(Photos.list[0] && Photos.list[0].id, { onClose: () => openLifeApp() })); return; }
     if (a === "soothe") LifeSim.soothe();
     else if (a === "down") LifeSim.putDown();
+    else if (a.indexOf("fam:") === 0) LifeSim.familyActivity(a.slice(4));
     else if (a.indexOf("fcarry:") === 0) LifeSim.carryBaby(a.slice(7), "front");
     else if (a.indexOf("bcarry:") === 0) LifeSim.carryBaby(a.slice(7), "back");
     else if (Wedding.handle(a) || HomeProg.handle(a)) { /* handled */ }

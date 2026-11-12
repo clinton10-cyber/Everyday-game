@@ -513,7 +513,31 @@ export const NPCs = {
     const group = buildGroup(groupType);
     const members = group.members.slice(0, Math.max(1, wantedCount || group.members.length));
 
-    const startU = rnd();
+    /* Spread pedestrian groups along the full street network instead of
+       repeatedly choosing nearby points. Sample several positions on this
+       route and use the one farthest from already-spawned NPCs. This keeps
+       each district populated without creating one dense crowd hotspot. */
+    let startU = rnd();
+    let bestSpacing = -1;
+    for (let sample = 0; sample < 28; sample++) {
+      const candidateU = rnd();
+      const candidate = pointAtU(path, candidateU);
+      let nearest = Infinity;
+      for (const other of this.list) {
+        if (!other || other.dead || !other.ctl || !other.ctl.pos) continue;
+        const dx = other.ctl.pos.x - candidate.x;
+        const dz = other.ctl.pos.z - candidate.z;
+        const d = Math.hypot(dx, dz);
+        if (d < nearest) nearest = d;
+      }
+      /* The first group has no neighbours, so retain its random route point. */
+      const spacing = Number.isFinite(nearest) ? nearest : 1e6;
+      if (spacing > bestSpacing) {
+        bestSpacing = spacing;
+        startU = candidateU;
+      }
+      if (spacing >= 24) break;
+    }
     const tangentRef = pointAtU(path, startU);
     const baseYaw = Math.atan2(tangentRef.tx, tangentRef.tz);
 
@@ -538,10 +562,14 @@ export const NPCs = {
       if (this.list.length > 0) {
         let tooClose = false;
         for (const other of this.list) {
-          if (other.groupTag !== groupType) continue;
           const dxo = other.ctl.pos.x - x;
           const dzo = other.ctl.pos.z - z;
-          if (dxo * dxo + dzo * dzo < 9) { tooClose = true; break; }
+          /* Allow members of a single group to stand together, but prevent
+             separate groups/archetypes from occupying the same pavement. */
+          const sameGroup = other.groupTag === groupType &&
+            Math.hypot(other.ctl.pos.x - tangentRef.x, other.ctl.pos.z - tangentRef.z) < 5;
+          const minGap = sameGroup ? 1.8 : 3.8;
+          if (dxo * dxo + dzo * dzo < minGap * minGap) { tooClose = true; break; }
         }
         if (tooClose) continue;
       }

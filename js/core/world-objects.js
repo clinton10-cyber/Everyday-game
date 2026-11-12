@@ -20,6 +20,7 @@
    ================================================================ */
 
 import * as THREE from "three";
+import { createMarketItemMesh } from "./market-item-models.js";
 
 const TAU  = Math.PI * 2;
 let _scene = null;
@@ -363,24 +364,76 @@ export const WorldObjects = {
     }
   },
 
-  /** Drop an item at a world position */
+  /** Drop a currently held world object with a short physical fall and bounce. */
   drop(item, x, z) {
-    if (!item) return;
+    if (!item || !_scene) return false;
     try { window.__ph3d_sfx && window.__ph3d_sfx.dropSound(item, x, z, false); } catch (e) {}
-    item.taken  = false;
+    item.taken = false;
     item.holder = null;
-    item.x      = x;
-    item.z      = z;
-    if (item.mesh && _scene) {
-      item.mesh.position.set(x, 0.05, z);
+    item.dropped = true;
+    item.x = x; item.z = z;
+    if (item.mesh) {
+      if (item.mesh.parent) item.mesh.parent.remove(item.mesh);
+      item.mesh.position.set(x, 0.95, z);
+      item.mesh.rotation.set(0, 0, 0);
       _scene.add(item.mesh);
+      item.physics = { vx: 0, vy: 0.7, vz: 0, bounce: 0 };
     }
+    if (!_items.includes(item)) _items.push(item);
+    return true;
+  },
+
+  /**
+   * Create a real 3D object in front of the player from a Pocket slot.
+   * The caller should remove one unit from Pocket only after this succeeds.
+   */
+  dropPocketItem(slot, player) {
+    if (!slot || !slot.id || !_scene) return false;
+    const actor = player || window.__ph3d_player || window.__ph3d_walkCtrl || window.__ph3d_tp || window.__ph3d_drive;
+    let pos = actor && actor.pos ? actor.pos : actor;
+    if (actor && typeof actor.getPos === "function") {
+      try { pos = actor.getPos() || pos; } catch (e) {}
+    }
+    const px = pos && Number.isFinite(pos.x) ? pos.x : 0;
+    const pz = pos && Number.isFinite(pos.z) ? pos.z : 0;
+    const yaw = pos && Number.isFinite(pos.yaw) ? pos.yaw : actor && Number.isFinite(actor.yaw) ? actor.yaw : 0;
+    const x = px + Math.sin(yaw) * 0.88;
+    const z = pz + Math.cos(yaw) * 0.88;
+    const def = CATALOGUE[slot.id];
+    const mesh = def ? def.build({ x, z }) : createMarketItemMesh({
+      id: slot.id,
+      label: slot.name || slot.id,
+      name: slot.name || slot.id,
+    });
+    if (!mesh) return false;
+    const id = "drop_" + Math.random().toString(36).slice(2, 10);
+    const glow = _makeGlow();
+    glow.visible = false;
+    mesh.add(glow);
+    mesh.position.set(x, 0.92, z);
+    mesh.rotation.set(0, yaw, 0);
+    mesh.scale.setScalar(0.82);
+    mesh.userData = mesh.userData || {};
+    mesh.userData.itemType = slot.id;
+    const item = {
+      id, type: slot.id, x, z, mesh, glow, taken: false, holder: null,
+      label: slot.name || slot.id.replace(/_/g, " ").toUpperCase(),
+      icon: slot.icon || "ITEM", use: slot.desc || "Pick up this item.",
+      dropped: true,
+      physics: { vx: Math.sin(yaw) * 0.35, vy: 0.8, vz: Math.cos(yaw) * 0.35, bounce: 0 },
+    };
+    mesh.userData._item = item;
+    _scene.add(mesh);
+    _items.push(item);
+    try { window.__ph3d_sfx && window.__ph3d_sfx.dropSound(item, x, z, false); } catch (e) {}
+    return item;
   },
 
   /** Throw an item toward a target (basic arc; disappears on landing) */
   throw(item, tx, tz, holder) {
     if (!item) return;
     item.taken = false;
+    item.dropped = true;
     const startX = holder?.x ?? 0;
     const startZ = holder?.z ?? 0;
     item.x = tx; item.z = tz;
@@ -436,10 +489,31 @@ export const WorldObjects = {
       if (item.taken) continue;
       const ddx = item.x - playerX, ddz = item.z - playerZ;
       if (ddx * ddx + ddz * ddz > R2) continue;
-      // Slow float animation
-      if (item.mesh) {
-        item.mesh.position.y = 0.05 + Math.sin(Date.now() * 0.002 + item.x) * 0.06;
-        item.mesh.rotation.y += dt * 0.8;
+      // Dropped pocket items and hand-held props fall, bounce once, then settle.
+      if (item.mesh && item.physics) {
+        const ph = item.physics;
+        ph.vy -= 13.5 * dt;
+        item.mesh.position.x += ph.vx * dt;
+        item.mesh.position.y += ph.vy * dt;
+        item.mesh.position.z += ph.vz * dt;
+        item.mesh.rotation.y += dt * 1.2;
+        item.x = item.mesh.position.x; item.z = item.mesh.position.z;
+        if (item.mesh.position.y <= 0.05) {
+          item.mesh.position.y = 0.05;
+          if (!ph.bounce && Math.abs(ph.vy) > 1.25) {
+            ph.vy = Math.abs(ph.vy) * 0.22;
+            ph.vx *= 0.42; ph.vz *= 0.42; ph.bounce = 1;
+          } else {
+            item.physics = null;
+            item.mesh.rotation.x = 0; item.mesh.rotation.z = 0;
+          }
+        }
+      } else if (item.mesh && item.dropped) {
+        // Dropped inventory items stay exactly where they landed; only world-spawned pickups bob.
+        item.mesh.position.y = 0.05;
+      } else if (item.mesh) {
+        item.mesh.position.y = 0.05 + Math.sin(Date.now() * 0.002 + item.x) * 0.025;
+        item.mesh.rotation.y += dt * 0.16;
       }
       this.setHighlight(item, item === near);
     }
