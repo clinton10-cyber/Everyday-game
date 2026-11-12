@@ -43,6 +43,7 @@ export const JobShifts = {
     persist(null);
     if (!a) return;
     try { Economy.receive("SHIFT", a.pay, a.name); } catch (e) {}
+    try { window.__ph3d_engagement && window.__ph3d_engagement.track("job_done", { name: a.name }); window.__ph3d_engagement && window.__ph3d_engagement.track("money_earned", { amount: a.pay, source: "shift" }); } catch (e) {}
     if (window.__ph3d_phone) window.__ph3d_phone._toast("Shift done: +" + a.pay.toLocaleString());
     this.onComplete && this.onComplete(a);
   },

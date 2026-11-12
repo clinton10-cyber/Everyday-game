@@ -8,6 +8,8 @@
 import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
 import meta from "./meta.js";
+import { MILE1_STALLS } from "../../data/mile1-stalls.js";
+import { Quality } from "../../core/quality.js";
 
 /* ══════════════════════════════════════════════════════════
    0.  SEEDED RANDOM (deterministic layout)
@@ -316,6 +318,46 @@ export async function buildInterior(router) {
     addCollider(cx, cz, 1.4);
   }
 
+  /* Plain table used for the ~5% of slots the random layout leaves empty, so all 65 slots
+     have a stall. Uses no rnd() calls, so the rest of the layout is unchanged. */
+  function stallPlain(cx, cz, ry) {
+    const p = placer(cx, cz, ry);
+    p.box(0, 0.45, 0, 2.2, 0.1, 1.3, WOOD);
+    p.box(-0.9, 0.2, 0, 0.1, 0.4, 0.1, WOOD_D);
+    p.box( 0.9, 0.2, 0, 0.1, 0.4, 0.1, WOOD_D);
+    p.box(0, 2.3, 0, 2.6, 0.06, 1.7, 0xd9d4c4, 0.06, 0);
+    p.box(-1.2, 1.15, -0.8, 0.07, 2.3, 0.07, WOOD_D);
+    p.box( 1.2, 1.15, -0.8, 0.07, 2.3, 0.07, WOOD_D);
+    addCollider(cx, cz, 1.3);
+  }
+
+  /* One unique item per slot: slot index = row * 13 + column, so a stall always sells the same thing. */
+  const market_uses = [];
+  const SIGNS = !Quality.isLow;
+  function signTexFor(item) {
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = 128;
+    const g = cv.getContext("2d");
+    g.fillStyle = "rgba(20,14,8,.88)"; g.fillRect(0, 0, 512, 128);
+    g.strokeStyle = "#e6a45e"; g.lineWidth = 6; g.strokeRect(5, 5, 502, 118);
+    g.textAlign = "center"; g.fillStyle = "#f6ecd8";
+    let fs = 54; g.font = "800 " + fs + "px sans-serif";
+    while (g.measureText(item.label).width > 470 && fs > 24) { fs -= 3; g.font = "800 " + fs + "px sans-serif"; }
+    g.fillText(item.label, 256, 62);
+    g.fillStyle = "#ffc62b"; g.font = "800 34px sans-serif";
+    g.fillText("\u20A6" + item.price.toLocaleString(), 256, 106);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  function registerStall(cx, cz, slot) {
+    const item = MILE1_STALLS[slot];
+    if (!item) return;
+    market_uses.push({ kind: "market", label: item.label + " \u00B7 \u20A6" + item.price.toLocaleString(), x: cx, z: cz, y: 0, level: 0, r: 3.2, item: item });
+    if (SIGNS) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: signTexFor(item), transparent: true, fog: true }));
+      sp.scale.set(3.4, 0.85, 1); sp.position.set(cx, 3.75, cz);
+      scene.add(sp);
+    }
+  }
+
   const ROWS = [-6, 4, 14, 24, 34];
   for (let r = 0; r < ROWS.length; r++) {
     for (let c = 0; c < 13; c++) {
@@ -323,11 +365,12 @@ export async function buildInterior(router) {
       const cz = ROWS[r];
       const ry = (rnd() < 0.5 ? 0 : Math.PI) + R(-0.09, 0.09);
       const t = rnd();
-      if (t < 0.05) continue;
+      if (t < 0.05) stallPlain(cx, cz, ry);
       else if (t < 0.50) stallTable(cx, cz, ry);
       else if (t < 0.70) stallUmbrella(cx, cz, ry);
       else if (t < 0.86) stallKiosk(cx, cz, ry);
       else stallGround(cx, cz, ry);
+      registerStall(cx, cz, r * 13 + c);
     }
   }
 
@@ -419,7 +462,7 @@ export async function buildInterior(router) {
   const world = {
     colliders: colliders,
     seats: [],
-    uses: [],
+    uses: market_uses,
     platforms: [],
     levelHeight: function () { return 0; },
     bounds: {
@@ -433,6 +476,12 @@ export async function buildInterior(router) {
     x: 0, z: -30, yaw: Math.PI, level: 0,
     speedMult: 1.0,
     onUse: function (use) {
+      if (use && use.kind === "market") {
+        import("../../ui/market-shop.js")
+          .then(function (m) { m.MarketShop.open(use.item); })
+          .catch(function (e) { console.warn("[market] shop failed:", e); if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); });
+        return;
+      }
       if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE");
     },
   });

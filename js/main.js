@@ -54,6 +54,9 @@ import { Cats } from "./core/cats.js";
 import { AudioSystem } from "./core/audio.js";
 import { Hunt } from "./core/hunt.js";
 import { HuntHUD } from "./ui/hunt-hud.js";
+import { Engagement } from "./core/engagement.js";
+import { RobberyUI } from "./ui/robbery-ui.js";
+import "./core/scenes.js";
 
 /* ── Core globals ── */
 window.__ph3d_wardrobe       = Wardrobe;
@@ -147,6 +150,8 @@ safe("Wardrobe.load", () => Wardrobe.load());
 safe("MansionPalette.load", () => MansionPalette.load());
 safe("Weapons.load", () => Weapons.load());
 safe("Pocket.load", () => Pocket.load());
+safe("Engagement.load", () => Engagement.load());
+safe("RobberyUI.init", () => RobberyUI.init());
 safe("Restaurants.load", () => Restaurants.load());
 safe("Gangs.load", () => Gangs.load());
 safe("Profile.init", () => Profile.init());
@@ -258,6 +263,7 @@ router.go = async function (name, params, push) {
     }
   } catch (e) {}
   const scene = await __origGo(name, params, push);
+  if (scene) { try { Engagement.track("scene_visited", { name }); } catch (e) {} }
   try {
     if (window.__ph3d_audio) {
       window.__ph3d_audio.setScene(name, scene);

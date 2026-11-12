@@ -32,6 +32,7 @@ export const LANDMARKS = [
   { id: "beach", name: "BEACH", sub: "PALMS · SAND · SEA", color: 0x35a9b4, pos: [-8,0,66], rot: 0, kind: "place" },
   { id: "forest", name: "FOREST TRAIL", sub: "CAMPFIRE CLEARING", color: 0x3f7d3a, pos: [0,0,56], rot: 0, kind: "place" },
   { id: "citypark", name: "CITY PARK", sub: "FOUNTAIN & GAZEBO", color: 0x88c68a, pos: [8,0,56], rot: 0, kind: "place" },
+  { id: "phoneshop", name: "PHONE SHOP", sub: "PHONES · AIRTIME · TRADE-IN", color: 0x2f9bff, pos: [24,0,46], rot: 0, kind: "place" },
   { id: "nightclub", name: "CLUB ECLIPSE", sub: "NIGHTCLUB · DANCE FLOOR", color: 0xb04aff, pos: [24,0,56], rot: 0, kind: "place" },
   { id: "village", name: "VILLAGE", sub: "MARKET & FARMS", color: 0xc8a070, pos: [16,0,56], rot: 0, kind: "place" },
 ];

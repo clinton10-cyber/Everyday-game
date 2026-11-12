@@ -65,6 +65,11 @@ export const PLACES = {
     exterior: () => import("../places/lagosflat/exterior.js"),
     interior: () => import("../places/lagosflat/interior.js"),
   },
+  "phoneshop": {
+    meta:     () => import("../places/phoneshop/meta.js"),
+    exterior: () => import("../places/phoneshop/exterior.js"),
+    interior: () => import("../places/phoneshop/interior.js"),
+  },
   "canteen": {
     meta:     () => import("../places/canteen/meta.js"),
     exterior: () => import("../places/canteen/exterior.js"),

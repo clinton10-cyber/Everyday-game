@@ -178,7 +178,9 @@ export function captureFrame() {
   if (!router || !router.renderer) return null;
   /* The main canvas no longer keeps its buffer between frames, so draw one fresh frame first. */
   try { if (router.current) router.renderer.render(router.current.three, router.current.camera); } catch (e) {}
-  return grabCanvas(router);
+  const url = grabCanvas(router);
+  if (url) { try { window.__ph3d_engagement && window.__ph3d_engagement.track("photo_taken", { tag: "frame" }); } catch (e) {} }
+  return url;
 }
 
 /* Free-camera photo from an arbitrary viewpoint (wedding photographer, date photos). */
