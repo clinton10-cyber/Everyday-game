@@ -475,6 +475,8 @@ export const NPCs = {
         const chosen = pool[Math.floor(rnd() * pool.length)];
         this._spawnGroupOnPath(path, chosen.type, chosen.count);
       }
+      /* kids are part of every street, not only the school routes */
+      if (!Quality.isPotato) this._spawnGroupOnPath(path, "school_kids", Quality.isLow ? 1 : 2);
     }
 
     if (opts.roleSpots) {
@@ -1002,6 +1004,7 @@ export const NPCs = {
 
   _onHit(npc, dmg, type, opts) {
     if (!npc || npc.dead) return;
+    if (!(opts && opts.by === "companion")) npc._hitAt = performance.now();     /* family joins fights you start */
     const tgt = npc._tgt;
     npc.hp = tgt ? tgt.hp : npc.hp - dmg;
     npc.hitCount = (npc.hitCount || 0) + 1;

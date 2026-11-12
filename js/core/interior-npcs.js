@@ -300,6 +300,21 @@ export function spawnInteriorNPCs(scene, placeId, opts) {
     } catch (e) {}
   }
 
+  /* kids in every interior (shops, houses, church, hospital…): small walkers that get a child identity */
+  const kidN = Math.max(1, Math.min(4, Math.round(_spawned.length * 0.25)));
+  for (let k = 0; k < kidN; k++) {
+    const idx = activeBase.length + remaining + k;
+    const spot = _pickWalkableSpot(opts.aabbs, spawnCenter, k + remaining, kidN + remaining);
+    try {
+      const kid = NPCs.spawnRole(scene, "walker", spot.x, spot.z, { aabbs: opts.aabbs, yOffset: opts.yOffset || 0 });
+      if (kid) {
+        kid._wantKid = true;
+        kid._interiorPlace = placeId; kid._interiorSpotIndex = idx; kid.maxDist = 80;
+        _spawned.push(kid);
+      }
+    } catch (e) {}
+  }
+
   _spawnInteriorObjects(scene, placeId, opts);
   _store[placeId] = _spawned.map(npc => ({ look: npc._cfg || null, dead: false }));
   _saveStore(_store);

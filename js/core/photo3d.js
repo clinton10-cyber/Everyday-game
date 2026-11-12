@@ -279,7 +279,7 @@ class Viewer {
     if (!this.objs.length) { bar.innerHTML = ""; return; }
     if (this.mode === "focus") {
       const pinned = this.focus && this.focus.p.pinned;
-      bar.innerHTML = b("pa-prev", "‹") + b("pa-flip", "⟳ FLIP") + b("pa-reset", "RESET") + b("pa-pin", pinned ? "📌 PINNED" : "📌 PIN") + b("pa-del", "🗑") + b("pa-room", "▦ ROOM") + b("pa-next", "›");
+      bar.innerHTML = b("pa-prev", "‹") + b("pa-flip", "⟳ FLIP") + b("pa-reset", "RESET") + b("pa-pin", pinned ? "📌 PINNED" : "📌 PIN") + b("pa-save", "⬇ SAVE") + b("pa-del", "🗑") + b("pa-room", "▦ ROOM") + b("pa-next", "›");
       this.$("#pa-prev").onclick = () => this._step(-1);
       this.$("#pa-next").onclick = () => this._step(1);
       this.$("#pa-flip").onclick = () => this._flip();
@@ -290,6 +290,7 @@ class Viewer {
         f.p.pinned = !f.p.pinned; Photos.update(f.p.id, { pinned: f.p.pinned }); this._bar(); this._info();
         try { const L = window.__ph3d_lifesim; L && L.toast && L.toast(f.p.pinned ? "📌 Pinned — it will hang in your home" : "Unpinned"); } catch (e) {}
       };
+      this.$("#pa-save").onclick = () => { const f = this.focus; if (f) Photos.saveToDevice(f.p.id); };
       this.$("#pa-del").onclick = () => this._delete();
     } else {
       bar.innerHTML = b("pa-first", "◀ NEWEST") + b("pa-open", "OPEN LATEST");

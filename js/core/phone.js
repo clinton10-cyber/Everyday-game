@@ -822,7 +822,8 @@ export class Phone{
         if (!url) { this._toast("Nothing to capture"); return; }
       }
       try { window.__ph3d_camMode = this._camMode; } catch (e) {}
-      Photos.add(url);
+      const shot = Photos.add(url);
+      try { if (localStorage.getItem("ph3d_autosave_photos") === "1") Photos.saveToDevice(shot.id); } catch (e) {}
       if (flash) {
         flash.classList.add("on");
         setTimeout(() => flash.classList.remove("on"), 150);
@@ -890,17 +891,25 @@ export class Phone{
           return;
         }
         let h = `<button id="gal-open-3d" style="grid-column:1/-1;margin:2px 0 6px;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;font:800 12px Inter,system-ui,sans-serif;letter-spacing:.08em">OPEN 3D ALBUM</button>`;
+        const auto = (() => { try { return localStorage.getItem("ph3d_autosave_photos") === "1"; } catch (e) { return false; } })();
+        h += `<button id="gal-autosave">⬇ Auto-save new photos to device: ${auto ? "ON" : "OFF"}</button>`;
         for (const p of Photos.list) {
           h += `<div class="gal-item" data-id="${p.id}">
             <img src="${p.url}" alt=""/>
             <button class="del" data-del="${p.id}"><i class="fa-solid fa-xmark"></i></button>
+            <button class="sv" data-sv="${p.id}" title="Save to device"><i class="fa-solid fa-download"></i></button>
           </div>`;
         }
         grid.innerHTML = h;
+        const as = grid.querySelector("#gal-autosave");
+        if (as) as.onclick = () => { try { localStorage.setItem("ph3d_autosave_photos", localStorage.getItem("ph3d_autosave_photos") === "1" ? "0" : "1"); } catch (e) {} render(); };
         const b3 = grid.querySelector("#gal-open-3d");
         if (b3) b3.onclick = () => this._openGalleryView(Photos.list[0] && Photos.list[0].id);
         grid.querySelectorAll(".gal-item").forEach(el => {
           el.querySelector("img").onclick = () => this._openGalleryView(el.dataset.id);
+        });
+        grid.querySelectorAll(".sv").forEach(b => {
+          b.onclick = (ev) => { ev.stopPropagation(); Photos.saveToDevice(b.dataset.sv); };
         });
         grid.querySelectorAll(".del").forEach(b => {
           b.onclick = (ev) => {

@@ -378,7 +378,7 @@ function claim(npc, anywhere) {
   const free = (p) => (!p._npc || p._npc.dead || !p._npc.group || !p._npc.group.parent) && !p.dead && !(p.age < INFANT_AGE);
   let best = null;
   const cand = Object.values(S.people).filter((p) => free(p) && (p.out || anywhere));
-  const wantKid = tag === "school_kids";
+  const wantKid = tag === "school_kids" || !!npc._wantKid;
   if (tag === "couple" && pendingPartner) { const pp = byId(pendingPartner); pendingPartner = null; if (pp && free(pp)) best = pp; }
   if (!best) {
     let pool = cand;
@@ -449,8 +449,11 @@ function updateTag(npc, show, dist) {
 function leaderPos(npc) {
   const L = npc._lifeLead;
   if (L === "player") {
-    let yaw = 0; try { const ws = window.__ph3d_drive && window.__ph3d_drive.getWalkState && window.__ph3d_drive.getWalkState(); yaw = ws ? ws.walker.yaw : 0; } catch (e) {}
-    return { x: _px, z: _pz, yaw, ok: true };
+    let yaw = 0, air = false;
+    try { const ws = window.__ph3d_drive && window.__ph3d_drive.getWalkState && window.__ph3d_drive.getWalkState(); if (ws) { yaw = ws.walker.yaw; air = !ws.walker.onGround || ws.walker.y > 0.25; } } catch (e) {}
+    let sit = false;
+    try { const ws2 = window.__ph3d_drive && window.__ph3d_drive.getWalkState && window.__ph3d_drive.getWalkState(); sit = !!(ws2 && ws2.walker.sitting); } catch (e) {}
+    return { x: _px, z: _pz, yaw, ok: true, air, sit };
   }
   if (L && !L.dead && L.group && !L._lifeHidden) return { x: L.ctl.pos.x, z: L.ctl.pos.z, yaw: L.ctl.yaw, ok: true };
   return { ok: false };
@@ -467,6 +470,41 @@ function drive(npc, dt) {
     if (npc._lifeKind === "friend" && !(npc.ctl._emoteTimer > 0) && rnd() < dt * 0.35) { npc.ctl._emoteName = "wave"; npc.ctl._emoteTimer = 1.6; npc.ctl._emotePhase = 0; }
     return;
   }
+  if (st === "life_fight") {
+    const t = npc._fightT;
+    if (!t || t.dead || t.state === "downed" || performance.now() - (t._hitAt || 0) > 9000 || npc.stateT <= 0) {
+      npc.ctl._guard = false; npc.state = "life_follow"; npc.stateT = 999; npc._fightT = null; return;
+    }
+    npc.stateT -= 0;                                  /* ticks down in npcs.js */
+    const dx = t.ctl.pos.x - npc.ctl.pos.x, dz = t.ctl.pos.z - npc.ctl.pos.z, d = Math.hypot(dx, dz);
+    npc.ctl._guard = true;
+    if (d > 1.3) host._stepToward(npc, dx, dz, 4.2, dt);
+    else {
+      npc.moveSpeed = 0; npc.yawTarget = Math.atan2(dx, dz);
+      npc._hitCd = (npc._hitCd || 0) - dt;
+      if (npc._hitCd <= 0) { npc._hitCd = 1.2; try { host._onHit(t, 5, "fists", { part: "torso", by: "companion" }); } catch (e) {} }
+    }
+    return;
+  }
+  if (st === "life_sit") {
+    const L = leaderPos(npc);
+    if (!L.ok || !L.sit) {                           /* you stood up: they stand too */
+      npc.ctl._emoteTimer = Math.min(npc.ctl._emoteTimer || 0, 0.4); npc._sitting = false;
+      npc.state = "life_follow"; npc.stateT = 999; return;
+    }
+    npc.stateT = 999;
+    const off = npc._lifeOff || [0.9, 0.3], sy = Math.sin(L.yaw), cy = Math.cos(L.yaw);
+    const bx = L.x + cy * (off[0] > 0 ? 0.95 : -0.95), bz = L.z - sy * (off[0] > 0 ? 0.95 : -0.95);
+    const dx = bx - npc.ctl.pos.x, dz = bz - npc.ctl.pos.z, d = Math.hypot(dx, dz);
+    if (!npc._sitting) {
+      if (d > 0.5) host._stepToward(npc, dx, dz, 2.6, dt);
+      else { npc._sitting = true; npc.moveSpeed = 0; }
+    } else {                                         /* no seat in the open city: sit on the ground beside you */
+      npc.moveSpeed = 0; npc.yawTarget = L.yaw;
+      if (!(npc.ctl._emoteTimer > 5)) { npc.ctl._emoteName = "sit_ground"; npc.ctl._emoteTimer = 3600; npc.ctl._emotePhase = 0; }
+    }
+    return;
+  }
   if (st === "life_follow") {
     const L = leaderPos(npc);
     if (!L.ok || npc.stateT <= 0 && npc._lifeLead !== "player") { endLife(npc); return; }
@@ -475,9 +513,31 @@ function drive(npc, dt) {
     const bx = L.x + cy * off[0] - sy * off[1], bz = L.z - sy * off[0] - cy * off[1];
     const dx = bx - npc.ctl.pos.x, dz = bz - npc.ctl.pos.z, d = Math.hypot(dx, dz);
     npc.stateT = Math.max(npc.stateT, 1);
+    /* you sat down → they sit beside you (on the ground when there is no seat) */
+    if (L.sit && npc._lifeLead === "player" && npc._companion && !(npc._life && npc._life.preg)) { npc.state = "life_sit"; npc._sitting = false; return; }
+    /* a fight you started → partner / spouse jump in */
+    if (npc._lifeLead === "player" && npc._companion && npc._life && npc._life.age >= 16 && (npc._fcd = (npc._fcd || 0) - dt) <= 0) {
+      npc._fcd = 0.6;
+      let best = null, bd = 14 * 14;
+      for (const n of host.list) {
+        if (n === npc || n.dead || n._companion || n._lifeHidden || !(performance.now() - (n._hitAt || 0) < 6000)) continue;
+        const ex = n.ctl.pos.x - L.x, ez = n.ctl.pos.z - L.z, e2 = ex * ex + ez * ez;
+        if (e2 < bd) { bd = e2; best = n; }
+      }
+      if (best) { npc.state = "life_fight"; npc._fightT = best; npc.stateT = 12; npc._hitCd = 0.4; return; }
+    }
+    /* you jumped / are flying: they stay on the ground — never pulled up, dragged or teleported along */
+    if (L.air && npc._lifeLead === "player") { npc.moveSpeed = 0; npc.yawTarget = L.yaw; return; }
+    /* holding hands: locked to your side so the hands never come apart, even when you run */
+    if (npc._holding && npc._lifeLead === "player" && d < 6 && host._free(bx, bz, 0.4)) {
+      const k = 1 - Math.exp(-dt * 16);
+      npc.ctl.pos.x += dx * k; npc.ctl.pos.z += dz * k;
+      npc.moveSpeed = clamp(d * 8, 0, 6); npc.yawTarget = L.yaw;
+      return;
+    }
     if (d > 0.5) {
-      const sp = clamp(1.1 + d * 1.0, 1.2, 4.6);
-      if (d > 14) { npc.ctl.pos.x = bx; npc.ctl.pos.z = bz; }
+      const sp = clamp(1.1 + d * 1.0, 1.2, d > 6 ? 8 : 4.6);
+      if (d > 40) { npc.ctl.pos.x = bx; npc.ctl.pos.z = bz; }          /* only if truly lost */
       else host._stepToward(npc, dx, dz, sp, dt);
     } else { npc.moveSpeed = 0; npc.yawTarget = L.yaw; }
     return;
@@ -576,8 +636,9 @@ function companions(px, pz) {
   const hour = DayNight.hour;
   if (!(P.called || _forceCompanions) && (hour < 7 || hour >= 22)) { for (const n of host.list) if (n._companion && !n.dead) host._despawnOne && host._despawnOne(n); return; }
   const want = [];
-  if (P.spouse) { const sp0 = byId(P.spouse); if (sp0 && !sp0.preg) want.push([sp0, [0.9, 0.3]]); }
-  if (P.partner) want.push([byId(P.partner), [0.9, 0.3]]);
+  const happy = (q) => q && pRel(q).v > -10;                 /* offended people keep their distance */
+  if (P.spouse) { const sp0 = byId(P.spouse); if (sp0 && !sp0.preg && happy(sp0)) want.push([sp0, [0.9, 0.3]]); }
+  if (P.partner && happy(byId(P.partner))) want.push([byId(P.partner), [0.9, 0.3]]);
   P.kids.forEach((k, i) => { const kid = byId(k); if (kid && kid.age >= INFANT_AGE && kid.age < 17) want.push([kid, [-0.9 + (i % 3) * 0.9, 1.1 + 0.5 * Math.floor(i / 3)]]); });
   for (const [p, off] of want) {
     if (!p || p.dead || p.act === "sleep") continue;
@@ -732,7 +793,7 @@ function renderPanel() {
     acts = btn("chat", "💬 Chat", 0) + btn("compliment", "😊 Compliment", 0) + btn("joke", "😂 Joke", 0)
       + btn("gift", "🎁 Gift ₦1,500", 0) + btn("hang", "🚶 Hang out", r.met < 2 || r.v < 5 || (p.preg && tired))
       + btn("selfie", "📸 Selfie", t === "enemy" || r.v < 10);
-    if (isSp) acts += btn("dress", "👗 Dress", 0) + btn("holdhand", "🤝 Hold hand", 0) + btn("holdelbow", "💑 Link arms", 0);
+    if (isSp || isPt) acts += btn("dress", "👗 Dress", 0) + btn("holdhand", "🤝 Hold hand", 0) + btn("holdelbow", "💑 Link arms", 0);
     if (stage === "acquaintance" || stage === "stranger") acts += btn("friend", "🤝 Be friends", !can.friend);
     if (!isSp && !isPt && adult && compatible(p)) acts += btn("flirt", "😉 Flirt", 0) + btn("ask", "❤ Ask out", !can.ask);
     if (stage === "dating") acts += btn("date_walk", "🌳 Park walk", 0) + btn("date_dinner", "🍽 Dinner ₦6,000", 0) + btn("date_cinema", "🎬 Cinema ₦4,000", 0)

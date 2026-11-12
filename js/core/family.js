@@ -230,7 +230,14 @@ function stepAvatar(a, tp, slot, dt, free) {
   const dx = bx - ctl.pos.x, dz = bz - ctl.pos.z, d = Math.hypot(dx, dz);
   let sp = 0;
   const holding = !!slot.hold;
-  if (d > 14 || a.stuck > 1.6 || !a.snapped) {                            /* lost, stuck, or just arrived: stand beside you */
+  const air = tp.onGround === false || ((tp.pos.y || 0) - (tp.floorY || 0) > 0.3);
+  if (air && a.snapped) {                                                  /* you jumped / fly: stay on the ground, no dragging */
+    ctl._intentSpeed = 0; g.position.set(ctl.pos.x, ctl.pos.y, ctl.pos.z); g.rotation.y = ctl.yaw; return;
+  }
+  if (holding && a.snapped && d < 5 && free(bx, bz)) {                    /* hands stay together at any speed */
+    const k = 1 - Math.exp(-dt * 16);
+    ctl.pos.x += dx * k; ctl.pos.z += dz * k; sp = clamp(d * 8, 0, 6); a.stuck = 0;
+  } else if (d > 40 || a.stuck > 1.6 || !a.snapped) {                     /* lost, stuck, or just arrived: stand beside you */
     let tx = bx, tz = bz;
     if (!free(tx, tz)) { tx = tp.pos.x - sy * 0.9; tz = tp.pos.z - cy * 0.9; }
     ctl.pos.x = tx; ctl.pos.z = tz; a.stuck = 0; a.snapped = true; ctl.yaw = yaw;
@@ -252,6 +259,60 @@ function stepAvatar(a, tp, slot, dt, free) {
   ctl.pos.y += (fy - ctl.pos.y) * Math.min(1, dt * 10);
   g.position.set(ctl.pos.x, ctl.pos.y, ctl.pos.z);
   g.rotation.y = ctl.yaw;
+}
+
+/* ═══ sit / lie with you (interiors) ════════════════════════════
+   When you sit or lie down your family finds the closest free seat (or bed) to yours and takes it.
+   No seat → they sit on the floor beside you. They stand up when you do. */
+function postureOf(tp) {
+  const st = tp.state;
+  if ((st === "sitting" || st === "lying") && tp.sitTarget) return { kind: st === "lying" ? "lie" : "sit", seat: tp.sitTarget };
+  return null;
+}
+function releaseSeat(a) {
+  if (a.seat && a.seat._famTaken === a.p.id) { a.seat._famTaken = null; a.seat.taken = false; }
+  a.seat = null; a.seated = false;
+  a.ctl.state = "standing"; a.ctl.sitTarget = null;
+}
+function chooseSeat(a, tp, post, side) {
+  const seats = (tp.world && tp.world.seats) || [];
+  const ps = post.seat;
+  const wantLie = post.kind === "lie";
+  let best = null, bd = 12 * 12;
+  for (const s of seats) {
+    if (s === ps || s.taken || s._famTaken || (s.level != null && s.level !== tp.level)) continue;
+    const okType = wantLie ? s.type === "lie" : (s.type === "sit" || s.type === "seat" || s.type === undefined);
+    if (!okType) continue;
+    const dx = s.x - ps.x, dz = s.z - ps.z, d = dx * dx + dz * dz;
+    if (d < bd) { bd = d; best = s; }
+  }
+  if (best) { best._famTaken = a.p.id; best.taken = true; return best; }
+  const yaw = tp.yaw || 0, rx = Math.cos(yaw) * side, rz = -Math.sin(yaw) * side;
+  if (wantLie && (ps.w === undefined || ps.w >= 1.4)) {                     /* share the bed: other side */
+    return Object.assign({}, ps, { x: ps.x + rx * 0.45, z: ps.z + rz * 0.45 });
+  }
+  return { type: "sit", label: "GROUND", x: tp.pos.x + rx * 0.95, z: tp.pos.z + rz * 0.95, dx: Math.sin(yaw), dz: Math.cos(yaw),
+    yaw, h: (tp.floorY || 0) + 0.045, level: tp.level, taken: false };
+}
+function seatStep(a, dt, free) {
+  const ctl = a.ctl, g = a.group, s = a.seat;
+  const dx = s.x - ctl.pos.x, dz = s.z - ctl.pos.z, d = Math.hypot(dx, dz);
+  let sp = 0;
+  if (!a.seated) {
+    if (d < 0.3) {
+      ctl.pos.x = s.x; ctl.pos.z = s.z; ctl.yaw = s.yaw || 0; a.seated = true;
+      ctl.state = s.type === "lie" ? "lying" : "sitting"; ctl.sitTarget = s; ctl.level = s.level || 0;
+    } else {
+      sp = clamp(1.4 + d, 0, 3.4);
+      const step = Math.min(d, sp * dt), nx = ctl.pos.x + (dx / d) * step, nz = ctl.pos.z + (dz / d) * step;
+      if (free(nx, nz)) { ctl.pos.x = nx; ctl.pos.z = nz; } else if (free(nx, ctl.pos.z)) ctl.pos.x = nx; else if (free(ctl.pos.x, nz)) ctl.pos.z = nz; else { ctl.pos.x = s.x; ctl.pos.z = s.z; }
+      const want = Math.atan2(dx, dz), da = Math.atan2(Math.sin(want - ctl.yaw), Math.cos(want - ctl.yaw));
+      ctl.yaw += clamp(da, -8 * dt, 8 * dt);
+    }
+  } else { ctl.pos.x = s.x; ctl.pos.z = s.z; ctl.yaw = s.yaw || 0; }
+  ctl._intentSpeed = sp;
+  ctl.pos.y = s.type === "lie" && a.seated ? (s.h || 0) - 0.022 : (ctl.pos.y || 0);
+  g.position.set(ctl.pos.x, ctl.pos.y, ctl.pos.z); g.rotation.y = ctl.yaw;
 }
 
 /* ═══ main loop (independent of any scene) ══════════════════════ */
@@ -284,6 +345,7 @@ function loop(now) {
       const n = m.p._npc; if (!n || n.dead) continue;
       const s = plan.get(m.p.id); if (!s) continue;
       if (n._famOff0 === undefined) n._famOff0 = n._lifeOff || null;
+      n._holding = !!s.hold;
       if (n.state === "life_follow" && n._lifeLead === "player") n._lifeOff = [s.side, s.back];
     }
     if (tp && live) applyHold(tp, list, plan);
@@ -303,12 +365,21 @@ function loop(now) {
     a.group.visible = true;
   }
   const free = playerFree(tp);
+  const post = postureOf(tp);
+  let side = 1;
   for (const m of list) {
     const a = _live.get(m.p.id); if (!a) continue;
     const s = plan.get(m.p.id); if (!s) continue;
-    stepAvatar(a, tp, s, dt, free);
+    if (post) {
+      if (!a.seat) { a.seat = chooseSeat(a, tp, post, side); a.seated = false; side = -side; }
+      seatStep(a, dt, free);
+    } else {
+      if (a.seat) releaseSeat(a);
+      stepAvatar(a, tp, s, dt, free);
+    }
   }
   applyHold(tp, list, plan);
+  if (post) { tp._holdArms = null; for (const a of _live.values()) a.ctl._holdArms = null; }   /* arms relax while sitting */
   for (const a of _live.values()) { try { Animator.animate(a.ctl, dt); } catch (e) {} }
 }
 

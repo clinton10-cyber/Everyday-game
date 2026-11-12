@@ -51,11 +51,49 @@ function dbPut(rec) { return openDB().then((db) => { if (!db) return; try { db.t
 function dbDel(id) { return openDB().then((db) => { if (!db) return; try { db.transaction(STORE, "readwrite").objectStore(STORE).delete(id); } catch (e) {} }); }
 function dbClear() { return openDB().then((db) => { if (!db) return; try { db.transaction(STORE, "readwrite").objectStore(STORE).clear(); } catch (e) {} }); }
 
+function _toast(msg) { try { const ph = window.__ph3d_phone; if (ph && ph._toast) return ph._toast(msg); const L = window.__ph3d_lifesim; L && L.toast && L.toast(msg); } catch (e) {} }
+async function _asDataUrl(url) {
+  if (url.startsWith("data:")) return url;
+  const blob = await (await fetch(url)).blob();
+  return await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+}
+
 export const Photos = {
   list: [],
   _subs: new Set(),
   _loaded: false,
   _loading: null,
+
+  /* Save one photo to the phone's own gallery (Pictures/Everyday in PH). Android app → native bridge;
+     browser → share sheet when available, else a normal download. */
+  async saveToDevice(id) {
+    const p = this.list.find((x) => x.id === id);
+    if (!p) return false;
+    try {
+      const url = await _asDataUrl(p.url);
+      const mime = (/^data:([^;,]+)/.exec(url) || [])[1] || "image/jpeg";
+      const ext = mime.includes("png") ? "png" : "jpg";
+      const name = "EverydayInPH_" + new Date(p.ts).toISOString().replace(/[:.]/g, "-").slice(0, 19) + "." + ext;
+      const b64 = url.slice(url.indexOf(",") + 1);
+      if (window.PHNative && window.PHNative.savePhoto) {
+        const ok = window.PHNative.savePhoto(b64, name, mime);
+        _toast(ok ? "Saved to your gallery" : "Allow storage access, then tap save again");
+        return !!ok;
+      }
+      const bin = atob(b64), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const file = new File([bytes], name, { type: mime });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: name }); return true; } catch (e) { if (e && e.name === "AbortError") return false; }
+      }
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(file); a.download = name;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+      _toast("Saved to your downloads");
+      return true;
+    } catch (e) { _toast("Couldn't save that photo"); return false; }
+  },
 
   /* restore the saved album (idempotent). */
   load() {

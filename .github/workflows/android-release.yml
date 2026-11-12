@@ -127,7 +127,46 @@ jobs:
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
-            @Override public void onCreate(Bundle b) { super.onCreate(b); goImmersive(); }
+            @Override public void onCreate(Bundle b) {
+              super.onCreate(b);
+              goImmersive();
+              try { getBridge().getWebView().addJavascriptInterface(new PHNative(), "PHNative"); } catch (Exception e) {}
+            }
+            /* JS: PHNative.savePhoto(base64, name, mime) -> saves into Pictures/Everyday in PH */
+            public class PHNative {
+              @android.webkit.JavascriptInterface
+              public boolean savePhoto(String b64, String name, String mime) {
+                try {
+                  byte[] data = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                  if (Build.VERSION.SDK_INT >= 29) {
+                    android.content.ContentResolver r = getContentResolver();
+                    android.content.ContentValues v = new android.content.ContentValues();
+                    v.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, name);
+                    v.put(android.provider.MediaStore.Images.Media.MIME_TYPE, mime);
+                    v.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Everyday in PH");
+                    v.put(android.provider.MediaStore.Images.Media.IS_PENDING, 1);
+                    android.net.Uri u = r.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v);
+                    if (u == null) return false;
+                    java.io.OutputStream o = r.openOutputStream(u);
+                    o.write(data); o.close();
+                    v.clear(); v.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0);
+                    r.update(u, v, null, null);
+                    return true;
+                  }
+                  if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 77);
+                    return false;
+                  }
+                  java.io.File dir = new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES), "Everyday in PH");
+                  dir.mkdirs();
+                  java.io.File f = new java.io.File(dir, name);
+                  java.io.FileOutputStream o = new java.io.FileOutputStream(f);
+                  o.write(data); o.close();
+                  android.media.MediaScannerConnection.scanFile(MainActivity.this, new String[]{f.getAbsolutePath()}, new String[]{mime}, null);
+                  return true;
+                } catch (Exception e) { return false; }
+              }
+            }
             @Override public void onResume() { super.onResume(); goImmersive(); }
             @Override public void onWindowFocusChanged(boolean hasFocus) {
               super.onWindowFocusChanged(hasFocus);
@@ -147,6 +186,11 @@ jobs:
             }
           }
           """ % pkg)
+          mf = "android/app/src/main/AndroidManifest.xml"
+          m = open(mf).read()
+          if "WRITE_EXTERNAL_STORAGE" not in m:
+              m = m.replace("<application", '<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <application', 1)
+              open(mf, "w").write(m)
           print("immersive MainActivity written for", pkg)
           EOF
 
