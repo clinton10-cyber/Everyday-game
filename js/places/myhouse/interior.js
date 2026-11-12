@@ -13,6 +13,7 @@ import { presetsFor } from "../_interactions.js";
 import meta from "./meta.js";
 import { ROOMS } from "./rooms/_index.js";
 import { Houses } from "../../core/houses.js";
+import { spawnInteriorNPCs, despawnInteriorNPCs } from "../../core/interior-npcs.js";
 import { HomeProg } from "../../core/home-prog.js";
 import { ANCHORS } from "./rooms/_meta.js";
 import { spawnCrimeProps } from "../../core/crimeSetup.js";
@@ -41,8 +42,17 @@ export async function buildInterior(router) {
   }
 
   const three = new THREE.Scene();
-  three.background = new THREE.Color(0x9fc6e8);
-  three.fog = new THREE.Fog(0x9fc6e8, 30, 90);
+  const HOME_STYLE = ({
+    starter:   { sky:0x9fc6e8, fog:0x9fc6e8, accent:0x5c91b8, light:0xfff3df },
+    urban:     { sky:0xb5c7dc, fog:0xb5c7dc, accent:0x3e78a8, light:0xe9f3ff },
+    warm:      { sky:0xd8c1a2, fog:0xd8c1a2, accent:0x9a5e38, light:0xffe4c1 },
+    earth:     { sky:0xc8c3a6, fog:0xc8c3a6, accent:0x7b7950, light:0xffedcf },
+    royal:     { sky:0xb8b2d4, fog:0xb8b2d4, accent:0x8060a8, light:0xf3e5ff },
+    coastal:   { sky:0x9bd2d5, fog:0x9bd2d5, accent:0x36a4ad, light:0xe0ffff },
+    estate:    { sky:0xcbbd9f, fog:0xcbbd9f, accent:0xc19a45, light:0xffedc5 },
+  })[((Houses.catalog().find(h => h.id === Houses.home()) || {}).style) || "starter"] || { sky:0x9fc6e8, fog:0x9fc6e8, accent:0x5c91b8, light:0xfff3df };
+  three.background = new THREE.Color(HOME_STYLE.sky);
+  three.fog = new THREE.Fog(HOME_STYLE.fog, 30, 90);
 
   let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity;
   LOCAL.forEach(r => { mnX = Math.min(mnX, r.x); mxX = Math.max(mxX, r.x + r.w);
@@ -57,7 +67,7 @@ export async function buildInterior(router) {
   const cam = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, .08, 220);
   cam.rotation.order = "YXZ";
 
-  three.add(new THREE.HemisphereLight(0xffffff, 0x6a6354, LOWQ ? 1.75 : 1.55));
+  three.add(new THREE.HemisphereLight(HOME_STYLE.light, 0x6a6354, LOWQ ? 1.75 : 1.55));
   three.add(new THREE.AmbientLight(0xffffff, LOWQ ? 0.38 : 0.28));
   const sun = new THREE.DirectionalLight(0xfff2dc, LOWQ ? 1.0 : 1.35);
   sun.position.set(14, 32, 12);
@@ -92,6 +102,40 @@ export async function buildInterior(router) {
 
   const FLOOR_TEX = makeFloorTextures();
   LOCAL.forEach(r => three.add(floorMeshForRoom(r, FLOOR_TEX, LOWQ)));
+  /* Each purchased property receives its own signature lounge finish. */
+  const livingForStyle = LOCAL.find(r => r.id === "living");
+  if (livingForStyle && !STARTER) {
+    const rug = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(7, livingForStyle.w * .58), Math.min(5, livingForStyle.d * .55)),
+      new THREE.MeshLambertMaterial({ color: HOME_STYLE.accent }));
+    rug.rotation.x = -Math.PI / 2;
+    rug.position.set(livingForStyle.x + livingForStyle.w / 2, .105, livingForStyle.z + livingForStyle.d / 2);
+    rug.userData.isDecoration = true; three.add(rug);
+    const border = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(7.25, livingForStyle.w * .62), Math.min(5.25, livingForStyle.d * .59)),
+      new THREE.MeshLambertMaterial({ color: 0xd4af72 }));
+    border.rotation.x = -Math.PI / 2; border.position.copy(rug.position); border.position.y = .09; three.add(border);
+    const cx = livingForStyle.x + livingForStyle.w / 2 + Math.min(3.2, livingForStyle.w * .25);
+    const cz = livingForStyle.z + livingForStyle.d / 2 - 1.2;
+    const solid = (geo, color, x, y, z) => { const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color })); m.position.set(x,y,z); m.userData.isDecoration = true; three.add(m); return m; };
+    if (Houses.home() === "studio_plus") {
+      solid(new THREE.BoxGeometry(2.2,1.3,.12), 0x172b3b, cx, 1.7, cz - 1.4); // modern media wall
+      solid(new THREE.BoxGeometry(2.4,.08,.18), HOME_STYLE.accent, cx, 1.0, cz - 1.3);
+    } else if (Houses.home() === "townhouse") {
+      solid(new THREE.BoxGeometry(1.9,1.4,.35), 0x6b3825, cx, .8, cz - 1.2); // feature fireplace
+      solid(new THREE.BoxGeometry(1.15,.72,.12), 0xffa64d, cx, .72, cz - 1.0);
+    } else if (Houses.home() === "bungalow") {
+      solid(new THREE.CylinderGeometry(.22,.3,1.5,10), 0x79502d, cx, .8, cz);
+      for (let i=0;i<5;i++) { const leaf=solid(new THREE.ConeGeometry(.55,1.25,5), 0x397a43, cx+Math.cos(i*1.25)*.38, 1.65, cz+Math.sin(i*1.25)*.38); leaf.rotation.z=Math.cos(i*1.25)*.5; }
+    } else if (Houses.home() === "duplex") {
+      for (let i=0;i<4;i++) solid(new THREE.CylinderGeometry(.13,.16,2.8,10), 0xd4af72, cx + i*.48, 1.4, cz - 1.2);
+      solid(new THREE.BoxGeometry(2.2,.14,.35), 0x8060a8, cx+.7, 2.85, cz-1.2);
+    } else if (Houses.home() === "villa") {
+      solid(new THREE.BoxGeometry(2.6,.22,1.4), 0x2e9eae, cx, .22, cz);
+      solid(new THREE.BoxGeometry(2.8,.12,1.6), 0xd8f4ed, cx, .1, cz);
+    } else if (Houses.home() === "mansion") {
+      solid(new THREE.BoxGeometry(2.1,1.8,.18), 0x4a2b18, cx, 1.4, cz - 1.3);
+      solid(new THREE.BoxGeometry(1.7,1.35,.08), 0xd4af72, cx, 1.4, cz - 1.18);
+    }
+  }
 
   LOCAL.forEach(r => {
     const cx = r.x + r.w / 2, cz = r.z + r.d / 2;
@@ -340,6 +384,12 @@ export async function buildInterior(router) {
   }
 
   try {
+    spawnInteriorNPCs(three, "myhouse", {
+      aabbs: colliders.map(c => ({ x:(c.minX+c.maxX)/2, z:(c.minZ+c.maxZ)/2, hx:(c.maxX-c.minX)/2, hz:(c.maxZ-c.minZ)/2 })),
+      seats, targetCount: STARTER ? 2 : 4, fallback: { x: liv ? liv.x + liv.w/2 : 0, z: liv ? liv.z + liv.d/2 : 0 },
+    });
+  } catch (e) { console.warn("[home guests]", e); }
+  try {
     NpcTalk.mount({
       getPos: () => ({ x: ctrl.pos.x, z: ctrl.pos.z }),
       getYaw: () => ctrl.yaw,
@@ -368,6 +418,7 @@ export async function buildInterior(router) {
     window.removeEventListener("keydown", _mhTalkKey, { capture: true });
     try { NpcTalk.unmount(); } catch (e) {}
     try { HomeProg.dispose(); } catch (e) {}
+    try { despawnInteriorNPCs(); } catch (e) {}
     ctrl.dispose();
     try { if (editor) editor.disable(); } catch (e) {}
     const fb = document.getElementById("ph3d-furn-btn"); fb && fb.remove();

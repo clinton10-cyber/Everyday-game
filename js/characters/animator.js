@@ -60,6 +60,14 @@ export const EMOTES = {
   flex:     { dur: 3.0, label: "FLEXING" },
   meditate: { dur: 4.0, label: "MEDITATING" },
   dance:    { dur: 5.0, label: "DANCING" },
+  azonto_step: { dur: 6.0, label: "AZONTO-INSPIRED" },
+  shaku_flow: { dur: 6.0, label: "SHAKU FLOW" },
+  zanku_legwork: { dur: 6.0, label: "ZANKU LEGWORK" },
+  buga_bounce: { dur: 6.0, label: "BUGA BOUNCE" },
+  amapiano_log: { dur: 7.0, label: "AMAPIANO LOG-DRUM" },
+  stepper_glide: { dur: 7.0, label: "STEPPERS GLIDE" },
+  stepper_cross: { dur: 7.0, label: "CROSS-STEP BOUNCE" },
+  stepper_heeltoe: { dur: 7.0, label: "HEEL-TOE SWITCH" },
 };
 
 /* ══════════════════════════════════════════════════════════════════
@@ -791,6 +799,71 @@ EMOTES.handshake  = { dur: 3.0, label: "HANDSHAKE" };
 EMOTES.lean_table = { dur: 60, label: "LEANING" };
 
 Object.assign(EMOTE_FN, {
+  /* Original routines inspired by popular Nigerian/African dance trends.
+     They are procedural game animations, not copied choreography. */
+  azonto_step(t, P) {
+    const b=t*3.1, s=Math.sin(b), c=Math.cos(b); standAt(P,0.79,Math.max(0,s)*0.11,Math.max(0,-s)*0.11,s*0.10,-s*0.10);
+    P.aL.sh=[-0.75+0.25*c,0.15,0.45+0.22*s]; P.aL.el=[-0.9-0.35*s,0,0.1];
+    P.aR.sh=[-0.65-0.22*c,-0.15,-0.48-0.20*s]; P.aR.el=[-1.0+0.3*s,0,-0.1];
+    P.spine[1]=0.18*s; P.spine[2]=0.08*c; P.head[1]=-0.12*s; P.hips[1]=0.12*s; P.hL=HAND.open; P.hR=HAND.open;
+  },
+  shaku_flow(t, P) {
+    const b=t*3.8, s=Math.sin(b), q=Math.sin(b*0.5); standAt(P,0.785,Math.max(0,s)*0.14,Math.max(0,-s)*0.14,s*0.13,-s*0.13);
+    P.aL.sh=[-1.0,0.12,0.9+0.25*q]; P.aL.el=[-1.35+0.2*s,0,0]; P.aR.sh=[-0.85,-0.12,-0.85-0.25*q]; P.aR.el=[-1.25-0.2*s,0,0];
+    P.spine[2]=0.12*s; P.spine[1]=0.14*q; P.head[2]=-0.08*s; P.hips[2]=0.1*s; P.hL=HAND.fist; P.hR=HAND.fist;
+  },
+  zanku_legwork(t, P) {
+    const b=t*5.0,s=Math.sin(b),c=Math.cos(b); standAt(P,0.78,0.10+Math.max(0,s)*0.10,0.10+Math.max(0,-s)*0.10,s*0.16,-s*0.16);
+    P.lL.hip[0]=-0.3+0.35*s; P.lR.hip[0]=-0.3-0.35*s; P.lL.knee[0]=0.55+0.3*Math.max(0,s); P.lR.knee[0]=0.55+0.3*Math.max(0,-s);
+    P.aL.sh=[-0.55,0,0.7]; P.aL.el=[-1.6+0.25*c,0,0]; P.aR.sh=[-0.55,0,-0.7]; P.aR.el=[-1.6-0.25*c,0,0]; P.spine[1]=0.12*s; P.hips[1]=0.14*Math.abs(s);
+  },
+  buga_bounce(t, P) {
+    const b=t*2.7,s=Math.sin(b),bounce=Math.abs(Math.sin(b*0.5)); standAt(P,0.79-0.07*bounce,Math.max(0,s)*0.08,Math.max(0,-s)*0.08,s*0.07,-s*0.07);
+    P.aL.sh=[-1.8,0,0.35]; P.aL.el=[-0.45+0.25*s,0,0]; P.aR.sh=[-1.8,0,-0.35]; P.aR.el=[-0.45-0.25*s,0,0];
+    P.spine[0]=-0.06*bounce; P.spine[1]=0.12*s; P.head[0]=-0.08*bounce; P.hips[2]=0.08*s; P.hL=HAND.open; P.hR=HAND.open;
+  },
+  amapiano_log(t, P) {
+    const b=t*2.4,s=Math.sin(b),c=Math.cos(b); standAt(P,0.79,Math.max(0,s)*0.08,Math.max(0,-s)*0.08,s*0.06,-s*0.06);
+    P.lL.hip[0]=-0.18+0.22*s; P.lR.hip[0]=-0.18-0.22*s; P.lL.knee[0]=0.35+0.2*Math.max(0,s); P.lR.knee[0]=0.35+0.2*Math.max(0,-s);
+    P.aL.sh=[-0.25+0.15*s,0.1,0.35]; P.aL.el=[-1.15-0.35*c,0,0]; P.aR.sh=[-0.25-0.15*s,-0.1,-0.35]; P.aR.el=[-1.15+0.35*c,0,0];
+    P.spine[1]=0.16*s; P.spine[2]=0.06*c; P.hips[1]=0.08*s; P.head[1]=-0.1*s; P.hL=HAND.relaxed; P.hR=HAND.relaxed;
+  },
+  stepper_glide(t, P) {
+    // Smooth alternating side-glides with a relaxed upper-body groove.
+    const b=t*3.0, s=Math.sin(b), c=Math.cos(b), side=Math.sin(b*0.5);
+    standAt(P,0.79,0.035+Math.max(0,s)*0.055,0.035+Math.max(0,-s)*0.055,0.08*s,-0.08*s);
+    P.lL.hip[0]=-0.12+0.16*s; P.lR.hip[0]=-0.12-0.16*s;
+    P.lL.hip[2]=0.12*side; P.lR.hip[2]=0.12*side;
+    P.lL.knee[0]=0.18+0.14*Math.max(0,s); P.lR.knee[0]=0.18+0.14*Math.max(0,-s);
+    P.aL.sh=[-0.48+0.12*c,0.08,0.48+0.12*s]; P.aL.el=[-0.92-0.18*s,0,0.08];
+    P.aR.sh=[-0.48-0.12*c,-0.08,-0.48-0.12*s]; P.aR.el=[-0.92+0.18*s,0,-0.08];
+    P.spine[1]=0.12*side; P.spine[2]=0.045*s; P.head[1]=-0.07*side; P.hips[1]=0.10*side;
+    P.hL=HAND.relaxed; P.hR=HAND.relaxed;
+  },
+  stepper_cross(t, P) {
+    // Alternating cross-behind steps, knee lift and shoulder counter-sway.
+    const b=t*3.6, s=Math.sin(b), c=Math.cos(b), phase=Math.sin(b*0.5);
+    standAt(P,0.79,0.025+Math.max(0,s)*0.08,0.025+Math.max(0,-s)*0.08,0.13*s,-0.13*s);
+    P.lL.hip[0]=-0.18+0.30*s; P.lR.hip[0]=-0.18-0.30*s;
+    P.lL.hip[1]=0.13*Math.max(0,s); P.lR.hip[1]=-0.13*Math.max(0,-s);
+    P.lL.knee[0]=0.22+0.38*Math.max(0,s); P.lR.knee[0]=0.22+0.38*Math.max(0,-s);
+    P.aL.sh=[-0.65+0.15*c,0.05,0.48]; P.aL.el=[-1.05-0.2*s,0,0.12];
+    P.aR.sh=[-0.65-0.15*c,-0.05,-0.48]; P.aR.el=[-1.05+0.2*s,0,-0.12];
+    P.spine[1]=-0.15*s; P.spine[2]=0.07*c; P.head[1]=0.08*s; P.hips[1]=0.08*phase;
+    P.hL=HAND.open; P.hR=HAND.open;
+  },
+  stepper_heeltoe(t, P) {
+    // Quick heel-toe pivots with a low bounce and alternating arm pulses.
+    const b=t*5.2, s=Math.sin(b), c=Math.cos(b), pulse=Math.abs(Math.sin(b*0.5));
+    standAt(P,0.79-0.045*pulse,0.04+Math.max(0,s)*0.045,0.04+Math.max(0,-s)*0.045,0.06*s,-0.06*s);
+    P.lL.hip[0]=-0.08+0.20*s; P.lR.hip[0]=-0.08-0.20*s;
+    P.lL.hip[2]=0.22*s; P.lR.hip[2]=-0.22*s;
+    P.lL.knee[0]=0.16+0.20*Math.max(0,s); P.lR.knee[0]=0.16+0.20*Math.max(0,-s);
+    P.aL.sh=[-0.42+0.12*c,0.08,0.62]; P.aL.el=[-0.82-0.22*s,0,0.05];
+    P.aR.sh=[-0.42-0.12*c,-0.08,-0.62]; P.aR.el=[-0.82+0.22*s,0,-0.05];
+    P.spine[1]=0.10*s; P.spine[2]=0.04*c; P.hips[2]=0.09*s; P.head[1]=-0.06*s;
+    P.hL=HAND.fist; P.hR=HAND.fist;
+  },
   /* sitting on the floor, knees up, arms resting on the knees */
   sit_ground(t, P, a) {
     const k = sstep(t / 0.8), br = Math.sin(t * 1.6);

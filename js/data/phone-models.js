@@ -11,5 +11,9 @@ export const PHONE_MODELS = [
   P("pixel_8",    "Google",   "Pixel 8",     640000,  "flagship", 0xe8e4dc, { ram: "8 GB",  storage: "128 GB", cam: "50 MP",  battery: "4575 mAh" }),
   P("iphone_15",  "Apple",    "iPhone 15",   980000,  "flagship", 0x18181a, { ram: "6 GB",  storage: "128 GB", cam: "48 MP",  battery: "3349 mAh" }),
   P("galaxy_s24", "Samsung",  "Galaxy S24 Ultra", 1450000, "flagship", 0x6a6f78, { ram: "12 GB", storage: "512 GB", cam: "200 MP", battery: "5000 mAh" }),
+  P("tecno_camon30", "Tecno", "Camon 30 Premier", 420000, "flagship", 0x315a54, { ram: "12 GB", storage: "512 GB", cam: "50 MP triple", battery: "5000 mAh" }),
+  P("infinix_note40", "Infinix", "Note 40 Pro", 285000, "mid", 0x5d4b8c, { ram: "8 GB", storage: "256 GB", cam: "108 MP", battery: "5000 mAh" }),
+  P("iphone16", "Apple", "iPhone 16 Pro", 1650000, "flagship", 0x77736d, { ram: "8 GB", storage: "256 GB", cam: "48 MP triple", battery: "3582 mAh" }),
+  P("galaxy_zflip", "Samsung", "Galaxy Z Flip", 1250000, "flagship", 0x9276a8, { ram: "8 GB", storage: "256 GB", cam: "50 MP dual", battery: "4000 mAh" }),
 ];
 export const PHONE_BY_ID = Object.fromEntries(PHONE_MODELS.map((p) => [p.id, p]));

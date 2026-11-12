@@ -14,6 +14,7 @@ import { HUD } from "../ui/hud.js";
 import { Sanity } from "./sanity.js";
 import { InteriorPoses } from "./interior-poses.js";
 import { WorldObjects } from "./world-objects.js";
+import { openStyleAbilityShop, isEmoteUnlocked, ownsStyleItem, attachCosmeticWings, updateCosmeticWings } from "./style-ability-shop.js";
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -129,6 +130,7 @@ export class ThirdPersonControls {
     this.jet = { on: false, thrust: false, fuel: 1, tilt: 0 };
     this._jetVis = createJetpack();
     try { this._jetVis.attach(this.avatar); } catch (e) {}
+    try { attachCosmeticWings(this.avatar); } catch (e) {}
     this._rc = new THREE.Raycaster(); this._rcFrame = 0; this._jetCeilY = Infinity; this._jetFloorY = -Infinity;
 
     this._wardrobeUI = null;
@@ -152,6 +154,7 @@ export class ThirdPersonControls {
           if (this._anim) this._anim.rig = null;
           try { attachPhone(this.rig); } catch (e) {}
           try { this._jetVis.attach(this.avatar); } catch (e) {}
+          try { attachCosmeticWings(this.avatar); } catch (e) {}
           try { this.weapons.dispose(); this.weapons = new Weapons(this); } catch (e) {}
           this.avatar.position.set(this.pos.x, this.floorY, this.pos.z);
           this.avatar.rotation.y = this.yaw;
@@ -354,6 +357,7 @@ export class ThirdPersonControls {
               if (self._wardrobeUI && self._wardrobeUI.open) self._wardrobeUI.open();
               else import("./thirdperson.js").then(m => m.openWardrobeFor(self));
             } },
+          { icon: "star", label: "Emotes & Gear Shop", sub: "Unlock flips and jetpack", onClick: () => openStyleAbilityShop() },
           { icon: "run", label: "Run", sub: this.runHold ? "On" : "Off", active: !!this.runHold, keep: true,
             onClick: (ev, tile) => {
               self.runHold = !self.runHold;
@@ -592,6 +596,7 @@ export class ThirdPersonControls {
   }
   playEmote(name) {
     if (!EMOTE_DURATION[name]) return;
+    if (!isEmoteUnlocked(name)) { openStyleAbilityShop(); try { window.__ph3d_phone?._toast("Unlock this move in Emotes & Gear Shop"); } catch {} return; }
     if (this.state !== "standing") return;
     if (this._emoteTimer > 0 && this._emoteName === name) return;
     this._emoteName = name;
@@ -669,6 +674,7 @@ export class ThirdPersonControls {
   }
   toggleJet() {
     if (this.state !== "standing" && this.state !== "crouching") return;
+    if (!ownsStyleItem("jetpack")) { openStyleAbilityShop(); try { window.__ph3d_phone?._toast("Unlock Jetpack Access in Emotes & Gear Shop"); } catch {} return; }
     this.jet.on = !this.jet.on; this.jet.thrust = false;
     if (this._flyBtn) { this._flyBtn.classList.toggle("is-on", this.jet.on); this._flyBtn.textContent = this.jet.on ? "JETPACK ON" : "JETPACK"; }
     try { window.__ph3d_phone && window.__ph3d_phone._toast(this.jet.on ? "Jetpack on. Hold JUMP to fly" : "Jetpack off"); } catch (e) {}
@@ -1154,6 +1160,7 @@ this._lastVy = vyBeforeSnap;
     this._animate(animDt);
     try { window.__ph3d_playerActions?.tick?.(this, dt, this.camera); } catch (e) {}
     this._jetVis.update(dt, this.jet.on, this.jet.on && (this.jet.thrust || this.keys.Space) && this.jet.fuel > 0);
+    try { updateCosmeticWings(this.avatar, performance.now() / 1000); } catch (e) {}
     {
       const flying = this.jet.on && !this.onGround;
       const hs = Math.hypot(this.vel.x || 0, this.vel.z || 0);
@@ -1428,6 +1435,7 @@ export function openWardrobeFor(controls) {
         if (controls._anim) controls._anim.rig = null;
         try { attachPhone(controls.rig); } catch (e) {}
         try { controls._jetVis && controls._jetVis.attach(controls.avatar); } catch (e) {}
+        try { attachCosmeticWings(controls.avatar); } catch (e) {}
         controls.avatar.position.set(controls.pos.x, controls.floorY, controls.pos.z);
         controls.avatar.rotation.y = controls.yaw;
         if (controls.scene) controls.scene.add(controls.avatar);

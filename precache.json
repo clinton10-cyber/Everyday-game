@@ -266,6 +266,7 @@
 "js/core/state.js",
 "js/core/story-campaign.js",
 "js/core/street-lights.js",
+"js/core/style-ability-shop.js",
 "js/core/surfaces.js",
 "js/core/thirdperson.js",
 "js/core/ui.js",

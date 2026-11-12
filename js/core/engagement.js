@@ -11,7 +11,7 @@ function empty() {
     skills: { fighting: 0, driving: 0, charisma: 0, photography: 0, hustle: 0 },
     streak: { days: 0, lastDayKey: "" },
     achievements: [],
-    phones: { owned: [], active: null, airtime: 0, dataMb: 0 },
+    phones: { owned: [], active: null, airtime: 0, dataMb: 0, accessories: [] },
     goals: { daily: [], weekly: [], life: [], at: { daily: "", weekly: "" } },
     collections: { phones: {}, outfits: {}, trophies: {}, mile1: {} },
     counters: { robberies: 0, robberiesCaught: 0, photosTaken: 0, scenesVisited: 0, moneyEarned: 0, jobsDone: 0, marketBuys: 0, befriended: 0 },

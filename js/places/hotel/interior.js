@@ -13,6 +13,56 @@ import { ThirdPersonControls } from "../../core/thirdperson.js";
 import { NPCs } from "../../core/npcs.js";
 import { NpcTalk } from "../../core/npc-talk.js";
 import { M, EM } from "../../core/kit.js";
+import { Economy } from "../../core/economy.js";
+
+
+const HOTEL_ROOMS = [
+  { id:"suite101", name:"EXECUTIVE SUITE", price:85000, detail:"King bed · lounge · city view" },
+  { id:"suite102", name:"DELUXE SUITE", price:125000, detail:"Premium lounge · upgraded finish" },
+  { id:"suite103", name:"PRESIDENTIAL SUITE", price:220000, detail:"Top-tier suite · luxury furnishing" },
+];
+function openHotelBooking() {
+  const id = "ph3d-hotel-booking";
+  let root = document.getElementById(id);
+  if (!root) {
+    root = document.createElement("div"); root.id = id;
+    root.style.cssText = "position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;background:rgba(3,8,15,.78);backdrop-filter:blur(9px);font-family:system-ui;color:#f7f2e8;padding:14px";
+    root.innerHTML = `<section style="width:min(520px,96vw);max-height:88vh;overflow:auto;background:linear-gradient(145deg,#282019,#100f12);border:1px solid #c9a76b;border-radius:22px;padding:20px;box-shadow:0 24px 80px #000">
+      <header style="display:flex;align-items:center;gap:12px"><div style="flex:1"><small style="letter-spacing:.2em;color:#d9bd82">HOTEL PRESIDENTIAL · WOJI ROAD</small><h2 style="margin:5px 0">Reserve a suite</h2></div><button data-close style="width:42px;height:42px;border-radius:50%;border:1px solid #9b8156;background:#211b17;color:white;font-size:22px">×</button></header>
+      <p style="color:#c7bda9;font-size:13px">Choose a room for one in-game night. Payment uses your Everyday Pay game balance.</p>
+      <div data-rooms style="display:grid;gap:10px"></div><p data-status style="min-height:20px;color:#d9bd82;font-size:12px"></p><div style="display:flex;justify-content:space-between;border-top:1px solid #594a34;padding-top:12px"><span>Wallet balance</span><b data-balance></b></div>
+    </section>`;
+    document.body.appendChild(root);
+    root.querySelector("[data-close]").onclick = () => root.style.display = "none";
+    root.addEventListener("pointerdown", e => { if (e.target === root) root.style.display = "none"; });
+  }
+  const rooms = root.querySelector("[data-rooms]"); rooms.innerHTML = "";
+  root.querySelector("[data-balance]").textContent = Economy.format(Economy.balance);
+  let existing = null;
+  try { existing = JSON.parse(localStorage.getItem("ph3d.hotel.booking") || "null"); } catch(e) {}
+  root.querySelector("[data-status]").textContent = existing ? ("Current reservation: " + existing.name + ". One active booking is allowed at a time.") : "";
+  HOTEL_ROOMS.forEach(room => {
+    const card = document.createElement("article");
+    card.style.cssText = "border:1px solid #66543a;border-radius:15px;padding:13px;background:rgba(255,255,255,.04)";
+    const title = document.createElement("b"); title.textContent = room.name;
+    const detail = document.createElement("p"); detail.textContent = room.detail; detail.style.cssText = "margin:5px 0;color:#c7bda9;font-size:12px";
+    const price = document.createElement("strong"); price.textContent = Economy.format(room.price) + " / night"; price.style.color = "#e7c77e";
+    const button = document.createElement("button"); button.textContent = "BOOK SUITE";
+    button.style.cssText = "display:block;width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#c9a76b;color:#21170a;font-weight:900";
+    if (existing) { button.disabled = true; button.textContent = existing.room === room.id ? "YOUR RESERVED SUITE" : "RESERVATION ACTIVE"; button.style.opacity = ".45"; }
+    button.onclick = () => {
+      if (!Economy.withdraw(room.price)) { root.querySelector("[data-status]").textContent = "Insufficient Everyday Pay balance."; return; }
+      const booking = { room:room.id, name:room.name, paid:room.price, at:Date.now(), nights:1 };
+      try { localStorage.setItem("ph3d.hotel.booking", JSON.stringify(booking)); } catch(e) {}
+      root.querySelector("[data-balance]").textContent = Economy.format(Economy.balance);
+      root.querySelector("[data-status]").textContent = "Reservation confirmed: " + room.name + ". Your suite is ready.";
+      if (window.__ph3d_phone) window.__ph3d_phone._toast("Hotel reservation confirmed");
+      rooms.querySelectorAll("button").forEach(b => { b.disabled = true; b.textContent = b === button ? "BOOKED" : "RESERVATION ACTIVE"; b.style.opacity = ".45"; });
+    };
+    card.append(title, detail, price, button); rooms.appendChild(card);
+  });
+  root.style.display = "flex";
+}
 
 const WH = 4.2;   /* was 8.0 — walls were towering; 4.2 m is a grand-but-real ceiling */
 
@@ -558,6 +608,7 @@ export async function buildInterior(router) {
     speedMult: 1.0,
     camDist: 4.2,
     onUse: (u) => {
+      if (u && u.label === "CHECK IN") { openHotelBooking(); return; }
       const msg = {
         use:     "You use it.",
         cook:    "The kitchen prepares your order.",

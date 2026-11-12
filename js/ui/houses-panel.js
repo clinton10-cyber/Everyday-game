@@ -87,7 +87,7 @@ export const HousesPanel = {
         h += '<div class="' + cls + '">'
           + '<div style="display:flex;justify-content:space-between;align-items:flex-start">'
           + '<div style="flex:1"><div class="hs-name">' + c.name + '</div>'
-          + '<div class="hs-desc">' + c.desc + ' · ' + c.beds + ' bed</div></div>'
+          + '<div class="hs-desc">' + c.desc + ' · ' + c.beds + ' bed</div>' + '<div class="hs-desc" style="color:#8fdcff">' + (c.styleName || 'Residence') + ' · ' + (c.features || '') + '</div></div>'
           + (isHome ? '<span class="hs-tag">HOME</span>' : (isOwned ? '<span class="hs-tag">OWNED</span>' : ''))
           + '</div>'
           + '<div class="hs-price">' + (c.price === 0 ? "FREE (STARTER)" : c.price.toLocaleString()) + '</div>'

@@ -18,6 +18,11 @@ import { NPCs } from "./npcs.js";
 const STORE_KEY = "ph3d.interior-npcs.v1";
 
 export const INTERIOR_NPCS = {
+  myhouse: [
+    { role: "walker", x: -3, z: 2 },
+    { role: "walker", x: 3, z: 2 },
+    { role: "trader", x: 0, z: -4 },
+  ],
   market: [
     { role: "trader",   x: -20, z:  6 },
     { role: "trader",   x:  -8, z:  6 },

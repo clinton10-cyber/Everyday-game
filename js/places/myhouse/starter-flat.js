@@ -5,6 +5,9 @@
 import * as THREE from "three";
 import { Quality } from "../../core/quality.js";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { NPCs } from "../../core/npcs.js";
+import { NpcTalk } from "../../core/npc-talk.js";
+import { spawnInteriorNPCs, despawnInteriorNPCs } from "../../core/interior-npcs.js";
 import meta from "./meta.js";
 
 export async function buildStarterFlat(router) {
@@ -391,12 +394,26 @@ export async function buildStarterFlat(router) {
     onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
   });
 
+  try {
+    spawnInteriorNPCs(scene, "myhouse", {
+      aabbs: colliders.map(c => ({ x:(c.minX+c.maxX)/2, z:(c.minZ+c.maxZ)/2, hx:(c.maxX-c.minX)/2, hz:(c.maxZ-c.minZ)/2 })),
+      targetCount: 2, fallback: { x:4*K, z:3*K },
+    });
+    NpcTalk.mount({ getPos: () => ({ x:ctl.pos.x, z:ctl.pos.z }), getYaw: () => ctl.yaw });
+  } catch (e) { console.warn("[starter home guests]", e); }
+  const talkKey = (e) => {
+    if (e.code !== "KeyE" || e.repeat) return;
+    const npc = NPCs.nearest(ctl.pos.x, ctl.pos.z, 2.5*K);
+    if (npc) { NPCs.talk(npc); e.preventDefault(); }
+  };
+  window.addEventListener("keydown", talkKey, { capture:true });
+
   return {
     three: scene, camera, controls: { update: () => {} },
     crumb: meta.sub, title: "1-BEDROOM FLAT", subtitle: "WALK · SIT · CARRY",
     hint: "LEFT: MOVE · RIGHT: LOOK · E: SIT / USE",
     isInterior: true, sceneId: "myhouse", getExteriorSceneId: () => "myhouse",
-    update: (dt) => { ctl.update(dt); },
-    dispose: () => ctl.dispose(),
+    update: (dt) => { ctl.update(dt); try { NpcTalk.tick(dt); } catch(e) {} },
+    dispose: () => { window.removeEventListener("keydown", talkKey, { capture:true }); try { NpcTalk.unmount(); } catch(e) {} try { despawnInteriorNPCs(); } catch(e) {} ctl.dispose(); },
   };
 }

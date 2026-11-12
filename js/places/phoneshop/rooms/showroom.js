@@ -44,7 +44,7 @@ const Shop = {
     css();
     const el = document.createElement("div"); el.id = ROOT;
     el.innerHTML = `<div class="sh"><div class="hd"><b>PHONE SHOP</b><em data-bal></em><button class="x" aria-label="Close">&times;</button></div>
-      <div class="tabs"><button class="tab" data-t="phones">PHONES</button><button class="tab" data-t="tradein">TRADE IN</button><button class="tab" data-t="airtime">AIRTIME</button></div>
+      <div class="tabs"><button class="tab" data-t="phones">PHONES</button><button class="tab" data-t="tradein">TRADE IN</button><button class="tab" data-t="airtime">AIRTIME</button><button class="tab" data-t="accessories">ACCESSORIES</button></div>
       <div class="bd" data-bd></div><div class="ft" data-ft></div></div>`;
     document.body.appendChild(el); this.el = el;
     el.querySelector(".x").addEventListener("click", () => this.close());
@@ -78,6 +78,23 @@ const Shop = {
         const v = Math.round(m.price * CFG.phones.tradeInRatio);
         bd.appendChild(this.row(m.color, m.brand + " " + m.name, "Trade-in value", fmt(v), true, false, () => this.trade(m, v)));
       }
+    } else if (this.tab === "accessories") {
+      const items = [
+        { id:"powerbank20k", name:"20,000 mAh Power Bank", price:18000, desc:"Portable backup charging" },
+        { id:"wireless_earbuds", name:"Wireless Earbuds", price:12500, desc:"Music and hands-free calls" },
+        { id:"phone_case", name:"Premium Protective Case", price:4500, desc:"Protect your active phone" },
+        { id:"screen_guard", name:"Tempered Glass Guard", price:2500, desc:"Screen protection" },
+        { id:"fast_charger", name:"33W Fast Charger", price:9500, desc:"Faster charging accessory" },
+      ];
+      const owned = E.phones.accessories || [];
+      const note = document.createElement("div"); note.className = "note";
+      note.textContent = "Accessories are permanent account unlocks. Buy once and keep them."; bd.appendChild(note);
+      for (const a of items) bd.appendChild(this.row(0x425b77, a.name, a.desc, owned.includes(a.id) ? "OWNED" : fmt(a.price), owned.includes(a.id), !owned.includes(a.id) && Economy.balance < a.price, () => {
+        if (owned.includes(a.id)) return;
+        if (!Economy.withdraw(a.price)) { this.msg("Not enough money.", true); return; }
+        E.phones.accessories = E.phones.accessories || []; E.phones.accessories.push(a.id);
+        Engagement.save(); Engagement._emit(); this.msg(a.name + " purchased."); this.render();
+      }));
     } else {
       const n = document.createElement("div"); n.className = "note";
       n.textContent = "Balance: " + fmt(E.phones.airtime) + " airtime, " + E.phones.dataMb + " MB data" + (E.phones.owned.length ? "" : ". Buy a phone first."); bd.appendChild(n);
@@ -121,16 +138,16 @@ export function buildShowroom(ctx) {
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), mat(0xc68a5c)); head.position.set(0, 1.7, -4.0); scene.add(head);
   /* back shelf of boxed phones */
   box(10, 2.2, 0.35, 0, 1.1, -HZ + 0.3, 0x1a2536);
-  PHONE_MODELS.forEach((m, i) => box(0.42, 0.7, 0.08, -4.2 + i * 1.2, 1.6, -HZ + 0.52, m.color));
+  PHONE_MODELS.forEach((m, i) => box(0.34, 0.62, 0.08, -3.55 + i * 0.64, 1.6, -HZ + 0.52, m.color));
 
-  /* display tables: two phones per table, so 8 models over 4 tables */
+  /* Four display tables hold three phones each: all twelve models are visible. */
   const T = [[-5.2, -0.8], [5.2, -0.8], [-5.2, 2.6], [5.2, 2.6]];
   T.forEach(([x, z], ti) => {
     box(2.6, 0.9, 1.0, x, 0.45, z, 0x24324a); box(2.7, 0.06, 1.1, x, 0.93, z, 0xe9edf3);
-    for (let k = 0; k < 2; k++) {
-      const m = PHONE_MODELS[ti * 2 + k]; if (!m) continue;
-      box(0.42, 0.04, 0.8, x - 0.55 + k * 1.1, 0.98, z, 0x555c66);
-      const ph = box(0.34, 0.03, 0.66, x - 0.55 + k * 1.1, 1.02, z, m.color); ph.rotation.x = -0.25;
+    for (let k = 0; k < 3; k++) {
+      const m = PHONE_MODELS[ti * 3 + k]; if (!m) continue;
+      box(0.34, 0.04, 0.72, x - 0.72 + k * 0.72, 0.98, z, 0x555c66);
+      const ph = box(0.28, 0.03, 0.58, x - 0.72 + k * 0.72, 1.02, z, m.color); ph.rotation.x = -0.25;
     }
     col(x - 1.4, x + 1.4, z - 0.6, z + 0.6);
     uses.push({ kind: "phoneshop", label: "BROWSE PHONES", tab: "phones", x, z: z + (z < 0 ? 1.4 : -1.4), y: 0, level: 0, r: 2.4 });

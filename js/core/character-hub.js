@@ -24,6 +24,7 @@ import { Quality } from "./quality.js";
 import { Wardrobe, WARDROBE_TABS, COSTUME_INFO, resolveColor } from "./wardrobe.js";
 import { buildCharacter, liveApplyConfig } from "../characters/lowpoly.js";
 import { EMOTES, setHand, HAND } from "../characters/animator.js";
+import { isEmoteUnlocked, openStyleAbilityShop } from "./style-ability-shop.js";
 import { State } from "./state.js";
 import { buildGWagon3D } from "../vehicles/gwagon3d.js";
 import { buildCybertruck3D } from "../vehicles/cybertruck3d.js";
@@ -1401,6 +1402,7 @@ export class CharacterHub {
      ──────────────────────────────────────────────────────── */
   playEmote(name) {
     if (!EMOTES[name]) return;
+    if (!isEmoteUnlocked(name)) { openStyleAbilityShop(); return; }
     this._emote = name;
     this._emoteT = 0;
     this._emoteDur = EMOTES[name].dur;

@@ -21,6 +21,7 @@ import { NPCs } from "./npcs.js";
 import { WrestlingModal } from "../ui/wrestling-modal.js";
 import { Pursuit } from "./pursuit.js";
 import { InteriorPoses } from "./interior-poses.js";
+import { isEmoteUnlocked, openStyleAbilityShop } from "./style-ability-shop.js";
 
 const BASIC_EMOTES = [
   ["wave", "Wave"], ["clap", "Clap"],
@@ -148,6 +149,7 @@ export const WalkActions = {
 
   playEmote(name) {
     if (!this._canAct() || !Animator.EMOTES[name]) return false;
+    if (!isEmoteUnlocked(name)) { openStyleAbilityShop(); try { window.__ph3d_phone?._toast("Unlock this dance in Emotes & Gear Shop"); } catch {} return false; }
     const wk = S.walker;
     if (!wk.onGround) return false;
     wk._emoteName = name;
@@ -209,6 +211,7 @@ export const WalkActions = {
       sections: [
         { label: "Weapons", cols: 3, radio: true, items: WEAPONS.map(weapon) },
         { label: "Emotes", cols: 5, items: BASIC_EMOTES.map(emote) },
+        { label: "Naija trend dances", cols: 3, items: [["azonto_step","Azonto"],["shaku_flow","Shaku"],["zanku_legwork","Zanku"],["buga_bounce","Buga"],["amapiano_log","Amapiano"],["stepper_glide","Steppers Glide"],["stepper_cross","Steppers Cross-Step"],["stepper_heeltoe","Steppers Heel-Toe"]].map(emote) },
         { label: "Everyday life", cols: 4, items: [
           emote(["pray", "Pray"]), emote(["eat", "Eat"]),
           { label: "Hug", onClick: () => self._pair("hug") },

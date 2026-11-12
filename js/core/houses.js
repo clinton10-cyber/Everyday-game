@@ -6,13 +6,13 @@ import { Auth } from "./auth.js";
 export const HOME_PLACE_ID = "myhouse";
 
 export const HOUSE_CATALOG = [
-  { id:"starter_flat", name:"1-BEDROOM FLAT",   price:0,       beds:1, tier:"starter", desc:"Small but yours.",  buildKey:"flat1" },
-  { id:"studio_plus",  name:"2-BEDROOM APARTMENT", price:4500000, beds:2, tier:"basic",  desc:"A bit more room.",   buildKey:"flat2" },
-  { id:"townhouse",    name:"TOWNHOUSE",        price:18000000, beds:3, tier:"mid",    desc:"With a small garden.", buildKey:"flat2" },
-  { id:"bungalow",     name:"MODERN BUNGALOW",  price:32000000, beds:4, tier:"mid",    desc:"Family-sized.",       buildKey:"flat10" },
-  { id:"duplex",       name:"LUXURY DUPLEX",    price:68000000, beds:5, tier:"high",   desc:"Gated street, 2 floors.", buildKey:"flat10" },
-  { id:"villa",        name:"COASTAL VILLA",    price:125000000,beds:6, tier:"luxury", desc:"Pool, sea view.",     buildKey:"flat10" },
-  { id:"mansion",      name:"GRAND MANSION",    price:280000000,beds:8, tier:"estate", desc:"Full compound.",      buildKey:"mansion" },
+  { id:"starter_flat", name:"1-BEDROOM FLAT", price:0, beds:1, tier:"starter", style:"starter", styleName:"Compact City Flat", features:"Simple layout · low upkeep", desc:"A practical first home.", buildKey:"flat1" },
+  { id:"studio_plus", name:"2-BEDROOM APARTMENT", price:4500000, beds:2, tier:"basic", style:"urban", styleName:"Modern Urban", features:"Open-plan lounge · balcony", desc:"A modern apartment for city living.", buildKey:"flat2" },
+  { id:"townhouse", name:"TOWNHOUSE", price:18000000, beds:3, tier:"townhouse", style:"warm", styleName:"Contemporary Townhouse", features:"Private garden · family lounge", desc:"A multi-level family home with garden space.", buildKey:"flat2" },
+  { id:"bungalow", name:"MODERN BUNGALOW", price:32000000, beds:4, tier:"bungalow", style:"earth", styleName:"Modern Bungalow", features:"Wide living room · courtyard", desc:"Single-level family home with a courtyard feel.", buildKey:"flat10" },
+  { id:"duplex", name:"LUXURY DUPLEX", price:68000000, beds:5, tier:"duplex", style:"royal", styleName:"Royal Duplex", features:"Grand staircase · premium finish", desc:"A two-storey home with a formal entertaining space.", buildKey:"flat10" },
+  { id:"villa", name:"COASTAL VILLA", price:125000000, beds:6, tier:"villa", style:"coastal", styleName:"Coastal Villa", features:"Poolside mood · sea-glass palette", desc:"A spacious retreat inspired by waterfront living.", buildKey:"flat10" },
+  { id:"mansion", name:"GRAND MANSION", price:280000000, beds:8, tier:"estate", style:"estate", styleName:"Grand Estate", features:"Formal reception · executive finish", desc:"A landmark residence with a grand entertaining style.", buildKey:"mansion" },
 ];
 
 export const Houses = {
