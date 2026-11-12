@@ -61,31 +61,29 @@ export const PhoneGames = {
   subway() {
     try { Sfx.play("ui_open"); } catch (e) {}
     const el = this._shell("Subway Run", `
-      <div style="position:relative;margin:0 auto;width:100%;max-width:400px;aspect-ratio:300/440;max-height:70vh">
-        <canvas id="gm-cv" class="gm-cv" style="position:absolute;inset:0;width:100%;height:100%;border-radius:16px;touch-action:none"></canvas>
-        <div style="position:absolute;inset:0;pointer-events:none;padding:8px;display:flex;justify-content:space-between;align-items:flex-start;font:900 12px Inter,system-ui,sans-serif;color:#fff;text-shadow:0 2px 6px #000;letter-spacing:.06em">
-          <span id="gm-score">SCORE 0</span><span id="gm-coins" style="color:#ffd54a">🪙 0</span>
+      <section id="gm-runner-root" class="gm-runner-root">
+        <div class="gm-runner-top"><div><small>ENDLESS RUN</small><b>SUBWAY RUSH</b></div><div class="gm-runner-actions"><button id="gm-pause" aria-label="Pause game">Ⅱ</button><button id="gm-fullscreen" aria-label="Toggle fullscreen">⛶</button></div></div>
+        <div class="gm-runner-stage" id="gm-runner-stage">
+          <canvas id="gm-cv" class="gm-cv"></canvas>
+          <div class="gm-runner-hud"><div class="gm-stat"><small>DISTANCE</small><b id="gm-distance">0 m</b></div><div class="gm-stat gm-stat-score"><small>SCORE</small><b id="gm-score">0</b></div><div class="gm-stat gm-stat-coins"><small>COINS</small><b id="gm-coins">0</b></div><div class="gm-speed"><span id="gm-speed">1x</span><small>SPEED</small></div></div>
+          <div id="gm-over" class="gm-over"><div class="gm-over-card"><small>RUN FINISHED</small><h2>GAME OVER</h2><div id="gm-final"></div><button id="gm-retry">RUN AGAIN</button><p>Tap the screen or press Enter to retry</p></div></div>
+          <div id="gm-paused" class="gm-paused"><div><b>PAUSED</b><button id="gm-resume">RESUME</button></div></div>
+          <div class="gm-runner-controls"><button data-action="left">←</button><div><button data-action="jump">↑</button><button data-action="slide">↓</button></div><button data-action="right">→</button></div>
         </div>
-        <div id="gm-over" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.72);border-radius:16px;color:#fff;text-align:center;font:800 13px Inter,system-ui,sans-serif;padding:20px;pointer-events:none">
-          <div><div style="font-size:22px;font-weight:900;letter-spacing:.06em;margin-bottom:10px">GAME OVER</div>
-          <div id="gm-final" style="font-size:13px;opacity:.9;line-height:1.6"></div>
-          <div style="font-size:10px;margin-top:16px;opacity:.6;letter-spacing:.14em">TAP TO RETRY</div></div>
-        </div>
-      </div>
-      <div class="gm-hint">Swipe ← → lanes · ↑ jump · ↓ slide</div>`);
+        <div class="gm-runner-foot"><span>SWIPE TO MOVE</span><span>JUMP · SLIDE · DODGE</span></div>
+      </section>`);
     const canvas = $("gm-cv"), scoreEl = $("gm-score"), coinEl = $("gm-coins"), overEl = $("gm-over"), finalEl = $("gm-final");
+    const runnerRoot = $("gm-runner-root"), stage = $("gm-runner-stage");
 
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.round(300 * dpr); canvas.height = Math.round(440 * dpr);
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-    renderer.setPixelRatio(1); renderer.setSize(canvas.width, canvas.height, false);
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(1.75, window.devicePixelRatio || 1));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     const SKIES = [0x141a24, 0x1a1424, 0x121a28, 0x1a1a1a];
     const three = new THREE.Scene();
     three.background = new THREE.Color(SKIES[0]);
     three.fog = new THREE.Fog(SKIES[0], 25, 78);
-    const camera = new THREE.PerspectiveCamera(68, canvas.width / canvas.height, 0.1, 200);
+    const camera = new THREE.PerspectiveCamera(68, 1, 0.1, 200);
     const CAM_Y = 4.2;
     camera.position.set(0, CAM_Y, 7.5); camera.lookAt(0, 1.2, -6);
     three.add(new THREE.HemisphereLight(0xffffff, 0x30303f, 1.7));
@@ -125,15 +123,20 @@ export const PhoneGames = {
     const wallR = new THREE.Mesh(wGeo, wMat); wallR.position.set(3.7, 4, -80); three.add(wallR);
 
     const LANES = [-2, 0, 2];
-    const hurdleGeo = new THREE.BoxGeometry(1.5, 0.55, 0.4), hurdleMat = new THREE.MeshLambertMaterial({ color: 0xc05232 });
-    const wallGeo = new THREE.BoxGeometry(1.9, 2.6, 0.6), wallMat = new THREE.MeshLambertMaterial({ color: 0x8a2a3a });
-    const barGeo = new THREE.BoxGeometry(1.9, 0.4, 0.5), barMat = new THREE.MeshLambertMaterial({ color: 0xffa040 });
-    const coinGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.06, 12), coinMat = new THREE.MeshStandardMaterial({ color: 0xffd54a, roughness: 0.3, metalness: 0.7 });
+    const hurdleGeo = new THREE.BoxGeometry(1.5, 0.55, 0.4), hurdleMat = new THREE.MeshStandardMaterial({ color: 0xe65b32, roughness: .72 });
+    const wallGeo = new THREE.BoxGeometry(1.9, 2.6, 0.6), wallMat = new THREE.MeshStandardMaterial({ color: 0x8a2a3a, roughness: .8 });
+    const barGeo = new THREE.BoxGeometry(1.9, 0.4, 0.5), barMat = new THREE.MeshStandardMaterial({ color: 0xffa52e, metalness: .18 });
+    const coinGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.06, 16), coinMat = new THREE.MeshStandardMaterial({ color: 0xffd54a, roughness: 0.25, metalness: 0.72, emissive: 0x805000, emissiveIntensity: .22 });
+    const trainMat = new THREE.MeshStandardMaterial({ color: 0x176b88, metalness: .35, roughness: .42 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x9de8ff, metalness: .25, roughness: .18, emissive: 0x16445c });
+    const hazardMat = new THREE.MeshStandardMaterial({ color: 0xffb52e, roughness: .65 });
+    const crateMat = new THREE.MeshStandardMaterial({ color: 0x9a6034, roughness: .9 });
+    const obstacleMaterials = [trainMat, glassMat, hazardMat, crateMat];
 
     const S = {
       lane: 1, speed: 8, t: 0, distance: 0, score: 0, coins: 0,
       jumpY: 0, jumpV: 0, jumping: false, crouching: false, crouchT: 0,
-      over: false, overAt: 0, msg: "", spawnCd: 1.0, coinCd: 0.4, graceT: 1.5, objects: [], _lastHud: 0,
+      over: false, paused: false, overAt: 0, msg: "", spawnCd: 1.0, coinCd: 0.4, graceT: 1.5, objects: [], _lastHud: 0,
     };
 
     /* ══ DRAMATIC SLIDE: knee-slide pose, dust, camera dip ══ */
@@ -185,10 +188,33 @@ export const PhoneGames = {
     function spawnObstacle() {
       const lane = Math.floor(Math.random() * 3), roll = Math.random();
       let mesh, type;
-      if (roll < 0.45) { mesh = new THREE.Mesh(hurdleGeo, hurdleMat); mesh.position.set(LANES[lane], 0.28, -60); type = "jump"; }
-      else if (roll < 0.72) { mesh = new THREE.Mesh(barGeo, barMat); mesh.position.set(LANES[lane], 1.55, -60); type = "duck"; }
-      else { mesh = new THREE.Mesh(wallGeo, wallMat); mesh.position.set(LANES[lane], 1.30, -60); type = "dodge"; }
-      three.add(mesh); S.objects.push({ mesh, type, lane, z: -60 });
+      if (roll < .24) {
+        const g = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.82, 2.25, 5.6), trainMat); body.position.y = 1.13; g.add(body);
+        for (const x of [-.48, .48]) { const win = new THREE.Mesh(new THREE.BoxGeometry(.58, .62, .04), glassMat); win.position.set(x, 1.72, 2.83); g.add(win); }
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.84, .12, 5.62), hazardMat); stripe.position.y = .72; g.add(stripe);
+        for (const x of [-.55, .55]) { const lamp = new THREE.Mesh(new THREE.BoxGeometry(.2, .16, .05), new THREE.MeshBasicMaterial({ color: 0xfff1b0 })); lamp.position.set(x, .25, 2.84); g.add(lamp); }
+        mesh = g; mesh.position.set(LANES[lane], 0, -60); type = "dodge";
+      } else if (roll < .44) {
+        mesh = new THREE.Group();
+        const crate = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.05, .9), crateMat); crate.position.y = .53; mesh.add(crate);
+        const cross1 = new THREE.Mesh(new THREE.BoxGeometry(1.2, .09, .94), hazardMat); cross1.position.y = .53; mesh.add(cross1);
+        mesh.position.set(LANES[lane], 0, -60); type = "jump";
+      } else if (roll < .64) {
+        mesh = new THREE.Group();
+        const a = new THREE.Mesh(new THREE.BoxGeometry(.14, 1.9, .16), hazardMat); a.position.set(-.78, .95, 0); mesh.add(a);
+        const b = a.clone(); b.position.x = .78; mesh.add(b);
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(1.7, .24, .28), barMat); beam.position.y = 1.65; mesh.add(beam);
+        mesh.position.set(LANES[lane], 0, -60); type = "duck";
+      } else if (roll < .82) {
+        mesh = new THREE.Group();
+        const base = new THREE.Mesh(new THREE.BoxGeometry(1.55, .34, .62), hazardMat); base.position.y = .18; mesh.add(base);
+        for (let i = -2; i <= 2; i++) { const cone = new THREE.Mesh(new THREE.ConeGeometry(.16, .48, 6), new THREE.MeshStandardMaterial({ color: 0xff6a2d })); cone.position.set(i * .27, .55, 0); mesh.add(cone); }
+        mesh.position.set(LANES[lane], 0, -60); type = "jump";
+      } else {
+        mesh = new THREE.Mesh(wallGeo, wallMat); mesh.position.set(LANES[lane], 1.30, -60); type = "dodge";
+      }
+      three.add(mesh); S.objects.push({ mesh, type, lane, z: -60, phase: Math.random() * Math.PI * 2 });
     }
     function spawnCoin() {
       const lane = Math.floor(Math.random() * 3), mesh = new THREE.Mesh(coinGeo, coinMat);
@@ -204,15 +230,47 @@ export const PhoneGames = {
       try { Sfx.play("throw_whoosh", { vol: 0.6 }); } catch (e) {}
     }
     function restart() {
-      Object.assign(S, { lane: 1, speed: 8, t: 0, distance: 0, score: 0, coins: 0, jumpY: 0, jumpV: 0, jumping: false, crouching: false, crouchT: 0, over: false, msg: "", spawnCd: 1.0, coinCd: 0.4, graceT: 1.5 });
+      Object.assign(S, { lane: 1, speed: 8, t: 0, distance: 0, score: 0, coins: 0, jumpY: 0, jumpV: 0, jumping: false, crouching: false, crouchT: 0, over: false, paused: false, msg: "", spawnCd: 1.0, coinCd: 0.4, graceT: 1.5 });
       for (const o of S.objects) three.remove(o.mesh);
       S.objects.length = 0; slide.t = 0;
       for (const d of dust) { d.life = 0; d.m.visible = false; }
       const c = SKIES[Math.floor(Math.random() * SKIES.length)];
       three.background.setHex(c); three.fog.color.setHex(c);
       if (character) character.position.set(0, 0, 0);
-      ctl.pos.z = 0; overEl.style.display = "none";
+      ctl.pos.z = 0; overEl.style.display = "none"; $("gm-paused").classList.remove("show"); $("gm-pause").textContent = "Ⅱ";
     }
+
+    const resizeRunner = () => {
+      const w = Math.max(280, stage.clientWidth || 360), h = Math.max(360, stage.clientHeight || 560);
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    };
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resizeRunner) : null;
+    if (resizeObserver) resizeObserver.observe(stage);
+    window.addEventListener("resize", resizeRunner);
+    requestAnimationFrame(resizeRunner);
+    const toggleFullscreen = async () => {
+      try {
+        if (document.fullscreenElement === runnerRoot) await document.exitFullscreen();
+        else if (runnerRoot.requestFullscreen) await runnerRoot.requestFullscreen();
+        else runnerRoot.classList.toggle("gm-is-fullscreen");
+      } catch (e) { runnerRoot.classList.toggle("gm-is-fullscreen"); }
+      requestAnimationFrame(resizeRunner);
+    };
+    $("gm-fullscreen").onclick = toggleFullscreen;
+    document.addEventListener("fullscreenchange", resizeRunner);
+    const togglePause = () => {
+      if (S.over) return;
+      S.paused = !S.paused;
+      $("gm-paused").classList.toggle("show", S.paused);
+      $("gm-pause").textContent = S.paused ? "▶" : "Ⅱ";
+    };
+    $("gm-pause").onclick = togglePause;
+    $("gm-resume").onclick = togglePause;
+    $("gm-retry").onclick = restart;
+    stage.querySelectorAll("[data-action]").forEach((b) => b.addEventListener("pointerdown", (e) => {
+      e.preventDefault(); const a = b.dataset.action;
+      if (a === "left") doLane(-1); else if (a === "right") doLane(1); else if (a === "jump") doJump(); else doSlide();
+    }));
 
     let touchStart = null;
     const onDown = (e) => { e.preventDefault(); touchStart = { x: e.clientX, y: e.clientY }; };
@@ -228,6 +286,8 @@ export const PhoneGames = {
     };
     canvas.addEventListener("pointerdown", onDown); canvas.addEventListener("pointerup", onUp);
     const key = (e) => {
+      if (e.code === "Escape" || e.code === "KeyP") { e.preventDefault(); togglePause(); return; }
+      if (S.paused) { if (e.code === "Space" || e.code === "Enter") togglePause(); return; }
       if (S.over) { if ((e.code === "Space" || e.code === "Enter") && performance.now() - S.overAt > 500) restart(); return; }
       if (e.code === "ArrowLeft" || e.code === "KeyA") doLane(-1);
       else if (e.code === "ArrowRight" || e.code === "KeyD") doLane(1);
@@ -238,6 +298,10 @@ export const PhoneGames = {
 
     this._cleanup = () => {
       document.removeEventListener("keydown", key);
+      window.removeEventListener("resize", resizeRunner); document.removeEventListener("fullscreenchange", resizeRunner);
+      if (resizeObserver) resizeObserver.disconnect();
+      if (document.fullscreenElement === runnerRoot && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      runnerRoot.classList.remove("gm-is-fullscreen");
       canvas.removeEventListener("pointerdown", onDown); canvas.removeEventListener("pointerup", onUp);
       for (const o of S.objects) three.remove(o.mesh);
       S.objects.length = 0;
@@ -249,7 +313,7 @@ export const PhoneGames = {
         });
       }
       dust.forEach((d) => d.m.material.dispose());
-      [hurdleGeo, hurdleMat, wallGeo, wallMat, barGeo, barMat, coinGeo, coinMat, shGeo, shMat, ggeo, gmat, gtex, wGeo, wMat, dustGeo].forEach((x) => x && x.dispose && x.dispose());
+      [hurdleGeo, hurdleMat, wallGeo, wallMat, barGeo, barMat, coinGeo, coinMat, ...obstacleMaterials, shGeo, shMat, ggeo, gmat, gtex, wGeo, wMat, dustGeo].forEach((x) => x && x.dispose && x.dispose());
       try { renderer.dispose(); renderer.forceContextLoss(); } catch (e) {}
     };
 
@@ -263,7 +327,7 @@ export const PhoneGames = {
       if (!phone || !phone.classList.contains("on")) return;
 
       S.t += dt;
-      if (!S.over) {
+      if (!S.over && !S.paused) {
         S.graceT -= dt;
         if (S.t > 1) S.speed = 8 + Math.min(18, (S.t - 1) * 0.5);
         S.distance += S.speed * dt;
@@ -327,7 +391,7 @@ export const PhoneGames = {
           const p = pay(Math.min(2000, Math.floor(S.score / 12)), "Subway Run");
           S.msg = (isBest ? "NEW BEST · " : "BEST " + best("subway") + " · ") + (p ? "+₦" + p : "");
           overEl.style.display = "flex";
-          finalEl.innerHTML = "SCORE " + S.score + "<br><span style='font-size:11px;opacity:.75'>" + S.msg + "</span>";
+          finalEl.innerHTML = "<strong>" + S.score.toLocaleString() + "</strong><span>" + Math.floor(S.distance) + " metres · " + S.coins + " coins</span><small>" + S.msg + "</small>";
         }
       }
       /* dust puffs drift up and back toward the camera, fading */
@@ -337,7 +401,7 @@ export const PhoneGames = {
         d.m.material.opacity = Math.max(0, d.life * 0.9);
         if (d.life <= 0) d.m.visible = false;
       }
-      if (S.t - S._lastHud > 0.1) { S._lastHud = S.t; scoreEl.textContent = "SCORE " + S.score; coinEl.textContent = "🪙 " + S.coins; }
+      if (S.t - S._lastHud > 0.1) { S._lastHud = S.t; scoreEl.textContent = S.score.toLocaleString(); coinEl.textContent = S.coins.toLocaleString(); $("gm-distance").textContent = Math.floor(S.distance) + " m"; $("gm-speed").textContent = (S.speed / 8).toFixed(1) + "x"; }
       renderer.render(three, camera);
     };
     this._raf = requestAnimationFrame(loop);
