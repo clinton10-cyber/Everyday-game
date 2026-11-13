@@ -153,3 +153,40 @@
   #rotate-hint i::after{content:"";position:absolute;left:50%;bottom:7px;width:14px;height:4px;margin-left:-7px;border-radius:2px;background:#ff9c1a}
   @keyframes rhTurn{0%,25%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
 }
+
+/* ══════════════════════════════════════════════════════
+   LAPTOP / DESKTOP — phone shows as a centred handset frame.
+   Mouse + large screen only; touch phones and tablets keep their layout.
+   Loaded after phone.css so it overrides the landscape side panel and the
+   full-width immersive mode, which stretched app content across the screen.
+   ══════════════════════════════════════════════════════ */
+@media (min-width:760px) and (min-height:560px) and (pointer:fine){
+  .tphone,
+  .tphone.app-immersive{
+    --ph-w:min(420px,calc(100vw - 24px));
+    left:calc(50% - var(--ph-w) / 2)!important;right:auto!important;
+    bottom:12px!important;
+    width:var(--ph-w)!important;max-width:none!important;
+    height:min(calc(100dvh - 24px),880px)!important;max-height:none!important;
+    border-radius:38px!important;
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 30px 90px rgba(0,0,0,.75),0 0 0 6px #05070b,0 0 0 7px rgba(255,255,255,.08)!important;
+    transform:translateY(112%)!important;
+  }
+  .tphone.on,
+  .tphone.app-immersive.on{transform:none!important}
+  .tphone .tnotch{margin:8px auto 4px!important;width:110px!important;height:26px!important}
+  .tphone.app-immersive .tapp{
+    padding-left:16px!important;padding-right:16px!important;
+    border-radius:0 0 38px 38px;
+  }
+  .tphone.app-immersive .tbk{
+    margin:0 -16px 10px!important;width:calc(100% + 32px)!important;
+    padding:13px 17px!important;
+  }
+  .tphone.app-immersive #app-home{padding:18px 16px 30px!important}
+  .tphone.app-immersive #app-games{padding:0!important}
+  .tphone.app-immersive .gm-runner-root{min-height:0}
+  .tphone.app-immersive #gm-runner-stage{height:min(62dvh,560px);min-height:360px}
+  .tphone.app-immersive .gm-cv{height:min(60dvh,540px)}
+}

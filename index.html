@@ -151,7 +151,10 @@
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bind); else bind();
   window.addEventListener("error",function(e){
-    window.__ph3d_show("[error] "+(e.message||e.error&&e.error.message||e));
+    var m=String(e.message||e.error&&e.error.message||e);
+    /* Harmless browser notice (layout settled after a resize); not a crash. */
+    if(m.indexOf("ResizeObserver loop")===0){ e.stopImmediatePropagation(); return; }
+    window.__ph3d_show("[error] "+m);
   });
   window.addEventListener("unhandledrejection",function(e){
     var r=e.reason;

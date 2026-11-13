@@ -286,8 +286,11 @@ export async function playCinematic(canvas, config, carBuilder) {
     return leadFocus.copy(rec.lead.root.position).add(new THREE.Vector3(0, 1.15, 0));
   };
 
+  let lastW = 0, lastH = 0, resizeRaf = 0;
   function resize() {
     const w = canvas.clientWidth || 960, h = canvas.clientHeight || 540;
+    if (w === lastW && h === lastH) return;
+    lastW = w; lastH = h;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     // Portrait phones get a wider vertical FOV so the horizontal view isn't pinched.
@@ -390,7 +393,11 @@ export async function playCinematic(canvas, config, carBuilder) {
   }
   function skip() { if (state.act < acts.length - 1) seek(state.act + 1); else { pause(); state.done = true; config.onEnd?.(); } }
 
-  const observer = new ResizeObserver(resize);
+  // Defer to the next frame so the observer callback never changes layout in the same pass.
+  const observer = new ResizeObserver(() => {
+    if (resizeRaf) return;
+    resizeRaf = requestAnimationFrame(() => { resizeRaf = 0; resize(); });
+  });
   observer.observe(canvas);
   activate(0);
   resize();
@@ -403,7 +410,7 @@ export async function playCinematic(canvas, config, carBuilder) {
     get sets() { return sets; },
     camera, scene, renderer,
     destroy() {
-      pause(); observer.disconnect();
+      pause(); observer.disconnect(); cancelAnimationFrame(resizeRaf);
       sets.forEach((rec) => { try { rec.built?.dispose?.(); } catch (e) { /* interior already disposed */ } });
       disposeObject(scene);
       renderer.dispose();

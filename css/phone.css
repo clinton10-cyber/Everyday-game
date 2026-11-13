@@ -1044,3 +1044,30 @@
 .tphone.skin-hyperos .tapp-ic .tnm{font-weight:650}
 .tphone .tstat-icons i,.tphone #t-data-text,.tphone #t-battery-text{color:var(--device-accent)}
 .tphone .tapp:not(#app-home) .tstat-panel,.tphone .tapp:not(#app-home) .tbal{border-color:color-mix(in srgb,var(--device-accent) 35%,transparent)}
+
+/* ══════════════════════════════════════════════════════
+   CAMERA APP — one column that always fits (mobile and desktop)
+   Preview takes the free space; mode toggle, poses and shutter stay visible.
+   ══════════════════════════════════════════════════════ */
+#app-camera.on{
+  display:flex!important;flex-direction:column;gap:6px;
+  height:100%!important;max-height:100%!important;
+  overflow:hidden!important;box-sizing:border-box;
+  padding:0 16px max(14px,env(safe-area-inset-bottom))!important;
+}
+#app-camera > *{flex:0 0 auto;min-width:0}
+#app-camera .cam-mode{margin:4px auto 4px!important}
+#app-camera #cam-view{
+  flex:1 1 0!important;height:auto!important;min-height:120px!important;max-height:none!important;
+  width:100%;margin:2px 0!important;border-radius:20px;
+}
+#app-camera .cam-poses-wrap{margin:0!important;padding:8px 10px!important;border-radius:14px}
+#app-camera .cam-poses-wrap.on{display:block}
+#app-camera .cam-poses{padding:2px 0 4px}
+#app-camera .cam-bar{padding:6px 0 2px!important}
+#app-camera .cam-shutter{width:62px!important;height:62px!important;flex:0 0 auto}
+@media (max-height:700px){
+  #app-camera .cam-poses-label{display:none}
+  #app-camera #cam-hint{display:none}
+  #app-camera .cam-shutter{width:54px!important;height:54px!important}
+}
