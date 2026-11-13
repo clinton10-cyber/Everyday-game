@@ -147,6 +147,7 @@ export async function buildInterior(router) {
   box(.12,.12,9, 4.2,H-.06,-4.5,steel);
 
   /* ================= CELL COLUMNS ================= */
+  const doors=[];  /* automatic cell doors, driven in update() */
   function cellColumn(xFront, dir, zc, open){
     const xc = xFront + dir*1.5;
     const zA = zc-1.6, zB = zc+1.6;
@@ -214,15 +215,36 @@ export async function buildInterior(router) {
     }
     furnish(0);
     furnish(H);
+
+    /* ---- automatic sliding cell doors (one per storey) ---- */
+    if(open){
+      const gz=zc-0.625, gw=.85;
+      for(const lvl of [0,1]){
+        const yb=lvl?H:0, ph=H-.5;
+        const panel=new THREE.Group();
+        const dm=(m,sc,ps)=>{const k=new THREE.Mesh(BOXG,m);k.scale.set(...sc);k.position.set(...ps);return k;};
+        panel.add(dm(steel,[.1,.12,gw],[0,.3,0]));
+        panel.add(dm(steel,[.1,.12,gw],[0,ph,0]));
+        for(let i=0;i<5;i++){
+          panel.add(dm(barM,[.07,ph,.07],[0,ph/2+.2,-gw/2+.06+i*(gw-.12)/4]));
+        }
+        const light=new THREE.Mesh(BOXG,new THREE.MeshBasicMaterial({color:0x40d060}));
+        light.scale.set(.16,.16,.16);
+        panel.position.set(xFront,yb,gz);
+        world.add(panel); world.add(light); light.position.set(xFront,yb+2.2,gz+gw/2+.18);
+        doors.push({lvl,xFront,dir,zc,gz,gw,panel,light,y0:yb,t:0,locked:false,armed:true,lockedAt:0,
+          col:{minX:xFront-.12,maxX:xFront+.12,minZ:gz-gw/2,maxZ:gz+gw/2,y0:0,y1:60,level:lvl},colOn:false});
+      }
+    }
   }
 
   /* left cells (front face x=-8) */
   [-5.4,-1.8,1.8,5.4].forEach((zc,i)=>{
-    cellColumn(-8,-1,zc, i===2);   /* cell at z=1.8 is open */
+    cellColumn(-8,-1,zc, true);   /* every cell has an automatic door */
   });
   /* right cells (front face x=8) */
   [-5.4,-1.8,1.8,5.4].forEach(zc=>{
-    cellColumn(8, 1, zc, false);
+    cellColumn(8, 1, zc, true);
   });
 
   /* cell numbers over doors */
@@ -516,6 +538,41 @@ export async function buildInterior(router) {
     bounds: { minX: -ROOM.x, maxX: ROOM.x, minZ: -ROOM.z, maxZ: ROOM.z },
   };
 
+  /* Automatic door logic: opens as you approach, LOCKS behind you once you
+     are inside the cell. Prisoners stay locked in until released / bailed;
+     visitors are let out again by the guard after a few seconds. */
+  const doorToast = (m) => { try { window.__ph3d_phone && window.__ph3d_phone._toast(m); } catch (e) {} };
+  let doorClock = 0;
+  function updateDoors(dt) {
+    if (!ctl || !ctl.pos) return;
+    doorClock += dt;
+    const px = ctl.pos.x, pz = ctl.pos.z, plv = ctl.level || 0;
+    const P = window.__ph3d_prison;
+    const jailed = !!(P && (P.inJail || (P.timeLeft || 0) > 0));
+    for (const d of doors) {
+      const same = plv === d.lvl;
+      const depth = (px - d.xFront) * d.dir;
+      const inside = same && depth > 0.7 && depth < 3.0 && Math.abs(pz - d.zc) < 1.5;
+      const near = same && Math.abs(px - d.xFront) < 1.5 && Math.abs(pz - d.gz) < 1.5;
+      if (!inside) d.armed = true;
+      if (!d.locked && inside && d.armed) {
+        d.locked = true; d.lockedAt = doorClock;
+        doorToast("CELL DOOR LOCKED");
+      } else if (d.locked && !jailed && doorClock - d.lockedAt > 2.5) {
+        d.locked = false; d.armed = !inside;
+        doorToast("Guard unlocked the cell door");
+      }
+      const target = d.locked ? 0 : (near ? 1 : 0);
+      d.t += Math.max(-1, Math.min(1, target - d.t)) * Math.min(1, dt * 3.5);
+      if (Math.abs(target - d.t) < 0.02) d.t = target;
+      d.panel.position.z = d.gz - d.t * (d.gw + 0.08);
+      d.light.material.color.setHex(d.locked ? 0xe03a30 : 0x40d060);
+      const shouldBlock = d.t < 0.85;
+      if (shouldBlock && !d.colOn) { __cols.push(d.col); d.colOn = true; }
+      else if (!shouldBlock && d.colOn) { const i = __cols.indexOf(d.col); if (i >= 0) __cols.splice(i, 1); d.colOn = false; }
+    }
+  }
+
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, __world, {
     scene, x: START.x, z: START.z, yaw: Math.PI + (START.yaw || 0), level: 0,
     onUse: (use) => {
@@ -545,7 +602,7 @@ export async function buildInterior(router) {
     update: (dt) => {
       /* sub-step so a lag spike cannot carry the player through thin walls/bars */
       let r = Math.min(dt, 0.25);
-      while (r > 1e-6) { const t = Math.min(r, 1 / 60); ctl.update(t); r -= t; }
+      while (r > 1e-6) { const t = Math.min(r, 1 / 60); ctl.update(t); updateDoors(t); r -= t; }
     },
     dispose: () => ctl.dispose(),
   };
