@@ -694,6 +694,126 @@ export async function buildInterior(router) {
       cyl(B.solid, MAT.metal, x + w * 0.28, topY + 2.0, z - d * 0.25, 1.5, 2.6, 0, UNIT_CYL);
       box(B.solid, MAT.metal, x + w * 0.28, topY + 0.8, z - d * 0.25, 3.2, 0.3, 3.2);
     }
+
+    /* ---------- ARCHITECTURAL IDENTITY PASS ----------
+       Every campus building receives a distinct, detailed entrance and
+       facade treatment while keeping the shared walkable building shell. */
+    const accentByType = {
+      office: 0x244f70, lab: 0x168a8a, lecture: 0x8b593d,
+      classroom: 0x557a4a, study: 0x9b713e, cafeteria: 0xc76b32
+    };
+    const accent = S({ color: accentByType[roomType] || 0x315f78, roughness: 0.72 });
+    const glassBlue = S({ color: 0x8ec9e8, roughness: 0.22, metalness: 0.12, transparent: true, opacity: 0.72 });
+    const darkGlass = S({ color: 0x28485c, roughness: 0.25, metalness: 0.18 });
+    const trimGold = S({ color: 0xc49a4b, metalness: 0.35, roughness: 0.42 });
+    const frontZ = z1 + 0.32;
+
+    // A strong entrance portal, glazed doors, broad steps and accessible ramp.
+    box(B.solid, accent, x, 3.25, frontZ + 0.45, Math.min(13,w*0.42), 0.42, 1.1);
+    box(B.solid, darkGlass, x, 1.55, frontZ + 0.52, 3.5, 2.9, 0.18);
+    box(B.detail, glassBlue, x - 0.82, 1.55, frontZ + 0.64, 1.35, 2.35, 0.08);
+    box(B.detail, glassBlue, x + 0.82, 1.55, frontZ + 0.64, 1.35, 2.35, 0.08);
+    for (let step=0; step<4; step++) {
+      box(B.solid, MAT.slab, x, 0.12 + step*0.12, z1 + 1.1 + step*0.62, Math.min(11,w*0.5), 0.22, 0.9, 0);
+    }
+    box(B.solid, MAT.tile, x - w*0.24, 0.13, z1 + 3.1, 3.0, 0.22, 5.2);
+    for (const sx of [-1,1]) {
+      box(B.solid, accent, x + sx*Math.min(6.0,w*0.25), 2.3, frontZ + 0.45, 0.48, 4.6, 0.65);
+      box(B.solid, trimGold, x + sx*Math.min(6.0,w*0.25), 4.65, frontZ + 0.45, 0.85, 0.24, 0.9);
+    }
+
+    // Deep window reveals, sill bands and a continuous floor-to-floor facade belt.
+    for (let f=0; f<floors; f++) {
+      const fy=lv[f];
+      box(B.solid, accent, x, fy + 0.42, z1 + 0.24, w-1.0, 0.22, 0.22);
+      for(let wx=x-w/2+2.2; wx<x+w/2-1.4; wx+=4.8) {
+        if (Math.abs(wx-x)<3.1) continue;
+        box(B.detail, darkGlass, wx, fy+2.05, z1+0.28, 2.45, 2.05, 0.12);
+        box(B.detail, glassBlue, wx, fy+2.05, z1+0.36, 2.08, 1.65, 0.05);
+        box(B.solid, trimGold, wx, fy+3.12, z1+0.34, 2.62, 0.12, 0.16);
+        box(B.solid, trimGold, wx, fy+0.98, z1+0.34, 2.62, 0.12, 0.16);
+      }
+    }
+
+    // Individual architectural signatures: each building reads differently at a distance.
+    if (title.includes("SENATE")) {
+      // Formal administration: portico, paired columns, pediment and flag mast.
+      for (const sx of [-4.6,-1.55,1.55,4.6]) cyl(B.solid, MAT.trim, x+sx, 2.65, z1+3.2, 0.34, 5.2, 0, UNIT_CYL);
+      box(B.solid, accent, x, 5.45, z1+3.2, 12.2, 0.48, 1.0);
+      box(B.solid, MAT.slab, x, 6.15, z1+3.0, 13.4, 0.22, 2.4);
+      cyl(B.solid, MAT.metal, x+w*0.34, topY+5.2, z, 0.08, 9.5, 0, UNIT_CYL);
+      box(B.detail, S({color:0xc63c48,roughness:0.7}), x+w*0.34+0.75, topY+8.5, z, 1.5, 0.85, 0.05);
+    } else if (title.includes("SCIENCE")) {
+      // Science: glazed laboratory wing and rooftop ventilation stacks.
+      box(B.detail, glassBlue, x-w*0.31, 5.1, z1+0.22, w*0.22, 5.8, 0.16);
+      for(let i=0;i<4;i++) box(B.solid, MAT.metal, x-w*0.3+i*2.1, topY+1.0, z-d*0.25, 0.9, 1.8, 1.0);
+      box(B.solid, accent, x, 0.45, z1+4.1, w*0.58, 0.34, 0.55);
+    } else if (title.includes("ENGINEERING")) {
+      // Engineering: exposed structural frames, steel braces and workshop bay.
+      for(let i=0;i<4;i++){
+        const px=x-w*0.34+i*(w*0.22);
+        box(B.solid, MAT.metal, px, 5.1, z1+0.58, 0.24, 8.8, 0.28);
+        box(B.solid, MAT.trim, px, 9.5, z1+0.58, 0.24, 0.24, 0.28);
+      }
+      box(B.solid, accent, x, 1.75, z1+4.0, 10.5, 3.4, 0.55);
+      box(B.detail, MAT.yellow || trimGold, x, 3.45, z1+4.32, 7.4, 0.32, 0.12);
+    } else if (title.includes("LAW")) {
+      // Law: courthouse-like pediment and ceremonial columns.
+      for(const sx of [-5,-2.5,0,2.5,5]) cyl(B.solid, MAT.trim, x+sx, 2.3, z1+2.7, 0.27, 4.6, 0, UNIT_CYL);
+      box(B.solid, accent, x, 4.85, z1+2.7, 13.0, 0.5, 0.8);
+      const ped=new THREE.Mesh(new THREE.ConeGeometry(7.2,2.4,4),accent);ped.position.set(x,6.1,z1+2.5);ped.rotation.y=Math.PI/4;B.solid.add(ped);
+    } else if (title.includes("ARTS")) {
+      // Arts: colourful vertical fins and a shaded courtyard canopy.
+      const colours=[0xc65b4b,0xe0a33c,0x4e8d83,0x6576b8];
+      for(let i=0;i<8;i++) box(B.solid,S({color:colours[i%4],roughness:0.78}),x-w*0.38+i*w*0.105,5.0,z1+0.48,0.42,7.2,0.34);
+      box(B.solid, accent, x, 7.3, z1+3.1, 15, 0.28, 5.0);
+    } else if (title.includes("SOCIAL")) {
+      // Social Sciences: broad ribbon balconies and shaded seminar frontage.
+      for(let f=0;f<floors;f++){
+        box(B.solid, MAT.slab, x, lv[f]+3.75, z1+1.05, w+1.6, 0.28, 1.8);
+        box(B.solid, trimGold, x, lv[f]+4.15, z1+1.82, w+1.2, 0.12, 0.12);
+      }
+      for(let i=0;i<6;i++) box(B.solid, accent, x-w*0.4+i*w*0.16, 2.2, z1+2.1, 0.28, 4.4, 0.3);
+    } else if (title.includes("HEALTH")) {
+      // Health sciences: clean clinical facade, blue glass and a medical cross.
+      box(B.solid, S({color:0xf7f8f3,roughness:0.7}), x, 5.4, z1+0.42, 8.8, 4.0, 0.4);
+      box(B.solid, S({color:0xc63c48}), x, 5.5, z1+0.68, 0.7, 3.0, 0.12);
+      box(B.solid, S({color:0xc63c48}), x, 5.5, z1+0.69, 2.6, 0.7, 0.12);
+      for(let i=0;i<3;i++) box(B.detail, glassBlue, x-7+i*7, 7.1, z1+0.36, 4.2, 2.1, 0.1);
+    } else if (title.includes("ICT")) {
+      // ICT centre: modern curtain-wall grid, blue accent fins and rooftop mast.
+      box(B.detail, darkGlass, x, 5.4, z1+0.32, w*0.64, 7.4, 0.16);
+      for(let i=0;i<7;i++) box(B.solid, accent, x-w*0.31+i*w*0.103, 5.4, z1+0.46, 0.22, 7.5, 0.22);
+      for(let i=0;i<4;i++) box(B.solid, MAT.trim, x-w*0.28+i*w*0.18, 1.8, z1+3.6, 1.2, 3.6, 0.4);
+      cyl(B.solid, MAT.metal, x, topY+3.8, z, 0.12, 7.0, 0, UNIT_CYL);
+    } else if (title.includes("LIBRARY")) {
+      // Library: monumental entrance frame, long sunshades and reading terrace.
+      box(B.solid, accent, x, 5.3, z1+1.5, w*0.72, 0.42, 3.8);
+      box(B.solid, MAT.trim, x, 3.4, z1+3.1, 15.5, 6.8, 0.5);
+      box(B.detail, darkGlass, x, 3.5, z1+3.4, 12.8, 5.8, 0.12);
+      for(let i=0;i<6;i++) box(B.solid, trimGold, x-w*0.3+i*w*0.12, 6.9, z1+2.5, 0.18, 0.18, 4.0);
+      box(B.solid, MAT.tile, x, 0.18, z1+8.5, w*0.72, 0.28, 7.0);
+    } else if (title.includes("STUDENT UNION")) {
+      // Student union: bright cafeteria frontage, awnings and outdoor dining.
+      for(let i=0;i<4;i++){
+        const awn=S({color:[0xe85a48,0xf2c34e,0x3d9e9a,0x537dc0][i],roughness:0.75});
+        box(B.solid, awn, x-w*0.34+i*w*0.22, 3.7, z1+2.2, 8.2, 0.28, 3.4);
+      }
+      for(let i=0;i<5;i++){
+        const tx=x-w*0.38+i*w*0.19;
+        cyl(B.solid, MAT.trim, tx, 0.48, z1+8.0, 0.1, 0.95, 0, UNIT_CYL);
+        cyl(B.solid, MAT.trim, tx, 0.48, z1+11.2, 0.1, 0.95, 0, UNIT_CYL);
+        cyl(B.detail, MAT.wood, tx, 1.05, z1+9.6, 1.0, 0.16, 0, UNIT_CYL);
+      }
+    }
+
+    // Raised planters and small wayfinding pylons at each main entrance.
+    for(const sx of [-w*0.38,w*0.38]){
+      box(B.solid, MAT.tile, x+sx, 0.35, z1+2.2, 3.0, 0.7, 1.8);
+      for(let k=0;k<3;k++) sphere(B.detail, MAT.leafB, x+sx+(k-1)*0.7, 1.0, z1+2.2, 0.55, 0.48, 0.55);
+    }
+    box(B.solid, accent, x+w*0.39, 1.65, z1+5.0, 0.22, 3.3, 0.22);
+    box(B.solid, trimGold, x+w*0.39, 3.4, z1+5.0, 2.6, 0.18, 0.24);
   }
 
   /* ---------- PLACE BUILDINGS ---------- */
@@ -709,7 +829,14 @@ export async function buildInterior(router) {
     { title: "COLLEGE OF HEALTH SCIENCES", subtitle: "Medicine · Nursing · Pharmacy", r: R_INNER, a: bisector(6), w: 34, d: 26, floors: 2, wallColor: 0xeef2f0, roofColor: 0x52666d, roomType: "lab" },
     { title: "ICT & INNOVATION CENTRE", subtitle: "Computing · Research Labs", r: R_INNER, a: bisector(7), w: 30, d: 24, floors: 2, wallColor: 0xdde8ee, roofColor: 0x4a5a66, roomType: "office" },
     { title: "UNIVERSITY LIBRARY", subtitle: "Knowledge Resource Centre", r: R_OUTER, a: bisector(0), w: 46, d: 36, floors: 2, wallColor: 0xf0e9dc, roofColor: 0x6d5646, roomType: "study" },
-    { title: "STUDENT UNION & CAFETERIA", subtitle: "Student Life Complex", r: R_OUTER, a: bisector(4), w: 44, d: 32, floors: 1, wallColor: 0xe4ded0, roofColor: 0x7a5c46, roomType: "cafeteria" }
+    { title: "STUDENT UNION & CAFETERIA", subtitle: "Student Life Complex", r: R_OUTER, a: bisector(4), w: 44, d: 32, floors: 1, wallColor: 0xe4ded0, roofColor: 0x7a5c46, roomType: "cafeteria" },
+    { title: "FACULTY OF MANAGEMENT SCIENCES", subtitle: "Accounting · Finance · Management", r: 225, a: bisector(1), w: 34, d: 26, floors: 2, wallColor: 0xe5e9e2, roofColor: 0x536a70, roomType: "office" },
+    { title: "FACULTY OF AGRICULTURE", subtitle: "Crop Science · Soil Science · Animal Science", r: 225, a: bisector(2), w: 36, d: 28, floors: 2, wallColor: 0xe3e8d5, roofColor: 0x55734a, roomType: "lab" },
+    { title: "FACULTY OF EDUCATION", subtitle: "Teacher Education & Learning", r: 225, a: bisector(3), w: 34, d: 26, floors: 2, wallColor: 0xe9e2d5, roofColor: 0x79634c, roomType: "classroom" },
+    { title: "FACULTY OF PHARMACEUTICAL SCIENCES", subtitle: "Pharmacy · Pharmacology · Research", r: 225, a: bisector(4), w: 36, d: 28, floors: 2, wallColor: 0xe7eeeb, roofColor: 0x4e6971, roomType: "lab" },
+    { title: "FACULTY OF DENTISTRY", subtitle: "Dental Sciences & Clinics", r: 225, a: bisector(5), w: 32, d: 24, floors: 2, wallColor: 0xece8dc, roofColor: 0x5a6f75, roomType: "lab" },
+    { title: "FACULTY OF COMMUNICATION & MEDIA STUDIES", subtitle: "Broadcast · Journalism · Media", r: 225, a: bisector(6), w: 36, d: 26, floors: 2, wallColor: 0xe7e2eb, roofColor: 0x625b79, roomType: "classroom" },
+    { title: "STUDENT HOSTELS", subtitle: "Campus Residential Halls", r: 225, a: bisector(7), w: 38, d: 30, floors: 3, wallColor: 0xe1e5df, roofColor: 0x52656b, roomType: "office" }
   ];
   for (const b of BUILDINGS) {
     createBuilding({ ...b, x: Math.cos(b.a) * b.r, z: Math.sin(b.a) * b.r });

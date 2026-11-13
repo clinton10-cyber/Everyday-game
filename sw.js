@@ -7,7 +7,7 @@
               cache-first with background refresh.
    Bump CACHE_VERSION on every release to discard old caches. */
 
-const CACHE_VERSION = "v107";
+const CACHE_VERSION = "v116";
 const SHELL_CACHE   = "ph3d-shell-"   + CACHE_VERSION;
 const RUNTIME_CACHE = "ph3d-runtime-" + CACHE_VERSION;
 
@@ -40,7 +40,8 @@ self.addEventListener("install", (event) => {
     } catch (e) {}
     await addAll(cache, files.map((f) => "./" + f), { cache: "reload" });
     await addAll(cache, CDN_FILES, { mode: "cors" });
-    await self.skipWaiting();
+    // On updates, wait for the player's mandatory UPDATE NOW action.
+    // First install still activates normally because there is no old worker.
   })());
 });
 

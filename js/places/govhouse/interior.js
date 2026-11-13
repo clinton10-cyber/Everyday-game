@@ -26,6 +26,8 @@
 
 import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { addStreetLamp } from "../../core/scene-lamps.js";
+import { addNightGlow } from "../../core/night-glow.js";
 
 export async function buildInterior(router) {
   /* ══════════════════════════════════════════════════════════
@@ -784,6 +786,13 @@ export async function buildInterior(router) {
     ceilingHeight: WH,
     bounds: { minX: -46, maxX: 46, minZ: -32, maxZ: 53 },
   };
+
+  // Location-specific perimeter and access-road lamps; StreetLights switches them on at dusk.
+  const govhouseLampSpots = [];
+  for (const [lx,lz] of [[-38, -24],[-18,-24],[0,-24],[18,-24],[38,-24],[-38,0],[38,0],[-38,28],[-18,28],[0,28],[18,28],[38,28]]) {
+    govhouseLampSpots.push(addStreetLamp(scene, lx, 0, lz, Math.PI));
+  }
+  addNightGlow(scene, govhouseLampSpots, { poolRadius: 16 });
 
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, world, {
     scene,

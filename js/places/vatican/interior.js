@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
 import { ZoneDrive } from "../../core/drive-zones.js";
 import { addStreetLamp } from "../../core/scene-lamps.js";
+import { addNightGlow } from "../../core/night-glow.js";
 
 export async function buildInterior(router) {
   /* ======== prototype kit + world ======== */
@@ -251,7 +252,9 @@ export async function buildInterior(router) {
       [-lx, 0, Math.PI * 0.5],                         [lx, 0, -Math.PI * 0.5],
       [-lx, lz, -Math.PI * 0.25], [0, lz, 0], [lx, lz, -Math.PI * 0.75],
     ];
-    for (const [sx, sz, yaw] of spots) addStreetLamp(scene, sx, 0, sz, yaw);
+    const vaticanLampSpots = [];
+    for (const [sx, sz, yaw] of spots) vaticanLampSpots.push(addStreetLamp(scene, sx, 0, sz, yaw));
+    addNightGlow(scene, vaticanLampSpots, { poolRadius: 17 });
   }
 
   /* ======== game glue ======== */

@@ -4,6 +4,8 @@
    Terrain height is exposed through world.groundAt so the avatar follows the dunes. */
 import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { addStreetLamp } from "../../core/scene-lamps.js";
+import { addNightGlow } from "../../core/night-glow.js";
 
 export async function buildInterior(router) {
   const CORES = navigator.hardwareConcurrency || 4, MEM_GB = navigator.deviceMemory || 8;
@@ -425,6 +427,16 @@ export async function buildInterior(router) {
   }
   const blockers = buildWorld();
 
+  /* Warm low-glare promenade lighting: a row of lamps follows the beach
+     access path, with ground pools so the sand path remains readable at night. */
+  const beachLampSpots = [];
+  for (let x = -176; x <= 176; x += 44) {
+    const z = -13;
+    const gy = terrainHeight(x, z);
+    beachLampSpots.push(addStreetLamp(scene, x, gy, z, Math.PI));
+  }
+  addNightGlow(scene, beachLampSpots, { poolRadius: 12 });
+
   /* ======== game glue ======== */
   const START = { x: 0, z: -2 };
   const __cols = [];
@@ -435,10 +447,100 @@ export async function buildInterior(router) {
     groundAt: (x, z) => Math.max(terrainHeight(x, z), -0.45),
     bounds: { minX: -WORLD * 0.44, maxX: WORLD * 0.44, minZ: -WORLD * 0.44, maxZ: 30 },
   };
+  // Beach leisure zone: colourful umbrellas, loungers, sand castles and usable beach balls.
+  const beachProps = new THREE.Group(); scene.add(beachProps);
+  const makeMat = (color, roughness = 0.82) => new THREE.MeshStandardMaterial({ color, roughness });
+  const sandMat = makeMat(0xd8bd88), poleMat = makeMat(0x6f5135), seatMat = makeMat(0xe8e0cf);
+  const umbrellaMats = [0xe74c3c, 0xf1c40f, 0x2e86de, 0x27ae60, 0x9b59b6].map(c => makeMat(c));
+  const beachSeats = [];
+  function addUmbrella(x, z, colorIndex) {
+    const y = terrainHeight(x, z);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 2.15, 8), poleMat);
+    pole.position.set(x, y + 1.08, z); beachProps.add(pole);
+    const canopy = new THREE.Mesh(new THREE.ConeGeometry(1.65, 0.62, 10), umbrellaMats[colorIndex % umbrellaMats.length]);
+    canopy.position.set(x, y + 2.18, z); canopy.rotation.y = colorIndex * 0.35; beachProps.add(canopy);
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.16, 2.0), seatMat);
+    seat.position.set(x + 1.9, terrainHeight(x + 1.9, z) + 0.42, z + 0.4); seat.rotation.y = -0.18; beachProps.add(seat);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.75, 0.12), seatMat);
+    back.position.set(x + 1.9, terrainHeight(x + 1.9, z) + 0.78, z - 0.52); back.rotation.x = -0.16; back.rotation.y = -0.18; beachProps.add(back);
+    beachSeats.push({ x: x + 1.9, z: z + 0.4, y: terrainHeight(x + 1.9, z) + 0.42, w: 1.35, d: 2.0, level: 0, type: "sit", yaw: Math.PI });
+  }
+  [[-18,-18,0],[-6,-22,1],[8,-18,2],[22,-24,3],[-30,-30,4],[32,-32,0]].forEach(v => addUmbrella(v[0],v[1],v[2]));
+
+  // Sand castles are sculpted from stacked sand blocks and conical turrets.
+  function addSandCastle(x, z, scale = 1) {
+    const y = terrainHeight(x, z), m = sandMat;
+    const base = new THREE.Mesh(new THREE.BoxGeometry(2.5*scale, 0.65*scale, 2.1*scale), m);
+    base.position.set(x, y + 0.32*scale, z); beachProps.add(base);
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.48*scale, 0.62*scale, 1.15*scale, 8), m);
+    tower.position.set(x, y + 1.15*scale, z); beachProps.add(tower);
+    const tur = new THREE.Mesh(new THREE.ConeGeometry(0.58*scale, 0.72*scale, 8), makeMat(0xb98d58));
+    tur.position.set(x, y + 2.08*scale, z); beachProps.add(tur);
+    for (const dx of [-0.8,0.8]) { const tower2 = new THREE.Mesh(new THREE.CylinderGeometry(0.25*scale,0.34*scale,0.75*scale,7),m); tower2.position.set(x+dx*scale,y+0.7*scale,z+0.62*scale); beachProps.add(tower2); }
+  }
+  addSandCastle(-9, -7, 0.8); addSandCastle(14, -9, 0.72); addSandCastle(37, -15, 0.65);
+
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, __world, {
     scene, x: START.x, z: START.z, yaw: Math.PI, level: 0,
     onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
   });
+  __world.seats.push(...beachSeats);
+  // Pick up, carry and throw beach balls using the existing carry/drop controls.
+  const ballMaterials = [0xff4b4b,0xffd43b,0x39a8ff,0x39c77a].map(c => new THREE.MeshStandardMaterial({ color:c, roughness:0.48 }));
+  const beachBalls = [];
+  for (let i=0;i<4;i++) {
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.48, 18, 14), ballMaterials[i]);
+    const x = -24 + i*16, z = -5 - (i%2)*5;
+    ball.position.set(x, terrainHeight(x,z)+0.5, z); ball.castShadow = true; ball.receiveShadow = true; ball.name = "Beach Ball"; ball.userData._item = { type:"beach-ball", name:"Beach Ball" };
+    scene.add(ball); beachBalls.push({ mesh: ball, radius:0.48, halfH:0.48 });
+  }
+  ctl.registerCarryables(beachBalls);
+
+  // A small group of swimmers patrols the shallow swimming area with a looping stroke/bob animation.
+  const swimmers = [];
+  const swimmerColors = [0x2e86de,0xf39c12,0xe84393,0x16a085];
+  for (let i=0;i<4;i++) {
+    const swimmer = new THREE.Group();
+    const skin = new THREE.MeshStandardMaterial({ color:[0x8d5524,0xb87948,0x6d4328,0xd49a70][i], roughness:0.9 });
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.24,0.62,4,8), makeMat(swimmerColors[i])); torso.rotation.x = Math.PI/2; swimmer.add(torso);
+    const safetyVest = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.24,0.48), vestOrange); safetyVest.position.set(0,0.04,0.12); swimmer.add(safetyVest);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22,12,10), skin); head.position.set(0,0.02,0.56); swimmer.add(head);
+    for (const side of [-1,1]) { const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.07,0.42,3,6),skin); arm.position.set(side*0.29,0.02,0.12); arm.rotation.z = side*0.48; swimmer.add(arm); }
+    const x = -22 + i*14, z = 13 + (i%2)*4; swimmer.position.set(x,-0.16,z); scene.add(swimmer);
+    swimmers.push({ group:swimmer, x, z, phase:i*1.7, direction:i%2?1:-1, arms:[swimmer.children[3],swimmer.children[4]] });
+  }
+  __world.isSwimming = (x,z) => z > 4 && z < 29 && terrainHeight(x,z) < -0.12;
+  const beachHud = document.createElement("div"); beachHud.id = "beach-swim-hud";
+  beachHud.textContent = "SWIM AREA · Move with the joystick to swim";
+  beachHud.style.cssText = "position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 76px);transform:translateX(-50%);z-index:24;padding:8px 13px;border-radius:20px;background:rgba(5,35,55,.72);border:1px solid rgba(130,225,255,.35);color:#eafaff;font:700 11px system-ui;letter-spacing:.08em;pointer-events:none;opacity:0;transition:opacity .2s";
+  document.body.appendChild(beachHud);
+
+  // Wearable life jacket: available at the beach rental point and toggled with a clear mobile control.
+  const vest = new THREE.Group();
+  const vestOrange = new THREE.MeshStandardMaterial({ color:0xff7a18, roughness:0.78 });
+  const vestDark = new THREE.MeshStandardMaterial({ color:0x202a32, roughness:0.9 });
+  const vestLeft = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.52,0.22), vestOrange); vestLeft.position.set(-0.2,1.12,0.02); vest.add(vestLeft);
+  const vestRight = vestLeft.clone(); vestRight.position.x = 0.2; vest.add(vestRight);
+  for (const y of [0.91,1.25]) { const strap = new THREE.Mesh(new THREE.BoxGeometry(0.52,0.055,0.25),vestDark); strap.position.y=y; vest.add(strap); }
+  vest.visible = false;
+  const vestButton = document.createElement("button"); vestButton.id = "beach-life-jacket"; vestButton.type = "button"; vestButton.textContent = "LIFE JACKET: OFF";
+  vestButton.style.cssText = "position:fixed;left:16px;bottom:calc(env(safe-area-inset-bottom) + 26px);z-index:31;border:1px solid rgba(255,255,255,.45);border-radius:24px;padding:11px 14px;background:rgba(8,35,48,.88);color:#fff;font:800 11px system-ui;letter-spacing:.04em;box-shadow:0 5px 18px #0006;touch-action:manipulation";
+  document.body.appendChild(vestButton);
+  const setLifeJacket = (on) => {
+    ctl._lifeJacketOn = !!on; vest.visible = !!on;
+    vestButton.textContent = on ? "LIFE JACKET: ON" : "LIFE JACKET: OFF";
+    vestButton.style.background = on ? "rgba(185,75,12,.94)" : "rgba(8,35,48,.88)";
+    if (window.__ph3d_phone) window.__ph3d_phone._toast(on ? "Life jacket equipped" : "Life jacket removed");
+  };
+  vestButton.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); setLifeJacket(!ctl._lifeJacketOn); });
+  ctl.avatar.add(vest);
+  // Rental rack beside the promenade, so players understand where the safety equipment comes from.
+  const rack = new THREE.Group();
+  const rackPost = new THREE.Mesh(new THREE.BoxGeometry(2.2,1.8,0.16), makeMat(0x31515a)); rackPost.position.y=0.9; rack.add(rackPost);
+  for (let i=0;i<3;i++) { const jacket = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.72,0.16), vestOrange); jacket.position.set(-0.65+i*0.65,1.0,0.12); rack.add(jacket); }
+  rack.position.set(-39,terrainHeight(-39,-5),-5); scene.add(rack);
+  const rentalLabel = new THREE.Sprite(new THREE.SpriteMaterial({ map:(() => { const c=document.createElement("canvas"); c.width=512;c.height=128;const x=c.getContext("2d");x.fillStyle="#123b4a";x.fillRect(0,0,512,128);x.fillStyle="#fff";x.font="bold 42px system-ui";x.textAlign="center";x.fillText("LIFE JACKET RENTAL",256,78);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;})(), transparent:true }));
+  rentalLabel.position.set(-39,terrainHeight(-39,-5)+2.7,-5); rentalLabel.scale.set(7,1.75,1); scene.add(rentalLabel);
 
   return {
     three: scene, camera,
@@ -449,8 +551,21 @@ export async function buildInterior(router) {
     update: (dt) => {
       time += dt; uTimeGrass.value = time; uTimeWater.value = time;
       ctl.update(dt);
+      const swimming = !!__world.isSwimming(ctl.pos.x, ctl.pos.z);
+      if (vest.parent !== ctl.avatar) ctl.avatar.add(vest);
+      beachHud.style.opacity = swimming ? "1" : "0";
+      vestButton.style.opacity = swimming ? "1" : "0.88";
+      for (const n of swimmers) {
+        n.phase += dt * 2.1;
+        n.group.position.x = n.x + Math.sin(n.phase * 0.45) * 3.8 * n.direction;
+        n.group.position.z = n.z + Math.sin(n.phase * 0.7) * 1.3;
+        n.group.position.y = -0.18 + Math.sin(n.phase * 2.0) * 0.055;
+        n.group.rotation.y = n.direction > 0 ? Math.PI/2 : -Math.PI/2;
+        n.arms.forEach((arm,k) => { arm.rotation.x = Math.sin(n.phase*2 + k*Math.PI) * 0.48; });
+      }
+      beachBalls.forEach((b,i) => { if (!b.mesh.userData.phys?.active && b.mesh !== ctl.held) b.mesh.rotation.z += dt * (0.12 + i*0.025); });
       sky.position.copy(camera.position);
     },
-    dispose: () => ctl.dispose(),
+    dispose: () => { ctl.dispose(); beachHud.remove(); vestButton.remove(); },
   };
 }

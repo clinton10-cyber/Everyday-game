@@ -4,6 +4,7 @@ import { disposeScene } from "./disposer.js";
 import { Quality } from "./quality.js";
 import { DayNight } from "./daynight.js";
 import { tickWanted } from "../ui/wanted.js";
+import { NightTools } from "./night-tools.js";
 
 /* ═══════════════════════════════════════════════════════════════
    Router
@@ -34,6 +35,8 @@ export class Router {
     this._bind();
     this._resize();
     this._bindBackHome();
+    this._bindNightTorch();
+    NightTools.init();
     this._loop();
   }
 
@@ -81,6 +84,34 @@ export class Router {
     });
     document.body.appendChild(b);
     this._homeBtn = b;
+  }
+
+  /* Compact on-foot flashlight control, designed for touch screens too. */
+  _bindNightTorch() {
+    let b = document.getElementById("ph3d-torch-btn");
+    if (b) return;
+    b = document.createElement("button");
+    b.id = "ph3d-torch-btn";
+    b.type = "button";
+    b.textContent = "🔦 TORCH OFF";
+    Object.assign(b.style, {
+      position: "fixed", right: "14px", top: "calc(env(safe-area-inset-top) + 145px)",
+      zIndex: "31", padding: "10px 13px", borderRadius: "22px",
+      border: "1px solid rgba(255,255,255,.28)", background: "rgba(8,16,28,.88)",
+      color: "#fff7df", font: "800 10px Inter,system-ui,sans-serif",
+      letterSpacing: ".08em", boxShadow: "0 5px 16px rgba(0,0,0,.38)",
+      cursor: "pointer", touchAction: "manipulation", display: "none"
+    });
+    b.addEventListener("pointerdown", e => e.stopPropagation());
+    b.addEventListener("click", e => { e.stopPropagation(); NightTools.toggle(); });
+    document.body.appendChild(b);
+    this._torchBtn = b;
+    window.addEventListener("keydown", e => {
+      if (e.repeat || e.code !== "KeyT") return;
+      const tag = (e.target && e.target.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || e.target?.isContentEditable) return;
+      NightTools.toggle();
+    });
   }
 
   async go(name, params={}, push=true){
@@ -387,6 +418,8 @@ export class Router {
     if (this.current){
       try {
         this.current.controls && this.current.controls.update();
+        NightTools.tick(this.current);
+        if (this._torchBtn) this._torchBtn.style.display = (window.__ph3d_player && window.__ph3d_player.scene === this.current.three) ? "block" : "none";
         this.current.update && this.current.update(dt, t);
         SceneLife.tick(this.current, dt, t);
 

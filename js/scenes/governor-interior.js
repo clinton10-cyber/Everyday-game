@@ -687,9 +687,19 @@ export async function governorInteriorScene(params, router) {
     for (const s of [-1, 1]) {
       column(B, F.cx + s * 8.2, F.cz - 1.6, 0.52, 7.4);
     }
-    // entrance doors on the S wall
-    B.box("darkWood", 5.0, 5.2, 0.28, F.cx, 2.6, F.cz + 9.86);
-    B.box("gold", 0.10, 5.0, 0.34, F.cx, 2.6, F.cz + 9.92);
+    // Entrance double doors are shown swung open.  The previous single
+    // full-width slab visually filled the doorway and its collider trapped
+    // players inside even though the exit interaction was reachable.
+    {
+      const was = B.noCollide; B.noCollide = true;
+      B.box("darkWood", 2.25, 4.85, 0.18, F.cx - 1.12, 2.42, F.cz + 9.78, -0.62);
+      B.box("darkWood", 2.25, 4.85, 0.18, F.cx + 1.12, 2.42, F.cz + 9.78,  0.62);
+      B.box("gold", 0.07, 4.65, 0.22, F.cx - 1.95, 2.42, F.cz + 9.25, -0.62);
+      B.box("gold", 0.07, 4.65, 0.22, F.cx + 1.95, 2.42, F.cz + 9.25,  0.62);
+      B.box("gold", 0.10, 0.10, 0.10, F.cx - 0.42, 2.45, F.cz + 9.52);
+      B.box("gold", 0.10, 0.10, 0.10, F.cx + 0.42, 2.45, F.cz + 9.52);
+      B.noCollide = was;
+    }
     // side consoles
     B.box("marbleW", 0.9, 1.05, 3.0, F.cx - 13.4, 0.525, F.cz);
     B.box("marbleW", 0.9, 1.05, 3.0, F.cx + 13.4, 0.525, F.cz);
@@ -787,7 +797,17 @@ export async function governorInteriorScene(params, router) {
     pointLights.push(chandelier(B, R.cx, 5.8, R.cz, 0.85, H));
   }
 
-  /* ── ADD CHANDELIER LIGHTS ───────────────────────────── */
+  /* ── ADD CHANDELIER + WALL-SCONCE LIGHTS ──────────────── */
+  // Fill the room corners instead of leaving only bright pools under
+  // chandeliers.  Low-quality devices get fewer, shorter-range lights.
+  const sconceSpots = LOW
+    ? [[-14,-7.5],[14,-7.5],[0,22],[0,-22]]
+    : [[-20,-7.5],[-8,-7.5],[8,-7.5],[20,-7.5],[-20,6],[20,6],[-22,22],[-8,22],[8,22],[22,22],[0,-22]];
+  for (const [lx,lz] of sconceSpots) {
+    const lamp = new THREE.PointLight(0xffd99a, LOW ? 0.55 : 0.78, LOW ? 10 : 14, 2);
+    lamp.position.set(lx, 3.0, lz);
+    pointLights.push(lamp);
+  }
   pointLights.forEach((pl) => scene.add(pl));
 
   /* ── MERGE + ADD ─────────────────────────────────────── */
@@ -851,12 +871,17 @@ export async function governorInteriorScene(params, router) {
     /* under the upper floor the camera must not rise through it */
     get ceilingHeight() {
       const c = _ctlRef;
-      if (c && c.level === 0 && Math.abs(c.pos.x) < 3.3 && c.pos.z > -15 && c.pos.z < 12) return STAIR_H - 0.5;
+      if (!c) return H;
+      // The central gallery has an upper floor above the ground level;
+      // the upper private study has a lower ceiling at absolute y=9m.
+      if (c.level === 0 && Math.abs(c.pos.x) < 3.3 && c.pos.z > -15 && c.pos.z < 12) return STAIR_H - 0.5;
+      if (c.level >= 1) return c.pos.z < -15 ? (STUDY_H - STAIR_H) : (H - STAIR_H);
       return H;
     },
     bounds: {
       minX: -32, maxX: 32,
-      minZ: -20, maxZ: 34,
+      // The upper private study extends to z=-29; -20 clipped its back half.
+      minZ: -31, maxZ: 34,
     },
   };
 

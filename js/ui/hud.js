@@ -40,6 +40,7 @@ const SPEC = {
 
   "ph3d-use-item":         { z: "item", cls: "h-ctx", ico: "use",  o: 0 },
   "ph3d-drop-item":        { z: "item", cls: "h-ctx", ico: "get",  o: 1 },
+  "ph3d-throw-item":       { z: "item", cls: "h-ctx", ico: "hand", o: 2 },
   "ph3d-act-btn":          { z: "ctx",  cls: "h-ctx h-act", ico: "hand", o: 0 },
   "ph3d-walk-enter":       { z: "ctx",  cls: "h-ctx h-always", ico: "enter", o: 1 },
   "ph3d-zonedrive-enter":  { z: "ctx",  cls: "h-ctx h-always", ico: "enter", o: 1 },

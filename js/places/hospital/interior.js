@@ -4,6 +4,7 @@
    wardrobe, phone, weapons...). Collision boxes are converted below. */
 import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { Economy } from "../../core/economy.js";
 
 export async function buildInterior(router) {
   /* ======== prototype kit + world ======== */
@@ -175,6 +176,30 @@ export async function buildInterior(router) {
   box(.06,.62,.06,-2.4,1.15,D/2-.2,metal);
   box(.5,.3,.03,-3.0,1.75,D/2-.2,glow(0xdff0fa));
 
+  /* Hospital reception, triage and pharmacy details */
+  box(3.6,1.05,.9,0,.55,2.15,mat(0x9c7652),{solid:true});
+  box(3.7,.12,1.0,0,1.12,2.15,mat(0xe8ecee));
+  box(2.1,.55,.08,0,1.58,1.66,mat(0x176b65));
+  box(1.7,.08,.04,0,1.58,1.60,glow(0xeafff8));
+  box(2.3,.7,.08,3.9,1.45,2.4,mat(0xe8eef0));
+  box(1.7,.18,.1,3.9,1.45,2.32,mat(0x176b65));
+  box(2.0,.12,.1,3.9,.98,2.32,mat(0x9aa4ad));
+  box(1.8,.75,.08,-4.2,1.55,2.4,mat(0xe7f0f2));
+  box(1.3,.12,.1,-4.2,1.12,2.32,mat(0x176b65));
+  /* wall signs use high-contrast colour blocks that remain legible on low-end phones */
+  box(2.7,.65,.08,0,2.55,-.2,mat(0x176b65));
+  box(1.9,.08,.04,0,2.55,-.25,glow(0xffffff));
+  box(1.8,.55,.08,4.4,2.45,-.2,mat(0x2d7192));
+  box(1.2,.07,.04,4.4,2.45,-.25,glow(0xffffff));
+  /* hospital staff */
+  const staff=(x,z,coat)=>{
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(.25,.31,.85,10),mat(coat));body.position.set(x,1.05,z);world.add(body);
+    const head=new THREE.Mesh(SPHG,mat(0x87583f));head.scale.set(.29,.32,.28);head.position.set(x,1.68,z);world.add(head);
+    const badge=box(.12,.16,.035,x+.13,1.28,z+.26,glow(0xffffff));
+    return body;
+  };
+  staff(-1.1,1.25,0xe9f4f4); staff(3.4,1.4,0xdcecf2); staff(-3.7,1.2,0xf4f4ed);
+
   /* misc props */
   cyl(.18,.5,4.4,.25,2.4,mat(0x8c979e),{solid:true});
   cyl(.19,.04,4.4,.5,2.4,dark);
@@ -189,8 +214,13 @@ export async function buildInterior(router) {
     const mk = (level) => ({ minX: b.x - b.hw, maxX: b.x + b.hw, minZ: b.z - b.hd, maxZ: b.z + b.hd, y0: 0, y1: 60, level });
     __cols.push(mk(0));
   }
+  const uses = [
+    { kind: "triage", label: "RECEPTION / TRIAGE · CHECK IN", x: 0, z: 2.9, y: 0, level: 0, r: 2.0 },
+    { kind: "doctor", label: "DOCTOR CONSULTATION · ₦7,500", x: 0, z: -1.0, y: 0, level: 0, r: 2.0 },
+    { kind: "pharmacy", label: "HOSPITAL PHARMACY · ₦3,000", x: 4.1, z: 1.0, y: 0, level: 0, r: 1.8 },
+  ];
   const __world = {
-    colliders: __cols, seats: [], uses: [],
+    colliders: __cols, seats: [], uses,
     stairs: [],
     platforms: [],
     levelHeight: () => 0,
@@ -200,7 +230,27 @@ export async function buildInterior(router) {
 
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, __world, {
     scene, x: START.x, z: START.z, yaw: Math.PI + (START.yaw || 0), level: 0,
-    onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
+    onUse: (use) => {
+      const toast = (msg) => window.__ph3d_phone?._toast(msg);
+      const hp = window.__ph3d_combat;
+      if (use.kind === "triage") {
+        const n = Number(localStorage.getItem("ph3d.hospital.visits") || 0) + 1;
+        localStorage.setItem("ph3d.hospital.visits", String(n));
+        toast(`CITY HOSPITAL · Triage registered. Visit #${n}. Proceed to the doctor.`);
+      } else if (use.kind === "doctor") {
+        if (!hp || hp.hp >= hp.maxHp) { toast("Doctor: Your health is stable. No treatment is required."); return; }
+        const fee = 7500;
+        if (Economy.balance < fee) { toast("Doctor: Consultation and treatment costs ₦7,500. Insufficient funds."); return; }
+        Economy.withdraw(fee); hp.heal(Math.min(65, hp.maxHp - hp.hp));
+        toast("Doctor: Treatment completed. ₦7,500 paid · Health restored.");
+      } else if (use.kind === "pharmacy") {
+        const inv = window.__ph3d_inv;
+        if (!inv || typeof inv.add !== "function") { toast("Pharmacy inventory is unavailable."); return; }
+        if (Economy.balance < 3000) { toast("Pharmacy: ₦3,000 required for a medical kit."); return; }
+        Economy.withdraw(3000); inv.add({ id: "medkit", name: "MEDICAL KIT", type: "consumable" });
+        toast("Pharmacy: Medical kit purchased for ₦3,000 and added to inventory.");
+      } else toast(use.label || "USE");
+    },
   });
 
   return {
@@ -210,7 +260,7 @@ export async function buildInterior(router) {
     crumb: "CITY HOSPITAL",
     title: "WARD \u00b7 24H CARE",
     subtitle: "",
-    hint: "LEFT: MOVE · RIGHT: LOOK · E: INTERACT",
+    hint: "CHECK IN AT RECEPTION · VISIT DOCTOR FOR TREATMENT · PHARMACY FOR MEDKIT · E: INTERACT",
     isInterior: true,
     sceneId: "hospital",
     update: (dt) => {

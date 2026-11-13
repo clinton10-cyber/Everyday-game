@@ -18,6 +18,18 @@ import { NPCs } from "./npcs.js";
 const STORE_KEY = "ph3d.interior-npcs.v1";
 
 export const INTERIOR_NPCS = {
+  hotel: [
+    { role: "hotel_staff", x: 28, z: 3 },
+    { role: "hotel_staff", x: 39, z: 3 },
+    { role: "hotel_staff", x: 7, z: 11 },
+    { role: "hotel_staff", x: 17, z: 11 },
+    { role: "chef", x: 3, z: 43 },
+    { role: "chef", x: 17, z: 43 },
+    { role: "housekeeper", x: 5, z: 20 },
+    { role: "housekeeper", x: 28, z: 23 },
+    { role: "walker", x: 38, z: 20 },
+    { role: "walker", x: 28, z: 43 },
+  ],
   myhouse: [
     { role: "walker", x: -3, z: 2 },
     { role: "walker", x: 3, z: 2 },

@@ -7,6 +7,8 @@
    the stalls, buildings and vehicles. */
 import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { addStreetLamp } from "../../core/scene-lamps.js";
+import { addNightGlow } from "../../core/night-glow.js";
 import meta from "./meta.js";
 import { MILE1_STALLS } from "../../data/mile1-stalls.js";
 import { Quality } from "../../core/quality.js";
@@ -482,6 +484,13 @@ export async function buildInterior(router) {
       minZ: -38, maxZ: 52,
     },
   };
+
+  // Market perimeter and aisle lights: warm lamps above the pedestrian lanes.
+  const marketLampSpots = [];
+  for (const [lx,lz] of [[-58,-24],[-30,-24],[0,-24],[30,-24],[58,-24],[-58,0],[-30,0],[0,0],[30,0],[58,0],[-58,28],[-30,28],[0,28],[30,28],[58,28]]) {
+    marketLampSpots.push(addStreetLamp(scene, lx, 0, lz, Math.PI));
+  }
+  addNightGlow(scene, marketLampSpots, { poolRadius: 13 });
 
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, world, {
     scene: scene,

@@ -64,6 +64,43 @@ function randomConfig() {
 function uniformFor(role) {
   const base = randomConfig();
   switch (role) {
+    case "hotel_staff":
+      base.topStyle = "suit";
+      base.topColor = 6;
+      base.topPattern = "solid";
+      base.tie = "classic";
+      base.bottomStyle = "jeans";
+      base.bottomColor = 1;
+      base.shoeStyle = "formal";
+      base.shoeColor = 0;
+      base.hat = null;
+      base.glasses = null;
+      return base;
+
+    case "chef":
+      base.topStyle = "longsleeve";
+      base.topColor = 0;
+      base.topPattern = "solid";
+      base.bottomStyle = "jeans";
+      base.bottomColor = 1;
+      base.shoeStyle = "formal";
+      base.shoeColor = 0;
+      base.hat = { style: "cap", color: 0 };
+      base.glasses = null;
+      return base;
+
+    case "housekeeper":
+      base.topStyle = "longsleeve";
+      base.topColor = 5;
+      base.topPattern = "solid";
+      base.bottomStyle = "jeans";
+      base.bottomColor = 1;
+      base.shoeStyle = "formal";
+      base.shoeColor = 0;
+      base.hat = null;
+      base.glasses = null;
+      return base;
+
     case "doctor":
       base.topStyle = "longsleeve";
       base.topColor = 5;
@@ -236,6 +273,9 @@ const ROLES = {
   mechanic: { label: "Mechanic",   mood: "work",   dialogue: DIALOGUE.mechanic, action: "mechanic" },
   priest:   { label: "Priest",     mood: "work",   dialogue: DIALOGUE.priest,   action: "priest" },
   doctor:   { label: "Doctor",     mood: "work",   dialogue: DIALOGUE.doctor,   action: "doctor" },
+  hotel_staff: { label: "Hotel Staff", mood: "work", dialogue: ["Welcome to Hotel Presidential. How may I assist you?", "Your comfort is our priority, sir.", "The concierge can arrange transport for you."], action: "hotel_staff" },
+  chef: { label: "Hotel Chef", mood: "work", dialogue: ["The kitchen is preparing your order.", "Our chef's special is ready soon.", "Welcome. Please take a seat."], action: "chef" },
+  housekeeper: { label: "Housekeeping Staff", mood: "work", dialogue: ["Good day. Housekeeping is available on request.", "Would you like fresh towels or room service?"], action: "housekeeper" },
   police:   { label: "Officer",    mood: "work",   dialogue: DIALOGUE.police,   action: "police" },
   taxi:     { label: "Taxi Driver",mood: "work",   dialogue: DIALOGUE.taxi,     action: "taxi" },
   inmate:   { label: "Inmate",     mood: "wander", dialogue: DIALOGUE.inmate,   action: "inmate" },

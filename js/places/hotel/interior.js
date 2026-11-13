@@ -14,54 +14,157 @@ import { NPCs } from "../../core/npcs.js";
 import { NpcTalk } from "../../core/npc-talk.js";
 import { M, EM } from "../../core/kit.js";
 import { Economy } from "../../core/economy.js";
+import { HotelGuestServices } from "./guest-services.js";
 
 
 const HOTEL_ROOMS = [
-  { id:"suite101", name:"EXECUTIVE SUITE", price:85000, detail:"King bed · lounge · city view" },
-  { id:"suite102", name:"DELUXE SUITE", price:125000, detail:"Premium lounge · upgraded finish" },
-  { id:"suite103", name:"PRESIDENTIAL SUITE", price:220000, detail:"Top-tier suite · luxury furnishing" },
+  { id:"classic", name:"CLASSIC ROOM", price:65000, detail:"Queen bed · marble bath · garden outlook", guests:2 },
+  { id:"executive", name:"EXECUTIVE SUITE", price:95000, detail:"King bed · lounge · work desk · city view", guests:2 },
+  { id:"deluxe", name:"DELUXE SUITE", price:145000, detail:"Separate lounge · premium bathroom · breakfast", guests:3 },
+  { id:"presidential", name:"PRESIDENTIAL SUITE", price:260000, detail:"Private lounge · dining area · premium service", guests:4 },
+  { id:"royal", name:"ROYAL PENTHOUSE", price:420000, detail:"Panoramic view · private dining · butler service", guests:5 },
 ];
+const HOTEL_BOOKINGS_KEY = "ph3d.hotel.bookings.v2";
+function readHotelBookings() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(HOTEL_BOOKINGS_KEY) || "[]");
+    if (Array.isArray(rows)) return rows;
+  } catch (_) {}
+  try {
+    const old = JSON.parse(localStorage.getItem("ph3d.hotel.booking") || "null");
+    if (old) return [{ ...old, id:"legacy-" + (old.at || Date.now()), room:old.room || "executive", checkIn:new Date().toISOString().slice(0,10), nights:old.nights || 1, guests:1, status:"confirmed" }];
+  } catch (_) {}
+  return [];
+}
+function saveHotelBookings(rows) {
+  try { localStorage.setItem(HOTEL_BOOKINGS_KEY, JSON.stringify(rows.slice(-40))); } catch (_) {}
+}
+function datePlus(date, days) {
+  const d = new Date(date + "T12:00:00"); d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0,10);
+}
+function overlaps(aStart, aNights, bStart, bNights) {
+  const a = new Date(aStart + "T00:00:00").getTime();
+  const b = new Date(bStart + "T00:00:00").getTime();
+  const day = 86400000;
+  return a < b + bNights * day && b < a + aNights * day;
+}
 function openHotelBooking() {
   const id = "ph3d-hotel-booking";
   let root = document.getElementById(id);
   if (!root) {
     root = document.createElement("div"); root.id = id;
-    root.style.cssText = "position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;background:rgba(3,8,15,.78);backdrop-filter:blur(9px);font-family:system-ui;color:#f7f2e8;padding:14px";
-    root.innerHTML = `<section style="width:min(520px,96vw);max-height:88vh;overflow:auto;background:linear-gradient(145deg,#282019,#100f12);border:1px solid #c9a76b;border-radius:22px;padding:20px;box-shadow:0 24px 80px #000">
-      <header style="display:flex;align-items:center;gap:12px"><div style="flex:1"><small style="letter-spacing:.2em;color:#d9bd82">HOTEL PRESIDENTIAL · WOJI ROAD</small><h2 style="margin:5px 0">Reserve a suite</h2></div><button data-close style="width:42px;height:42px;border-radius:50%;border:1px solid #9b8156;background:#211b17;color:white;font-size:22px">×</button></header>
-      <p style="color:#c7bda9;font-size:13px">Choose a room for one in-game night. Payment uses your Everyday Pay game balance.</p>
-      <div data-rooms style="display:grid;gap:10px"></div><p data-status style="min-height:20px;color:#d9bd82;font-size:12px"></p><div style="display:flex;justify-content:space-between;border-top:1px solid #594a34;padding-top:12px"><span>Wallet balance</span><b data-balance></b></div>
+    root.style.cssText = "position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;background:rgba(3,8,15,.82);backdrop-filter:blur(12px);font-family:system-ui;color:#f7f2e8;padding:12px";
+    root.innerHTML = `<section style="width:min(760px,98vw);max-height:92vh;overflow:auto;background:linear-gradient(145deg,#292117,#101116);border:1px solid #c9a76b;border-radius:24px;padding:20px;box-shadow:0 28px 100px #000">
+      <header style="display:flex;align-items:center;gap:12px"><div style="flex:1"><small style="letter-spacing:.22em;color:#e0c48c">HOTEL PRESIDENTIAL · PORT HARCOURT</small><h2 style="margin:5px 0;font-size:25px">Luxury reservations</h2><p style="margin:0;color:#c9bda9;font-size:12px">Choose your room, dates and guest count. Rates are charged to your Everyday Pay game wallet.</p></div><button data-close style="width:42px;height:42px;border-radius:50%;border:1px solid #9b8156;background:#211b17;color:white;font-size:22px">×</button></header>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin:16px 0"><label style="font-size:11px;color:#d9bd82">CHECK-IN<input data-date type="date" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:10px;border-radius:9px;background:#211f1b;color:white;border:1px solid #66543a"></label><label style="font-size:11px;color:#d9bd82">NIGHTS<input data-nights type="number" min="1" max="30" value="1" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:10px;border-radius:9px;background:#211f1b;color:white;border:1px solid #66543a"></label><label style="font-size:11px;color:#d9bd82">GUESTS<input data-guests type="number" min="1" max="5" value="1" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:10px;border-radius:9px;background:#211f1b;color:white;border:1px solid #66543a"></label></div>
+      <div data-rooms style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:11px"></div>
+      <h3 style="color:#e0c48c;margin:20px 0 8px">My reservations</h3><div data-bookings style="display:grid;gap:8px"></div>
+      <p data-status role="status" style="min-height:20px;color:#e0c48c;font-size:12px"></p><div style="display:flex;justify-content:space-between;border-top:1px solid #594a34;padding-top:12px"><span>Everyday Pay balance</span><b data-balance></b></div>
     </section>`;
     document.body.appendChild(root);
     root.querySelector("[data-close]").onclick = () => root.style.display = "none";
     root.addEventListener("pointerdown", e => { if (e.target === root) root.style.display = "none"; });
+    ["[data-date]","[data-nights]","[data-guests]"].forEach(sel => root.querySelector(sel).addEventListener("input", () => renderHotelBooking(root)));
   }
-  const rooms = root.querySelector("[data-rooms]"); rooms.innerHTML = "";
-  root.querySelector("[data-balance]").textContent = Economy.format(Economy.balance);
-  let existing = null;
-  try { existing = JSON.parse(localStorage.getItem("ph3d.hotel.booking") || "null"); } catch(e) {}
-  root.querySelector("[data-status]").textContent = existing ? ("Current reservation: " + existing.name + ". One active booking is allowed at a time.") : "";
-  HOTEL_ROOMS.forEach(room => {
-    const card = document.createElement("article");
-    card.style.cssText = "border:1px solid #66543a;border-radius:15px;padding:13px;background:rgba(255,255,255,.04)";
-    const title = document.createElement("b"); title.textContent = room.name;
-    const detail = document.createElement("p"); detail.textContent = room.detail; detail.style.cssText = "margin:5px 0;color:#c7bda9;font-size:12px";
-    const price = document.createElement("strong"); price.textContent = Economy.format(room.price) + " / night"; price.style.color = "#e7c77e";
-    const button = document.createElement("button"); button.textContent = "BOOK SUITE";
-    button.style.cssText = "display:block;width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#c9a76b;color:#21170a;font-weight:900";
-    if (existing) { button.disabled = true; button.textContent = existing.room === room.id ? "YOUR RESERVED SUITE" : "RESERVATION ACTIVE"; button.style.opacity = ".45"; }
-    button.onclick = () => {
-      if (!Economy.withdraw(room.price)) { root.querySelector("[data-status]").textContent = "Insufficient Everyday Pay balance."; return; }
-      const booking = { room:room.id, name:room.name, paid:room.price, at:Date.now(), nights:1 };
-      try { localStorage.setItem("ph3d.hotel.booking", JSON.stringify(booking)); } catch(e) {}
-      root.querySelector("[data-balance]").textContent = Economy.format(Economy.balance);
-      root.querySelector("[data-status]").textContent = "Reservation confirmed: " + room.name + ". Your suite is ready.";
-      if (window.__ph3d_phone) window.__ph3d_phone._toast("Hotel reservation confirmed");
-      rooms.querySelectorAll("button").forEach(b => { b.disabled = true; b.textContent = b === button ? "BOOKED" : "RESERVATION ACTIVE"; b.style.opacity = ".45"; });
-    };
-    card.append(title, detail, price, button); rooms.appendChild(card);
-  });
+  const today = new Date();
+  const todayStr = new Date(today.getTime() - today.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  root.querySelector("[data-date]").min = todayStr;
+  if (!root.querySelector("[data-date]").value) root.querySelector("[data-date]").value = todayStr;
   root.style.display = "flex";
+  renderHotelBooking(root);
+}
+function renderHotelBooking(root) {
+  const rooms = root.querySelector("[data-rooms]"), bookingsBox = root.querySelector("[data-bookings]");
+  const checkIn = root.querySelector("[data-date]").value;
+  const nights = Math.max(1, Math.min(30, Number(root.querySelector("[data-nights]").value) || 1));
+  const guests = Math.max(1, Math.min(5, Number(root.querySelector("[data-guests]").value) || 1));
+  const bookings = readHotelBookings();
+  const fmt = n => Economy.format(n);
+  root.querySelector("[data-balance]").textContent = fmt(Economy.balance);
+  rooms.innerHTML = "";
+  HOTEL_ROOMS.forEach(room => {
+    const conflict = bookings.some(b => b.room === room.id && b.status !== "cancelled" && overlaps(checkIn, nights, b.checkIn, b.nights || 1));
+    const card = document.createElement("article");
+    card.style.cssText = "border:1px solid #705c3e;border-radius:16px;padding:14px;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.02))";
+    const title = document.createElement("b"); title.textContent = room.name;
+    const detail = document.createElement("p"); detail.textContent = room.detail + " · up to " + room.guests + " guests"; detail.style.cssText = "min-height:34px;margin:7px 0;color:#c7bda9;font-size:12px";
+    const price = document.createElement("strong"); price.textContent = fmt(room.price) + " / night"; price.style.color = "#e7c77e";
+    const total = document.createElement("div"); total.textContent = "Total: " + fmt(room.price * nights) + " · " + nights + " night(s)"; total.style.cssText = "margin-top:7px;font-size:12px;color:#f1dfbd";
+    const button = document.createElement("button"); button.textContent = conflict ? "DATES UNAVAILABLE" : guests > room.guests ? "GUEST LIMIT EXCEEDED" : "CONFIRM RESERVATION";
+    button.disabled = conflict || guests > room.guests || !checkIn;
+    button.style.cssText = "display:block;width:100%;margin-top:12px;padding:12px;border:0;border-radius:10px;background:#c9a76b;color:#21170a;font-weight:900;opacity:" + (button.disabled ? ".45" : "1");
+    button.onclick = () => {
+      const totalCost = room.price * nights;
+      const latest = readHotelBookings();
+      if (latest.some(b => b.room === room.id && b.status !== "cancelled" && overlaps(checkIn, nights, b.checkIn, b.nights || 1))) { renderHotelBooking(root); return; }
+      if (Economy.balance < totalCost || !Economy.withdraw(totalCost)) { root.querySelector("[data-status]").textContent = "Insufficient Everyday Pay balance for this reservation."; return; }
+      const booking = { id:"HP-" + Date.now().toString(36).toUpperCase(), room:room.id, name:room.name, checkIn, checkOut:datePlus(checkIn,nights), nights, guests, paid:totalCost, at:Date.now(), status:"confirmed" };
+      latest.push(booking); saveHotelBookings(latest);
+      root.querySelector("[data-status]").textContent = "Reservation confirmed · " + booking.id + " · Check-out " + booking.checkOut + ".";
+      if (window.__ph3d_phone) window.__ph3d_phone._toast("Hotel reservation confirmed");
+      renderHotelBooking(root);
+    };
+    card.append(title,detail,price,total,button); rooms.appendChild(card);
+  });
+  bookingsBox.innerHTML = "";
+  const active = bookings.filter(b => b.status !== "cancelled").slice().reverse();
+  if (!active.length) { const empty = document.createElement("p"); empty.textContent = "No reservations yet."; empty.style.cssText = "color:#a99b86;font-size:12px"; bookingsBox.appendChild(empty); }
+  active.forEach(b => {
+    const row = document.createElement("div"); row.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px;border:1px solid #51452f;border-radius:10px;background:#171612";
+    const info = document.createElement("span"); info.textContent = `${b.name} · ${b.checkIn} to ${b.checkOut} · ${b.guests || 1} guest(s) · ${fmt(b.paid || 0)} · ${(b.status || "confirmed").toUpperCase()} · ${b.id}`; info.style.cssText = "font-size:11px;color:#e7dcc9;flex:1;min-width:190px";
+    const cancel = document.createElement("button"); cancel.textContent = "CANCEL"; cancel.disabled = b.status !== "confirmed"; cancel.style.cssText = "padding:8px 12px;border:1px solid #8b5d4c;border-radius:8px;background:#321d19;color:#ffd8c8;font-weight:800;opacity:"+(cancel.disabled?".35":"1");
+    cancel.onclick = () => {
+      const all = readHotelBookings(), target = all.find(x => x.id === b.id);
+      if (!target || target.status !== "confirmed") return;
+      target.status = "cancelled";
+      /* Full in-game refund when cancelled before the booked check-in date. */
+      const today = new Date().toISOString().slice(0,10);
+      if (target.checkIn >= today) { try { Economy.receive("Hotel Presidential", target.paid || 0, "Hotel reservation cancellation refund"); } catch (_) {} }
+      saveHotelBookings(all); root.querySelector("[data-status]").textContent = "Reservation cancelled. Eligible pre-arrival refund returned to your wallet."; renderHotelBooking(root);
+    };
+    if (b.status === "confirmed") {
+      const today = new Date(); const todayKey = new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
+      const checkIn = document.createElement("button"); checkIn.textContent = "CHECK IN";
+      checkIn.disabled = !(b.checkIn <= todayKey && b.checkOut > todayKey) || bookings.some(x=>x.status === "checked-in");
+      checkIn.style.cssText = "padding:8px 12px;border:1px solid #7d9a71;border-radius:8px;background:#1e3020;color:#d5ffd1;font-weight:800;opacity:"+(checkIn.disabled?".4":"1");
+      checkIn.onclick = () => {
+        const all=readHotelBookings(), target=all.find(x=>x.id===b.id);
+        if(!target || target.status!=="confirmed") return;
+        if(all.some(x=>x.status==="checked-in")) { root.querySelector("[data-status]").textContent="You already have an active hotel stay."; return; }
+        target.status="checked-in"; target.checkedInAt=Date.now();
+        try { localStorage.setItem("ph3d.hotel.room-status.v1",JSON.stringify({room:target.room,status:"occupied",updatedAt:Date.now()})); } catch (_) {}
+        saveHotelBookings(all); root.querySelector("[data-status]").textContent="Welcome to Hotel Presidential. Your room is ready.";
+        if(window.__ph3d_phone) window.__ph3d_phone._toast("Hotel check-in complete"); renderHotelBooking(root);
+      };
+      row.appendChild(checkIn);
+    } else if (b.status === "checked-in") {
+      const checkout=document.createElement("button"); checkout.textContent="CHECK OUT"; checkout.style.cssText="padding:8px 12px;border:1px solid #9b8156;border-radius:8px;background:#33291c;color:#f5dfb0;font-weight:800";
+      checkout.onclick=()=>{const all=readHotelBookings(),target=all.find(x=>x.id===b.id);if(!target||target.status!=="checked-in")return;target.status="checked-out";target.checkedOutAt=Date.now();try{localStorage.setItem("ph3d.hotel.room-status.v1",JSON.stringify({room:target.room,status:"cleaning-required",updatedAt:Date.now()}));}catch(_){}saveHotelBookings(all);root.querySelector("[data-status]").textContent="You have checked out. Housekeeping has been notified.";if(window.__ph3d_phone)window.__ph3d_phone._toast("Hotel checkout complete");renderHotelBooking(root);};
+      row.appendChild(checkout);
+    }
+    row.append(info,cancel); bookingsBox.appendChild(row);
+  });
+}
+
+function openHotelElevator(ctl) {
+  const id = "ph3d-hotel-elevator";
+  let root = document.getElementById(id);
+  if (!root) {
+    root = document.createElement("div"); root.id = id;
+    root.style.cssText = "position:fixed;inset:0;z-index:121;display:none;align-items:center;justify-content:center;background:rgba(4,6,10,.7);font-family:system-ui;color:#fff;padding:14px";
+    root.innerHTML = `<section style="width:min(340px,94vw);padding:20px;border:1px solid #d4b46d;border-radius:18px;background:linear-gradient(145deg,#292117,#111116);box-shadow:0 20px 70px #000"><small style="letter-spacing:.2em;color:#d4b46d">HOTEL PRESIDENTIAL</small><h2 style="margin:7px 0 14px">Elevator</h2><div data-floors style="display:grid;gap:9px"></div><button data-close style="width:100%;margin-top:12px;padding:11px;border-radius:9px;background:#29231b;color:white;border:1px solid #806b48">CLOSE</button></section>`;
+    document.body.appendChild(root);
+    root.querySelector("[data-close]").onclick = () => root.style.display = "none";
+    root.addEventListener("pointerdown",e=>{if(e.target===root)root.style.display="none";});
+  }
+  const floors = root.querySelector("[data-floors]"); floors.innerHTML = "";
+  [{level:0,label:"GROUND FLOOR · LOBBY"},{level:1,label:"LEVEL 1 · VIP GALLERY & BALLROOM"}].forEach(f=>{
+    const b=document.createElement("button"); b.textContent=f.label; b.style.cssText="padding:13px;border:1px solid #9b8156;border-radius:10px;background:#33291c;color:#f5dfb0;font-weight:800";
+    b.onclick=()=>{ ctl.level=f.level; ctl.floorY=f.level*WH; ctl.vel.set(0,0,0); ctl.pos.x=f.level?22:21; ctl.pos.z=f.level?18:14.2; ctl.state="standing"; ctl.onGround=true; root.style.display="none"; if(window.__ph3d_phone)window.__ph3d_phone._toast(f.level?"Arrived at VIP Gallery":"Arrived at Lobby"); };
+    floors.appendChild(b);
+  });
+  root.style.display="flex";
 }
 
 const WH = 4.2;   /* was 8.0 — walls were towering; 4.2 m is a grand-but-real ceiling */
@@ -137,25 +240,26 @@ export async function buildInterior(router) {
   /* ── INTERACTIVES ──────────────────────────────────────────── */
   const colliders = [], seats = [], uses = [];
 
-  function addCol(x, z, hw, hd, y0, y1) {
+  function addCol(x, z, hw, hd, y0, y1, level) {
     colliders.push({
       minX: x - hw, maxX: x + hw,
       minZ: z - hd, maxZ: z + hd,
       y0: y0 == null ? 0 : y0,
       y1: y1 == null ? 2.5 : y1,
-      level: 0,
+      level: level == null ? 0 : level,
     });
   }
-  function addSeat(x, z, yaw, h, label, kind) {
+  function addSeat(x, z, yaw, h, label, kind, level) {
     seats.push({
       type: kind || "sit", label: label || "SIT",
       x, z, yaw, h: h == null ? 0.55 : h,
-      level: 0, taken: false,
+      level: level == null ? 0 : level, taken: false,
     });
   }
   function addUse(x, z, r, label, kind, data) {
     uses.push({
-      kind: kind || "use", label, x, z, y: 0, level: 0, r: r || 1.6,
+      kind: kind || "use", label, x, z, y: data && data.level ? WH : 0,
+      level: data && data.level != null ? data.level : 0, r: r || 1.6,
       data: data || null,
     });
   }
@@ -173,7 +277,7 @@ export async function buildInterior(router) {
   /* ── CEILING ───────────────────────────────────────────────── */
   const CM = new THREE.MeshLambertMaterial({ color: 0xf3ecdc });
   const ceil = new THREE.Mesh(new THREE.BoxGeometry(44, 0.2, 46), CM);
-  ceil.position.set(22, WH, 23);
+  ceil.position.set(22, WH * 2 + 0.2, 23);
   scene.add(ceil);
 
   /* ── WALLS ─────────────────────────────────────────────────── */
@@ -312,7 +416,7 @@ export async function buildInterior(router) {
     for (const [ex, ez] of [[3, 15.7], [6, 15.7], [18, 15.7], [21, 15.7]]) {
       B(2.0, 3.0, 0.1, ex, 1.5, ez, M(0x888e94, 0.3, 0.7));
       B(1.8, 0.15, 0.15, ex, 3.0, ez + 0.15, M(0xd4af37, 0.3, 0.7));
-      addUse(ex, 14.5, 1.5, "CALL ELEVATOR", "use");
+      addUse(ex, 14.5, 1.5, "CALL ELEVATOR", "elevator");
     }
   }
 
@@ -362,7 +466,9 @@ export async function buildInterior(router) {
     B(2.5, 1.0, 1.2, 39, 0.5, 4.0, M(0x3a2010, 1));
     B(2.7, 0.1, 1.4, 39, 1.05, 4.0, M(0x6a4a2a, 1));
     addCol(39, 4.0, 1.35, 0.6, 0, 1.1);
-    addUse(39, 5.5, 1.8, "ASK CONCIERGE", "use");
+    addUse(39, 5.5, 1.8, "ASK CONCIERGE", "hotel_concierge");
+    addUse(41, 10.5, 1.7, "LUGGAGE ASSISTANCE", "hotel_luggage");
+    addUse(36, 12.5, 1.8, "VALET PARKING", "hotel_valet");
 
     /* Concierge chair */
     B(0.6, 0.1, 0.6, 39, 0.45, 3.0, M(0x2a2a2e, 1));
@@ -415,6 +521,10 @@ export async function buildInterior(router) {
     /* Wardrobe on east wall */
     B(0.6, 2.2, 2.0, r.x + r.w - 0.6, 1.1, r.z + 5, M(0x4a2f1a, 1));
     addCol(r.x + r.w - 0.6, r.z + 5, 0.35, 1.05, 0, 2.2);
+    /* Guest tablet: room service, housekeeping, laundry and concierge. */
+    B(0.42, 0.62, 0.08, cx + 3.6, 1.15, r.z + r.d - 1.2, M(0x202a34, 0.25, 0.65));
+    B(0.34, 0.48, 0.035, cx + 3.6, 1.18, r.z + r.d - 1.13, EM(0x8dd8ef, 1.1));
+    addUse(cx + 3.4, r.z + r.d - 2.1, 1.65, "ROOM TABLET", "hotel_services", { tab:"room" });
   }
 
   /* ── GYM ───────────────────────────────────────────────────── */
@@ -591,15 +701,142 @@ export async function buildInterior(router) {
     addUse(42, 39, 1.5, "ORDER COCKTAIL", "cook");
   }
 
+  /* ── GRAND STAIRCASE + VIP UPPER FLOOR ───────────────────────
+     The hotel is now a walkable two-level building. The upper floor
+     has a VIP gallery, ballroom and executive lounge. */
+  {
+    const y = WH;
+    const marble = M(0xd9d0c2, 0.95), gold = M(0xd4af37, 0.35, 0.75);
+    /* Upper floor footprint: rear wing plus the stair/elevator landing. */
+    const floorMat = M(0x9b8d7a,0.95);
+    const upperFloorA = new THREE.Mesh(new THREE.BoxGeometry(44,0.18,32), floorMat);
+    upperFloorA.position.set(22,y-0.09,30); upperFloorA.receiveShadow = true; scene.add(upperFloorA);
+    /* Front mezzanine wings leave a real stairwell opening in the slab. */
+    for (const [x,z] of [[10,7],[34,7]]) {
+      const wingFloor = new THREE.Mesh(new THREE.BoxGeometry(20,0.18,14), floorMat);
+      wingFloor.position.set(x,y-0.09,z); wingFloor.receiveShadow = true; scene.add(wingFloor);
+    }
+    const stairLanding = new THREE.Mesh(new THREE.BoxGeometry(4.4,0.18,2.2), floorMat);
+    stairLanding.position.set(22,y-0.09,15.1); stairLanding.receiveShadow = true; scene.add(stairLanding);
+    /* Broad ceremonial staircase along the east side of the lobby. */
+    for (let i=0;i<16;i++) {
+      const z=2.2+i*0.78, h=(i+1)*(y/16);
+      const step=new THREE.Mesh(new THREE.BoxGeometry(3.15,0.22,0.82),marble);
+      step.position.set(22,h-0.11,z); step.castShadow=step.receiveShadow=true; scene.add(step);
+      const nosing=new THREE.Mesh(new THREE.BoxGeometry(3.18,0.045,0.08),gold);
+      nosing.position.set(22,h+0.015,z-0.37); scene.add(nosing);
+    }
+    for (const x of [20.35,23.65]) {
+      const rail=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,4.5,8),gold);
+      rail.position.set(x,2.25,8.2); rail.rotation.x=Math.PI/2.2; scene.add(rail);
+      for(let i=0;i<9;i++) { const post=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,1.0,6),gold); post.position.set(x,0.55+i*0.43,3+i*1.25); scene.add(post); }
+    }
+    /* Upper perimeter walls and tall glass windows. */
+    const upperWall = new THREE.MeshLambertMaterial({color:0xe8dfcf});
+    const upperGlass = new THREE.MeshStandardMaterial({color:0x8bb6c8,roughness:0.18,metalness:0.45,transparent:true,opacity:0.55});
+    function upperWallBox(x,z,w,d,h=WH) {
+      const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),upperWall);
+      m.position.set(x,y+h/2,z); scene.add(m);
+      addCol(x,z,w/2,d/2,y,y+h,1);
+    }
+    /* Rear wing walls with open central routes. */
+    upperWallBox(0.1,31,0.2,30); upperWallBox(43.9,31,0.2,30);
+    upperWallBox(0.1,8,0.2,16); upperWallBox(43.9,8,0.2,16);
+    upperWallBox(22,0.1,44,0.2);
+    upperWallBox(22,45.9,44,0.2);
+    upperWallBox(0.2,16.1,20,0.2); upperWallBox(24.2,16.1,19.6,0.2);
+    /* Interior room dividers with wide door openings. */
+    upperWallBox(22,20.5,0.18,7); upperWallBox(22,28.5,0.18,7);
+    upperWallBox(4,37,8,0.18); upperWallBox(22,37,20,0.18); upperWallBox(40,37,8,0.18);
+    /* Window panels on front and rear façades. */
+    for(let i=0;i<8;i++) {
+      const x=3+i*5.4;
+      const frontWin=new THREE.Mesh(new THREE.BoxGeometry(3.2,2.4,0.12),upperGlass);
+      frontWin.position.set(x,y+2.35,0.28); scene.add(frontWin);
+      const frontFrame=new THREE.Mesh(new THREE.BoxGeometry(3.35,0.09,0.16),gold);
+      frontFrame.position.set(x,y+3.58,0.32); scene.add(frontFrame);
+    }
+    for(let i=0;i<8;i++) {
+      const x=3+i*5.4;
+      const win=new THREE.Mesh(new THREE.BoxGeometry(3.2,2.4,0.12),upperGlass);
+      win.position.set(x,y+2.35,45.72); scene.add(win);
+      const frame=new THREE.Mesh(new THREE.BoxGeometry(3.35,0.09,0.16),gold);
+      frame.position.set(x,y+3.58,45.68); scene.add(frame);
+    }
+    /* Grand upper lounge overlooking the arrival court. */
+    for(const [x,z] of [[5,7],[12,7],[30,7],[38,7]]) {
+      B(3.2,0.34,0.9,x,y+0.24,z,M(0x34465f,0.95));
+      B(3.2,0.65,0.14,x,y+0.68,z-0.36,M(0x34465f,0.95));
+      addSeat(x,z,0,0.55,"UPPER LOUNGE SEAT","sit",1);
+    }
+    /* VIP gallery: velvet seating, gold rails and art. */
+    for(const [x,z] of [[5,20],[12,20],[30,20],[38,20]]) {
+      B(3.0,0.35,0.85,x,y+0.25,z,M(0x49334a,0.9));
+      B(3.0,0.65,0.14,x,y+0.7,z-0.34,M(0x49334a,0.9));
+      addSeat(x,z,0,0.55,"VIP GALLERY SEAT","sit",1);
+    }
+    /* Executive ballroom / conference hall tables. */
+    for(let i=0;i<3;i++) {
+      const x=7+i*15;
+      B(7.0,0.12,2.0,x,y+0.85,31,M(0x6b482c,0.9));
+      for(const dx of [-2.4,-0.8,0.8,2.4]) {
+        B(0.55,0.1,0.55,x+dx,y+0.48,28.8,M(0x263c59,0.9));
+        addSeat(x+dx,28.8,0,0.55,"BALLROOM SEAT","sit",1);
+      }
+    }
+    /* Chandeliers and ceiling coves on level one. */
+    for(const [x,z] of [[8,27],[22,27],[36,27],[8,42],[36,42]]) {
+      C(0.05,0.05,0.75,6,x,y+3.85,z,gold);
+      C(0.6,0.7,0.3,12,x,y+3.35,z,EM(0xffe4a6,1.1));
+    }
+    /* Elevator doors and floor call panels on the VIP landing. */
+    for(const x of [3,6,18,21]) {
+      B(1.9,3.0,0.12,x,y+1.5,15.7,M(0x8d9299,0.35,0.65));
+      B(1.75,0.12,0.16,x,y+3.05,15.78,gold);
+      B(0.18,0.55,0.12,x+1.05,y+1.45,15.58,EM(0x5de0ff,1.2));
+    }
+    /* Room signage and VIP desk. */
+    B(5.5,1.1,0.8,39,y+0.55,20,M(0x3a2010,0.9));
+    B(5.7,0.1,0.9,39,y+1.15,20,gold);
+    addCol(39,20,2.8,0.45,y,y+1.2,1);
+    /* Upper balustrades around the open stairwell. */
+    for (const x of [20.0,24.0]) {
+      for(let i=0;i<9;i++) {
+        const post=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,1.0,6),gold);
+        post.position.set(x,y+0.5,1.0+i*1.45); scene.add(post);
+      }
+      const rail=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.09,13.2),gold);
+      rail.position.set(x,y+1.02,7.0); scene.add(rail);
+    }
+    /* Gold guardrails overlooking the atrium edge. */
+    for(let i=0;i<13;i++) {
+      const x=2+i*1.65;
+      const post=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,1.05,6),gold);
+      post.position.set(x,y+0.525,16.8); scene.add(post);
+    }
+    const topRail=new THREE.Mesh(new THREE.BoxGeometry(22,0.09,0.09),gold);
+    topRail.position.set(12,y+1.08,16.8); scene.add(topRail);
+    /* Navigation markers for staff/guests on level one. */
+    addUse(39,21,2.0,"VIP CONCIERGE","use",{level:1});
+    addUse(22,30,2.0,"ENTER GRAND BALLROOM","use",{level:1});
+    for(const ex of [3,6,18,21]) addUse(ex,14.5,1.5,"CALL ELEVATOR","elevator",{level:1});
+  }
+
   /* ── SPAWN ────────────────────────────────────────────────── */
   const SPAWN = { x: 12, z: 1.5, yaw: 0 };
 
   /* ── WORLD + CONTROLS ────────────────────────────────────── */
   const world = {
     colliders, seats, uses,
-    platforms: [],
+    stairs: [{ minX:20.35, maxX:23.65, minZ:2.2, maxZ:14.1, axis:"z", y0:0, y1:WH, level:0, toLevel:1 }],
+    platforms: [
+      { level:1, minX:0, maxX:44, minZ:14, maxZ:46, h:WH },
+      { level:1, minX:0, maxX:20, minZ:0, maxZ:14, h:WH },
+      { level:1, minX:24, maxX:44, minZ:0, maxZ:14, h:WH },
+      { level:1, minX:19.8, maxX:24.2, minZ:14, maxZ:16.2, h:WH },
+    ],
     levelHeight: () => 0,
-    ceilingHeight: WH,
+    ceilingHeight: WH * 2 + 0.2,
     bounds: { minX: 1, maxX: 43, minZ: 1, maxZ: 45 },
   };
 
@@ -609,6 +846,13 @@ export async function buildInterior(router) {
     camDist: 4.2,
     onUse: (u) => {
       if (u && u.label === "CHECK IN") { openHotelBooking(); return; }
+      if (u && u.label === "CALL ELEVATOR") { openHotelElevator(ctl); return; }
+      if (u && u.kind === "hotel_services") { HotelGuestServices.open(u.data && u.data.tab || "room"); return; }
+      if (u && u.kind === "hotel_concierge") { HotelGuestServices.open("concierge"); return; }
+      if (u && u.kind === "hotel_luggage") { HotelGuestServices.open("luggage"); return; }
+      if (u && u.kind === "hotel_valet") { HotelGuestServices.open("valet"); return; }
+      if (u && u.label === "VIP CONCIERGE") { HotelGuestServices.open("concierge"); return; }
+      if (u && u.label === "ENTER GRAND BALLROOM") { if (window.__ph3d_phone) window.__ph3d_phone._toast("Welcome to the Grand Ballroom."); return; }
       const msg = {
         use:     "You use it.",
         cook:    "The kitchen prepares your order.",
@@ -626,18 +870,18 @@ export async function buildInterior(router) {
   try {
     const { spawnInteriorNPCs } = await import("../../core/interior-npcs.js");
     spawnInteriorNPCs(scene, "hotel", {
-      aabbs: colliders.map(c => ({
+      aabbs: colliders.filter(c => c.level === 0).map(c => ({
         x: (c.minX + c.maxX) / 2,
         z: (c.minZ + c.maxZ) / 2,
         hx: (c.maxX - c.minX) / 2,
         hz: (c.maxZ - c.minZ) / 2,
       })),
-      seats: seats,
-      targetCount: 8,
+      seats: seats.filter(s => s.level === 0),
+      targetCount: 10,
       fallback: { role: "walker", x: 12, z: 8 },
     });
   } catch (e) { console.warn("[hotel] NPC spawn failed:", e); }
-
+  HotelGuestServices.init(scene, ctl);
   try {
     NpcTalk.mount({
       getPos: () => ({ x: ctl.pos.x, z: ctl.pos.z }),
@@ -680,20 +924,23 @@ export async function buildInterior(router) {
     camera,
     controls: { update: () => {} },
     crumb: "HOTEL PRESIDENTIAL",
-    title: "5-STAR · WOJI ROAD",
-    subtitle: "LOBBY · SUITES · SKY BAR",
-    hint: "LEFT: MOVE  ·  RIGHT: LOOK  ·  E: INTERACT",
+    title: "5-STAR LUXURY · TWO LEVELS",
+    subtitle: "GRAND LOBBY · VIP GALLERY · BALLROOM · SUITES · SKY BAR",
+    hint: "LEFT: MOVE  ·  RIGHT: LOOK  ·  E: INTERACT  ·  USE STAIRS OR ELEVATOR",
     isInterior: true,
     sceneId: "hotel",
 
     update: (dt) => {
       ctl.update(dt);
+      try { NPCs.tick(dt, ctl.pos.x, ctl.pos.z); } catch (e) {}
+      try { HotelGuestServices.tick(dt); } catch (e) {}
       try { NpcTalk.tick(dt); } catch (e) {}
     },
 
     dispose: () => {
       window.removeEventListener("keydown", _talkKey, { capture: true });
       try { NpcTalk.unmount(); } catch (e) {}
+      try { HotelGuestServices.dispose(); } catch (e) {}
       try { NPCs.despawn(); } catch (e) {}
       ctl.dispose();
       try {

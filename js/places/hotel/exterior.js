@@ -86,8 +86,58 @@ export function buildExterior() {
     }
   }
 
+  /* Grand arrival court: broad forecourt, ceremonial steps, fountain and valet island. */
+  add(new THREE.BoxGeometry(54, 0.16, 42), M(0xb8b0a4, 0.9), 0, 0.08, 7).receiveShadow = true;
+  add(new THREE.BoxGeometry(18, 0.28, 5), stoneMat, 0, 0.14, 13.2, true);
+  for (let i = 0; i < 7; i++) {
+    const step = add(new THREE.BoxGeometry(18 - i * 0.35, 0.18, 0.72), M(0xd6cbb8, 0.95), 0, 0.18 + i * 0.18, 10.4 - i * 0.72, true);
+    step.receiveShadow = true;
+  }
+  /* Circular reflecting fountain in the arrival court. */
+  add(new THREE.CylinderGeometry(3.4, 3.7, 0.55, 32), stoneMat, -17, 0.28, 9, true);
+  add(new THREE.CylinderGeometry(2.9, 2.9, 0.08, 32), poolMat, -17, 0.58, 9);
+  add(new THREE.CylinderGeometry(0.35, 0.55, 1.35, 12), goldMat, -17, 1.25, 9);
+  add(new THREE.SphereGeometry(0.45, 16, 12), EM(0x9feaff, 1.4), -17, 2.05, 9);
+  /* Valet/security pavilion and bollards. */
+  add(new THREE.BoxGeometry(4.8, 2.8, 3.8), stoneMat, 19, 1.4, 13, true);
+  add(new THREE.BoxGeometry(5.0, 0.18, 4.0), goldMat, 19, 2.86, 13);
+  add(new THREE.BoxGeometry(3.6, 1.1, 0.12), glassMat, 19, 1.55, 11.05);
+  for (let i = 0; i < 8; i++) add(new THREE.CylinderGeometry(0.12, 0.14, 0.8, 8), goldMat, -8 + i * 2.3, 0.4, 16.5);
   /* Apron */
-  add(new THREE.BoxGeometry(44, 0.12, 34), M(0xb8b0a4, 0.9), 0, 0.06, 6).receiveShadow = true;
+
+  /* Arrival boulevard dressing: colourful tropical beds, canopy lights,
+     valet lane, decorative palms and a second garden water feature. */
+  const tropical = [M(0x267a43, 1), M(0x4b9b50, 1), M(0xf0a34a, .8), M(0xe7d26a, .8), M(0xd96b83, .8)];
+  for (let i = 0; i < 10; i++) {
+    const x = -24 + i * 5.3;
+    add(new THREE.BoxGeometry(4.2, .42, 2.6), M(0x806044, .95), x, .22, 20, true);
+    add(new THREE.BoxGeometry(4.0, .18, 2.4), M(0x327b42, 1), x, .5, 20);
+    for (let j = 0; j < 5; j++) {
+      const flower = add(new THREE.SphereGeometry(.24, 8, 6), tropical[(i + j) % tropical.length], x - 1.5 + j * .72, .78, 19.7 + (j % 2) * .5);
+    }
+  }
+  // Covered valet lane and illuminated bollards.
+  add(new THREE.BoxGeometry(26, .22, 5), M(0x34343a, .6), 0, .14, 25);
+  for (let i = 0; i < 12; i++) {
+    const x = -15 + i * 2.7;
+    add(new THREE.CylinderGeometry(.11, .14, .9, 8), goldMat, x, .45, 27);
+    add(new THREE.SphereGeometry(.16, 8, 6), EM(0xffd88a, 1.2), x, .96, 27);
+  }
+  // Tropical ornamental trees and low hedges around the arrival court.
+  for (const x of [-23, -18, 23, 28]) {
+    for (const z of [-2, 7, 16]) {
+      add(new THREE.CylinderGeometry(.22, .3, 4.2, 8), palmTrunk, x, 2.1, z, true);
+      for (let f = 0; f < 7; f++) {
+        const a = f * Math.PI * 2 / 7;
+        const frond = add(new THREE.ConeGeometry(.42, 2.6, 5), palmLeaf, x + Math.cos(a) * .9, 4.5, z + Math.sin(a) * .9);
+        frond.rotation.set(Math.cos(a) * 1.1, 0, -Math.sin(a) * 1.1);
+      }
+    }
+  }
+  // Separate garden reflecting pool with a tiled border.
+  add(new THREE.BoxGeometry(9, .22, 5), stoneMat, -20, .12, 26);
+  add(new THREE.BoxGeometry(8.4, .08, 4.4), poolMat, -20, .27, 26);
+  for (let i = 0; i < 4; i++) add(new THREE.SphereGeometry(.18, 8, 6), EM(0x9deaff, 1.5), -22.5 + i * 1.65, .9, 26);
 
   /* Sign + 5 stars */
   const lbl = textLabel(meta.name, meta.sub);
@@ -98,6 +148,6 @@ export function buildExterior() {
 
   /* The old tower was ~12m; scale so the landmark stays in proportion
      with the other exteriors on the map. */
-  g.scale.setScalar(0.55);
+  g.scale.setScalar(0.70);
   return g;
 }

@@ -6,6 +6,7 @@ export function routeForLandmark(lm, router) {
   const id = lm && lm.id;
   if (!id) return;
 
+  if (id === "courthouse") return router.go("interior", { id: "courthouse" });
   if (id === "airplane")   return router.go("airplane");
   if (id === "showroom")   return router.go("showroom", { id });
   if (id === "prison")     return router.go("prisonScene");

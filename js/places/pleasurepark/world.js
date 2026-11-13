@@ -7,9 +7,9 @@ export async function buildPleasurePark(router) {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x9dc4e8);
-  scene.fog = new THREE.Fog(0x9dc4e8, 60, 300);
+  scene.fog = new THREE.Fog(0x9dc4e8, 150, 520);
 
-  const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 420);
+  const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 560);
   camera.rotation.order = "YXZ";
 
   scene.add(new THREE.HemisphereLight(0xdcecff, 0x6a6a78, 1.2));
@@ -36,7 +36,7 @@ export async function buildPleasurePark(router) {
     uses: [],      
     platforms: [],
     levelHeight: () => 0,
-    bounds: { minX: -100, maxX: 100, minZ: -100, maxZ: 100 }
+    bounds: { minX: -155, maxX: 155, minZ: -155, maxZ: 155 }
   };
 
   const G = {
@@ -203,11 +203,153 @@ export async function buildPleasurePark(router) {
   /* ============================================================
      GROUND
      ============================================================ */
-  const geo = new THREE.CircleGeometry(150, 36);
+  const geo = new THREE.CircleGeometry(165, 48);
   geo.rotateX(-Math.PI/2);
   const mGround = new THREE.Mesh(geo, MAT.grass);
   mGround.receiveShadow = !isMobile;
   scene.add(mGround);
+
+  /* ============================================================
+     OPEN-AIR PLEASURE PARK GROUNDS
+     The park is a large walkable outdoor destination. The original
+     attraction buildings remain as indoor venues within this landscape.
+     ============================================================ */
+  const outdoor = {
+    path: new THREE.MeshLambertMaterial({ color: 0xd7c7a6 }),
+    pathEdge: new THREE.MeshLambertMaterial({ color: 0x9b8767 }),
+    turf: new THREE.MeshLambertMaterial({ color: 0x4d914e }),
+    turf2: new THREE.MeshLambertMaterial({ color: 0x68a85d }),
+    water: new THREE.MeshPhongMaterial({ color: 0x42b9d5, transparent: true, opacity: 0.82, shininess: 90 }),
+    white: new THREE.MeshLambertMaterial({ color: 0xfff5df }),
+    red: new THREE.MeshLambertMaterial({ color: 0xe64b4b }),
+    yellow: new THREE.MeshLambertMaterial({ color: 0xffd447 }),
+    blue: new THREE.MeshLambertMaterial({ color: 0x328bd1 }),
+    pink: new THREE.MeshLambertMaterial({ color: 0xf078b5 }),
+    purple: new THREE.MeshLambertMaterial({ color: 0x8060c8 }),
+    dark: new THREE.MeshLambertMaterial({ color: 0x344252 }),
+    steel: new THREE.MeshLambertMaterial({ color: 0x8797a6 }),
+    flower: new THREE.MeshLambertMaterial({ color: 0xff8fb5 }),
+    flower2: new THREE.MeshLambertMaterial({ color: 0xffdf68 }),
+  };
+  const outdoorBox = (x,y,z,w,h,d,mat,ry=0) => {
+    const m = new THREE.Mesh(G.box, mat); m.position.set(x,y,z); m.scale.set(w,h,d); m.rotation.y=ry;
+    m.castShadow = !isMobile; m.receiveShadow = !isMobile; scene.add(m); return m;
+  };
+  const outdoorCyl = (x,y,z,rt,rb,h,mat,seg=12,ry=0) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),mat); m.position.set(x,y,z); m.rotation.y=ry;
+    m.castShadow = !isMobile; scene.add(m); return m;
+  };
+  const outdoorSphere = (x,y,z,sx,sy,sz,mat) => {
+    const m = new THREE.Mesh(G.sphere,mat); m.position.set(x,y,z); m.scale.set(sx,sy,sz); m.castShadow = !isMobile; scene.add(m); return m;
+  };
+  const flatPath = (x,z,w,d,ry=0) => {
+    outdoorBox(x,0.035,z,w,0.07,d,outdoor.path,ry);
+    const ox=Math.sin(ry)*d*0.43, oz=Math.cos(ry)*d*0.43;
+    outdoorBox(x+ox,0.078,z-oz,w,0.035,0.16,outdoor.pathEdge,ry);
+    outdoorBox(x-ox,0.078,z+oz,w,0.035,0.16,outdoor.pathEdge,ry);
+  };
+  // Main promenades and a broad perimeter walking loop.
+  flatPath(0,-28,8,118); flatPath(0,88,8,58);
+  flatPath(-43,0,82,6); flatPath(43,0,82,6);
+  for (let i=0;i<64;i++) {
+    const a=i/64*Math.PI*2, r=112;
+    const x=Math.cos(a)*r, z=Math.sin(a)*r;
+    flatPath(x,z,11.2,4.8,a+Math.PI/2);
+  }
+  // Four cross-paths make the grounds navigable instead of a single small plaza.
+  flatPath(-82,-50,54,5,Math.PI/4); flatPath(82,-50,54,5,-Math.PI/4);
+  flatPath(-82,52,54,5,-Math.PI/4); flatPath(82,52,54,5,Math.PI/4);
+
+  // Ornamental pond, island and stepping-stone edge in the west garden.
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(18,40),outdoor.water);
+  pond.rotation.x=-Math.PI/2; pond.position.set(-82,0.12,12); scene.add(pond);
+  const pondRim = new THREE.Mesh(new THREE.RingGeometry(18,20,40),MAT.marbleDark);
+  pondRim.rotation.x=-Math.PI/2; pondRim.position.set(-82,0.16,12); scene.add(pondRim);
+  outdoorCyl(-82,0.28,12,4.6,5.2,0.3,MAT.stone,16);
+  outdoorSphere(-82,1.0,12,2.0,0.8,2.0,outdoor.turf2);
+  for(let i=0;i<12;i++){const a=i/12*Math.PI*2;outdoorBox(-82+Math.cos(a)*21,0.16,12+Math.sin(a)*21,2.2,0.22,1.1,MAT.marbleDark,a);}
+
+  // Ferris wheel: open-air ride with support A-frame, coloured gondolas and queue plaza.
+  {
+    const x=68,z=-58,cy=20,r=16;
+    const wheel=new THREE.Mesh(new THREE.TorusGeometry(r,0.42,8,64),outdoor.steel);wheel.position.set(x,cy,z);scene.add(wheel);
+    const hub=outdoorCyl(x,cy,z,1.6,1.6,2.4,outdoor.yellow,16,Math.PI/2);
+    for(let i=0;i<12;i++){const a=i/12*Math.PI*2;outdoorBox(x,cy,z,0.22,0.22,0.22,outdoor.white);const spoke=outdoorBox(x+Math.cos(a)*r/2,cy+Math.sin(a)*r/2,z,0.28,r,0.32,outdoor.white,-a);spoke.rotation.z=a;}
+    for(let i=0;i<12;i++){const a=i/12*Math.PI*2;const gx=x+Math.cos(a)*r,gy=cy+Math.sin(a)*r;outdoorBox(gx,gy-1.1,z,2.0,1.8,1.8,[outdoor.red,outdoor.yellow,outdoor.blue,outdoor.pink][i%4]);outdoorBox(gx,gy-0.15,z,2.1,0.16,1.9,outdoor.white);}
+    for(const sx of [-7,7]){const leg=outdoorBox(x+sx,9,z,1.0,18,1.2,outdoor.white);leg.rotation.z=sx>0?-0.28:0.28;}
+    outdoorBox(x,1.2,z,22,1.2,9,outdoor.dark);
+    addUse(mkGroup(x,z),0,0,8,"FERRIS WHEEL","You enjoyed a panoramic ride above Pleasure Park.");
+    flatPath(x,z+15,26,5);
+  }
+
+  // Roller coaster with a colourful elevated track, supports and station.
+  {
+    const pts=[new THREE.Vector3(-88,8,-60),new THREE.Vector3(-76,18,-72),new THREE.Vector3(-55,23,-66),new THREE.Vector3(-42,8,-50),new THREE.Vector3(-56,5,-32),new THREE.Vector3(-78,12,-25),new THREE.Vector3(-92,5,-42)];
+    const curve=new THREE.CatmullRomCurve3(pts);const track=new THREE.Mesh(new THREE.TubeGeometry(curve,100,0.58,8,false),outdoor.red);scene.add(track);
+    for(let i=0;i<=24;i++){const p=curve.getPoint(i/24);outdoorCyl(p.x,p.y/2,p.z,0.22,0.22,p.y,outdoor.steel,8);}
+    outdoorBox(-88,1.3,-60,16,2.6,12,outdoor.blue);
+    outdoorBox(-88,2.8,-60,18,0.35,14,outdoor.yellow);
+    const q=mkGroup(-88,-60);addCollider(q,0,0,8,6);addUse(q,0,8,8,"ROLLER COASTER","You boarded the colourful roller coaster.");
+  }
+
+  // Outdoor carousel with striped canopy and horses.
+  {
+    const x=66,z=57;outdoorCyl(x,0.7,z,10,10,1.2,outdoor.yellow,32);
+    outdoorCyl(x,6.4,z,0.55,0.55,11,outdoor.steel,16);
+    const canopy=new THREE.Mesh(new THREE.ConeGeometry(12,5,12),outdoor.pink);canopy.position.set(x,10,z);scene.add(canopy);
+    outdoorCyl(x,7.7,z,11.7,11.7,0.5,outdoor.white,32);
+    for(let i=0;i<10;i++){const a=i/10*Math.PI*2;const px=x+Math.cos(a)*7.3,pz=z+Math.sin(a)*7.3;outdoorCyl(px,4.4,pz,0.12,0.12,5.5,outdoor.yellow,8);outdoorSphere(px,2.1,pz,0.85,1.2,0.38,[outdoor.white,outdoor.blue,outdoor.red][i%3]);}
+    const q=mkGroup(x,z);addCollider(q,0,0,10,10);addUse(q,0,13,7,"CAROUSEL","You took a ride on the carousel.");
+  }
+
+  // Splash park with two pools, slides and colourful shade sails.
+  {
+    const x=-68,z=58;
+    for(const [dx,dz,w,d] of [[0,0,34,22],[22,10,17,13]]){
+      const pool=new THREE.Mesh(new THREE.BoxGeometry(w,0.25,d),outdoor.water);pool.position.set(x+dx,0.13,z+dz);scene.add(pool);
+      outdoorBox(x+dx,0.05,z+dz,w+1,0.2,d+1,outdoor.white);
+    }
+    for(let i=0;i<3;i++){const sx=x-12+i*12;outdoorCyl(sx,4,z-16,0.2,0.2,8,outdoor.blue,8);outdoorBox(sx+3,6,z-10,7,0.35,14,[outdoor.yellow,outdoor.pink,outdoor.blue][i],(i-1)*0.14);}
+    const q=mkGroup(x,z);addUse(q,0,18,9,"SPLASH PARK","You entered the splash park and cooled off.");
+  }
+
+  // Outdoor performance amphitheatre and food village.
+  {
+    const x=0,z=-112;
+    for(let i=0;i<5;i++){const radius=9+i*3;const arc=new THREE.Mesh(new THREE.TorusGeometry(radius,0.48,6,48,Math.PI),outdoor.pathEdge);arc.position.set(x,0.55+i*0.48,z);arc.rotation.y=Math.PI;scene.add(arc);}
+    outdoorBox(x,1.2,z-10,26,2.4,2,outdoor.dark);
+    outdoorBox(x,2.6,z-10,29,0.45,3,outdoor.purple);
+    const q=mkGroup(x,z);addUse(q,0,-8,12,"OPEN-AIR STAGE","You watched a live performance at the park amphitheatre.");
+    for(let i=0;i<5;i++){
+      const sx=-40+i*20,sz=103;outdoorBox(sx,1.8,sz,12,3.6,9,[outdoor.red,outdoor.yellow,outdoor.blue,outdoor.pink,outdoor.purple][i]);
+      outdoorBox(sx,3.8,sz,13,0.5,10,outdoor.white);
+      outdoorBox(sx,1.7,sz+4.65,5,2.2,0.18,outdoor.dark);
+      const stall=mkGroup(sx,sz);addUse(stall,0,6,5,"FOOD KIOSK","You visited a food kiosk at Pleasure Park.");
+    }
+  }
+
+  // Landscaped lawns, palm clusters, flower beds, benches and park lighting.
+  function parkTree(x,z,s=1){
+    outdoorCyl(x,1.8*s,z,0.34*s,0.48*s,3.6*s,MAT.wood,7);
+    outdoorSphere(x,4.2*s,z,2.4*s,2.1*s,2.4*s,[outdoor.turf,outdoor.turf2,MAT.leafLight][Math.floor(Math.abs(x+z))%3]);
+    const c=mkGroup(x,z);addCollider(c,0,0,0.7*s,0.7*s);
+  }
+  for(let i=0;i<82;i++){
+    const a=i*2.399963,r=48+(i%7)*11,x=Math.cos(a)*r,z=Math.sin(a)*r;
+    if(Math.hypot(x,z)>142 || (Math.abs(x)<28 && Math.abs(z)<45) || (x>45&&z>35&&x<95) || (x<-45&&z>35&&x>-100) || (x>42&&z<-30&&x<100) || (x<-40&&z<-20&&x>-110)) continue;
+    parkTree(x,z,0.75+(i%4)*0.12);
+  }
+  for(let i=0;i<24;i++){
+    const a=i/24*Math.PI*2,x=Math.cos(a)*96,z=Math.sin(a)*96;
+    for(let k=0;k<5;k++){const fx=x+Math.cos(a+Math.PI/2)*(k-2)*1.2,fz=z+Math.sin(a+Math.PI/2)*(k-2)*1.2;outdoorSphere(fx,0.5,fz,0.35,0.35,0.35,k%2?outdoor.flower:outdoor.flower2);}
+  }
+  for(let i=0;i<22;i++){
+    const a=i/22*Math.PI*2,x=Math.cos(a)*76,z=Math.sin(a)*76;
+    outdoorBox(x,0.65,z,3.2,0.35,0.9,MAT.wood,a);
+    outdoorBox(x,1.05,z-0.25,3.2,0.35,0.22,MAT.darkWood,a);
+    const lamp=outdoorCyl(x+2.3,2.1,z,0.09,0.12,4.2,outdoor.steel,8);
+    outdoorSphere(x+2.3,4.3,z,0.38,0.32,0.38,outdoor.yellow);
+  }
 
   const disc = new THREE.Mesh(new THREE.CylinderGeometry(17, 17, 0.24, 24), MAT.plaza);
   disc.position.y = 0.12; disc.receiveShadow = !isMobile; scene.add(disc);
@@ -869,8 +1011,8 @@ export async function buildPleasurePark(router) {
     _resolve(px, pz, level) {
       let [nx, nz] = resolveCollisions(px, pz);
       const dist = Math.hypot(nx, nz);
-      if (dist > 95) {
-        const k = 95 / dist;
+      if (dist > 148) {
+        const k = 148 / dist;
         nx *= k; nz *= k;
       }
       return [nx, nz];

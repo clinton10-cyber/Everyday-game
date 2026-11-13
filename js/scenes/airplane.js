@@ -11,6 +11,7 @@ import { ThirdPersonControls } from "../core/thirdperson.js";
 import { createPlaneNPCs } from "../core/plane-npcs.js";
 
 export async function airplaneScene(params, router) {
+  const flightInfo = params && params.flight ? params.flight : null;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0b1420);
   scene.fog = new THREE.Fog(0x0b1420, 45, 130);
@@ -84,6 +85,33 @@ export async function airplaneScene(params, router) {
   }
   const carpetTex = makeCarpet(); carpetTex.repeat.set(5, 20);
   const aisleTex = makeAisle();   aisleTex.repeat.set(1, 34);
+  /* A rendered sky view sits behind each cabin window. Real aircraft windows
+     are sealed; the interaction controls the inner shade, revealing the view. */
+  function makeWindowSky() {
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = 256;
+    const g = cv.getContext("2d");
+    const grad = g.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, "#1768a8"); grad.addColorStop(.55, "#70b8e8"); grad.addColorStop(1, "#d8efff");
+    g.fillStyle = grad; g.fillRect(0, 0, 512, 256);
+    for (let i = 0; i < 22; i++) {
+      const x = (i * 83 + 37) % 560, y = 35 + ((i * 47) % 145), r = 13 + (i % 5) * 7;
+      g.fillStyle = "rgba(255,255,255,.48)";
+      g.beginPath(); g.ellipse(x, y, r * 1.8, r * .58, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(x - r * .5, y - 4, r * .62, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(x + r * .45, y - 5, r * .72, 0, Math.PI * 2); g.fill();
+    }
+    /* A slim wing silhouette gives the passenger a convincing outside view. */
+    g.fillStyle = "#aebdca"; g.beginPath(); g.moveTo(0, 226); g.lineTo(195, 196); g.lineTo(365, 207); g.lineTo(512, 235); g.lineTo(512, 256); g.lineTo(0, 256); g.closePath(); g.fill();
+    g.fillStyle = "#e5edf3"; g.beginPath(); g.moveTo(210, 202); g.lineTo(365, 207); g.lineTo(512, 235); g.lineTo(512, 240); g.lineTo(210, 207); g.closePath(); g.fill();
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.ClampToEdgeWrapping;
+    return tex;
+  }
+  const windowSkyTex = makeWindowSky();
+  const windowSkyMat = new THREE.MeshBasicMaterial({ map: windowSkyTex, side: THREE.DoubleSide, fog: false });
+  const windowShadeMat = new THREE.MeshBasicMaterial({ color: 0x24394f, transparent: true, opacity: .82, side: THREE.DoubleSide, depthWrite: false });
+  const windowShadeById = new Map();
+  const windowUses = [];
 
   const M = {
     fuselage:     new THREE.MeshLambertMaterial({ color: 0xe8eef4, side: THREE.BackSide }),
@@ -278,14 +306,22 @@ function addSeatPoint(x, z) {
     box(0.068, 0.034, 0.068,  3.655, 1.5215, z, M.psuLight);
   }
 
-  /* Windows line up with seats */
+  /* Windows line up with every window seat. Tap USE beside a window to
+     raise/lower its shade and reveal a moving sky-and-wing view. */
   const WIN_Y = 0.17;
   for (let row = 0; row < ROWS; row++) {
     const z = FIRST_ROW_Z + row * ROW_PITCH;
     for (const side of [-1, 1]) {
       const wx = side * 4.335;
       box(0.102, 0.51, 0.408, wx, WIN_Y, z, M.windowFrame);
-      box(0.034, 0.374, 0.272, wx + side * 0.017, WIN_Y, z, M.window);
+      const rot = side * Math.PI / 2;
+      const view = new THREE.Mesh(new THREE.PlaneGeometry(0.272, 0.374), windowSkyMat);
+      view.position.set(side * 4.285, WIN_Y, z); view.rotation.y = rot; scene.add(view);
+      const shade = new THREE.Mesh(new THREE.PlaneGeometry(0.272, 0.374), windowShadeMat.clone());
+      shade.position.set(side * 4.255, WIN_Y, z); shade.rotation.y = rot; shade.visible = false; scene.add(shade);
+      const id = `window_${row}_${side}`;
+      windowShadeById.set(id, shade);
+      windowUses.push({ kind: "window", id, label: "CLOSE WINDOW SHADE", x: side * 2.25, z, y: FLOOR_Y, level: 0, r: 1.5 });
     }
   }
 
@@ -334,7 +370,7 @@ const CEIL_LIMIT = CEIL_Y - 0.15;
 const world = {
   colliders: collidersTp,
   seats: seats,
-  uses: [],
+  uses: windowUses,
   platforms: [],
   levelHeight: function () { return FLOOR_Y; },
   ceilingHeight: CEIL_LIMIT - FLOOR_Y,
@@ -351,6 +387,15 @@ const world = {
     x: -1.87, z: FIRST_ROW_Z - 1.0, yaw: Math.PI, level: 0,
     speedMult: 1.0,
     onUse: function (use) {
+      if (use.kind === "window") {
+        const shade = windowShadeById.get(use.id);
+        if (shade) {
+          shade.visible = !shade.visible;
+          use.label = shade.visible ? "OPEN WINDOW SHADE" : "CLOSE WINDOW SHADE";
+          if (window.__ph3d_phone) window.__ph3d_phone._toast(shade.visible ? "Window shade lowered. Tap again to reveal the sky." : "Window shade raised · Sky and wing view visible.");
+        }
+        return;
+      }
       if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE");
     },
   });
@@ -380,12 +425,13 @@ const world = {
     controls: { update: function () {} },
     crumb: "AIRPLANE",
     title: "BOEING 787-9",
-    subtitle: "CABIN - REAL SCALE",
+    subtitle: flightInfo ? `${flightInfo.airline || "GARDEN AIR"} · ${flightInfo.from || "PORT HARCOURT"} → ${flightInfo.to || "LAGOS"} · ${flightInfo.code || "FLIGHT"}` : "CABIN - REAL SCALE",
     hint: "",
     update: function (dt) {
-  ctl.update(dt);
-  planeNPCs.update(dt);
-},
+      ctl.update(dt);
+      planeNPCs.update(dt);
+      windowSkyTex.offset.x = (windowSkyTex.offset.x + Math.min(dt || 0, .05) * .006) % 1;
+    },
 dispose: function () {
   planeNPCs.dispose();
   ctl.dispose();

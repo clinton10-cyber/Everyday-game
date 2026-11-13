@@ -1,4 +1,5 @@
 import { Economy } from './economy.js';
+import { Engagement } from './engagement.js';
 
 const KEY='everyday_banking_v1';
 const DAY=86400000;
@@ -17,6 +18,8 @@ function tx(label,amount,type='info'){s.history.unshift({id:'BK'+Date.now().toSt
 function price(item){const day=Math.floor(Date.now()/DAY);const seed=[...item.id].reduce((a,c)=>a+c.charCodeAt(0),day);const wave=Math.sin(seed*12.9898)*0.5+Math.sin(seed*.37)*.22;return Math.max(1,Math.round(item.base*(1+wave*.24)));}
 function accrue(){const now=Date.now();const days=Math.min(30,Math.floor((now-(s.lastAccrual||now))/DAY));if(days>0){if(s.savings>0){const interest=Math.floor(s.savings*(Math.pow(1+.02/30,days)-1));s.savings+=interest;if(interest)tx('Savings interest',interest,'positive');}if(s.deposit&&now>=s.deposit.maturesAt){const payout=Math.floor(s.deposit.amount*1.08);s.savings+=payout;tx('Fixed deposit matured',payout-s.deposit.amount,'positive');s.deposit=null;}s.lastAccrual+=days*DAY;save();}}
 export const Banking={
+ buyAirtime(amount,network="MTN"){amount=Math.floor(Number(amount));network=String(network);if(!["MTN","Airtel","Glo","9mobile"].includes(network)||![100,200,500,1000,2000,5000].includes(amount))return {ok:false,reason:"pack"};if(amount>Economy.balance)return {ok:false,reason:"funds"};Economy.withdraw(amount);Engagement.addAirtime(amount);tx(`${network} airtime top-up`,-amount,"negative");return {ok:true,amount,network};},
+ buyData(amountMb,priceNaira,network="MTN"){amountMb=Math.floor(Number(amountMb));priceNaira=Math.floor(Number(priceNaira));network=String(network);const valid={"500":500,"1000":1024,"2000":2048,"3500":5120,"5000":10240};if(!["MTN","Airtel","Glo","9mobile"].includes(network)||!valid[String(priceNaira)]||amountMb!==valid[String(priceNaira)])return {ok:false,reason:"pack"};if(priceNaira>Economy.balance)return {ok:false,reason:"funds"};Economy.withdraw(priceNaira);Engagement.addData(amountMb);tx(`${network} data bundle · ${amountMb>=1024?(amountMb/1024)+" GB":amountMb+" MB"}`,-priceNaira,"negative");return {ok:true,amountMb,priceNaira,network};},
  snapshot(){accrue();return { ...s,stocks:STOCKS.map(x=>({...x,price:price(x)})),coins:COINS.map(x=>({...x,price:price(x)})),wallet:Economy.balance,loanBalance:s.loans.reduce((a,l)=>a+l.remaining,0)};},
  open(){if(s.opened)return {ok:true};if(Economy.balance<2500)return {ok:false,reason:'funds'};Economy.withdraw(2500);s.opened=true;s.accountNo='20'+String(Math.floor(100000000+Math.random()*899999999));tx('Account opening fee',-2500,'negative');save();return {ok:true};},
  depositSavings(amount){accrue();amount=Math.floor(Number(amount));if(!s.opened)return {ok:false,reason:'account'};if(!amount||amount<1||amount>Economy.balance)return {ok:false,reason:'funds'};Economy.withdraw(amount);s.savings+=amount;tx('Transfer to savings',-amount,'negative');save();return {ok:true};},

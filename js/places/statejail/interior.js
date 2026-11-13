@@ -105,7 +105,16 @@ export async function buildInterior(router) {
 
   /* outer walls */
   box(W,H2,.3,0,H2/2,-D/2,wallM,{solid:true});
-  box(W,H2,.3,0,H2/2,D/2,wallM,{solid:true});
+  /* Front elevation: retain the upper-storey wall, but leave a real
+     ground-floor secure entrance instead of sealing the entire facade. */
+  const ENTRY_W = 3.2, ENTRY_H = 3.1;
+  box((W-ENTRY_W)/2,ENTRY_H,.3,-(W+ENTRY_W)/4,ENTRY_H/2,D/2,wallM,{solid:true});
+  box((W-ENTRY_W)/2,ENTRY_H,.3, (W+ENTRY_W)/4,ENTRY_H/2,D/2,wallM,{solid:true});
+  box(W,H2-ENTRY_H,.3,0,ENTRY_H+(H2-ENTRY_H)/2,D/2,wallM,{solid:true,up:true});
+  /* reinforced entrance jambs and overhead security beam */
+  box(.22,ENTRY_H,.42,-ENTRY_W/2,ENTRY_H/2,D/2,steel,{solid:true});
+  box(.22,ENTRY_H,.42, ENTRY_W/2,ENTRY_H/2,D/2,steel,{solid:true});
+  box(ENTRY_W,.18,.42,0,ENTRY_H-.09,D/2,steel);
   box(.3,H2,D,-W/2,H2/2,0,wallM,{solid:true});
   box(.3,H2,D,W/2,H2/2,0,wallM,{solid:true});
 
@@ -143,8 +152,9 @@ export async function buildInterior(router) {
     const zA = zc-1.6, zB = zc+1.6;
 
     /* side walls (full height) */
-    box(3,H2,.16,xc,H2/2,zA,cellWallM);
-    box(3,H2,.16,xc,H2/2,zB,cellWallM);
+    /* These partitions span both storeys, so they must collide on both levels. */
+    box(3,H2,.16,xc,H2/2,zA,cellWallM,{solid:true});
+    box(3,H2,.16,xc,H2/2,zB,cellWallM,{solid:true});
     /* back is the outer wall */
 
     /* horizontal bar rails */
@@ -484,18 +494,41 @@ export async function buildInterior(router) {
     else if (b.up) __cols.push(mk(1));
     else { __cols.push(mk(0)); __cols.push(mk(1)); }
   }
+  uses.push({ kind: "exit", label: "EXIT PRISON", x: 0, z: 13.9, y: 0, level: 0, r: 1.7 });
+
   const __world = {
     colliders: __cols, seats, uses,
     stairs: [{ minX: 4.25, maxX: 7.95, minZ: 0, maxZ: 8.0, axis: 'z', y0: H, y1: 0, level: 0, toLevel: 1 }],
-    platforms: [{ level: 1, minX: -7.9, maxX: -4.3, minZ: -8.9, maxZ: 7.9, h: H }, { level: 1, minX: 4.3, maxX: 7.9, minZ: -8.9, maxZ: 0.1, h: H }, { level: 1, minX: -4.1, maxX: 4.1, minZ: -8.9, maxZ: -6.6, h: H }],
+    platforms: [
+      /* Upper cell floors: these slabs are real meshes and must also be
+         registered as walkable platforms, otherwise the player falls through. */
+      { level: 1, minX: -10.9, maxX: -8.1, minZ: -7.2, maxZ: 7.2, h: H },
+      { level: 1, minX: 8.1, maxX: 10.9, minZ: -7.2, maxZ: 7.2, h: H },
+      { level: 1, minX: -7.9, maxX: -4.3, minZ: -8.9, maxZ: 7.9, h: H },
+      { level: 1, minX: 4.3, maxX: 7.9, minZ: -8.9, maxZ: 0.1, h: H },
+      { level: 1, minX: -4.1, maxX: 4.1, minZ: -8.9, maxZ: -6.6, h: H }
+    ],
     levelHeight: () => 0,
-    ceilingHeight: H,
+    /* The lower atrium is double-height; the upper cells/catwalk have
+       one storey of clearance above their floor. */
+    ceilingHeight: (level) => level === 1 ? H : H2,
     bounds: { minX: -ROOM.x, maxX: ROOM.x, minZ: -ROOM.z, maxZ: ROOM.z },
   };
 
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, __world, {
     scene, x: START.x, z: START.z, yaw: Math.PI + (START.yaw || 0), level: 0,
-    onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
+    onUse: (use) => {
+      if (use && use.kind === "exit") {
+        const P = window.__ph3d_prison;
+        if (P && P.inJail) {
+          if (window.__ph3d_phone) window.__ph3d_phone._toast("You must serve your sentence or pay bail.");
+          return;
+        }
+        if (router && router.go) router.go("city");
+        return;
+      }
+      if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE");
+    },
   });
 
   return {

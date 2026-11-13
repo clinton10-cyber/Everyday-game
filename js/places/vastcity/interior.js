@@ -4,6 +4,8 @@
    wardrobe, phone, weapons...). Collision boxes are converted below. */
 import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { addStreetLamp } from "../../core/scene-lamps.js";
+import { addNightGlow } from "../../core/night-glow.js";
 import { ZoneDrive } from "../../core/drive-zones.js";
 import { buildTrafficCar, TRAFFIC_MODELS } from "../../vehicles/traffic.js";
 import { addCarLights } from "../../core/car-lights.js";
@@ -371,6 +373,13 @@ export async function buildInterior(router) {
 
     bounds: { minX: -ROOM.x, maxX: ROOM.x, minZ: -ROOM.z, maxZ: ROOM.z },
   };
+
+  // Location-specific perimeter and access-road lamps; StreetLights switches them on at dusk.
+  const vastcityLampSpots = [];
+  for (const [lx,lz] of [[-82,-70],[-42,-70],[0,-70],[42,-70],[82,-70],[-82,-25],[-42,-25],[0,-25],[42,-25],[82,-25],[-82,25],[-42,25],[0,25],[42,25],[82,25],[-82,70],[-42,70],[0,70],[42,70],[82,70]]) {
+    vastcityLampSpots.push(addStreetLamp(scene, lx, 0, lz, Math.PI));
+  }
+  addNightGlow(scene, vastcityLampSpots, { poolRadius: 20 });
 
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, __world, {
     scene, x: START.x, z: START.z, yaw: Math.PI + (START.yaw || 0), level: 0,

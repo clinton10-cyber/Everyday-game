@@ -1373,6 +1373,8 @@ function bVillage(x,z){
 
 /* ── 9. Landmark table ────────────────────────────────────────── */
 const PLACES = [
+  ["courthouse",    "Rivers State High Court", -410,   -70, bStatehouse],
+  ["courthouse",    "Rivers State High Court", -410,   -70, bStatehouse],
   ["govhouse",     "Government House",      -250,  -60, bGovHouse],
   ["hotel",        "Hotel Presidential",    -115, -155, bHotel],
   ["boropark",     "Isaac Boro Park",         10, -110, bIbp],

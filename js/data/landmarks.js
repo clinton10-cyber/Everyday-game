@@ -1,4 +1,5 @@
 export const LANDMARKS = [
+  { id: "courthouse", name: "RIVERS STATE HIGH COURT", sub: "COURTROOM · JUSTICE DISTRICT", color: 0xd6c6a2, pos: [-31,0,-24], rot: 0.08, kind: "place" },
   { id: "govhouse", name: "GOVERNMENT HOUSE", sub: "STATE SECRETARIAT", color: 0xc9a961, pos: [-19,0,-11], rot: 0.22, kind: "place" },
   { id: "hotel", name: "HOTEL PRESIDENTIAL", sub: "5-STAR · WOJI ROAD", color: 0xe8c99a, pos: [17,0,-12], rot: -0.18, kind: "place" },
   { id: "boropark", name: "ISAAC BORO PARK", sub: "MEMORIAL GROUNDS", color: 0x88c68a, pos: [-20,0,10], rot: 0.1, kind: "place" },
@@ -8,7 +9,6 @@ export const LANDMARKS = [
   { id: "pleasurepark", name: "PLEASURE PARK", sub: "8 ATTRACTIONS", color: 0x9dd1ff, pos: [-5,0,5], rot: 0.0, kind: "place" },
   { id: "university", name: "UNIVERSITY OF P.H.", sub: "UNIPORT CAMPUS", color: 0xa8b4d8, pos: [-24,0,22], rot: 0.2, kind: "place" },
   { id: "myhouse", name: "MY HOUSE", sub: "HOME · FIRST PERSON", color: 0xf0c060, pos: [14,0,4], rot: -0.3, kind: "place" },
-  { id: "prison", name: "STATE PRISON", sub: "CORRECTIONAL", color: 0x666e7a, pos: [-8,0,-22], rot: 0, kind: "place" },
   { id: "governor", name: "GOVERNOR'S MANSION", sub: "STATE HOUSE", color: 0xffd76b, pos: [-8,0,-32], rot: 0.2, kind: "place" },
   { id: "mansion", name: "THE MANSION", sub: "GATED COMPOUND", color: 0xe7e1d7, pos: [32,0,-14], rot: -0.5, kind: "place" },
   { id: "airplane", name: "LANDED AIRCRAFT", sub: "BOEING 787-9 · PARKED", color: 0xe8eef4, pos: [0,0,42], rot: 0, kind: "place" },
@@ -24,7 +24,7 @@ export const LANDMARKS = [
   { id: "classroom", name: "CLASSROOM", sub: "PRIMARY SCHOOL", color: 0xf2d27a, pos: [-16,0,46], rot: 0, kind: "place" },
   { id: "computerlab", name: "COMPUTER LAB", sub: "TECH HUB", color: 0x4a6a8e, pos: [-8,0,46], rot: 0, kind: "place" },
   { id: "zoo", name: "CITY ZOO", sub: "WILDLIFE PARK", color: 0x7aba6a, pos: [0,0,46], rot: 0, kind: "place" },
-  { id: "statejail", name: "STATE JAIL", sub: "CELL BLOCK · 2 FLOORS", color: 0x8a8e94, pos: [8,0,46], rot: 0, kind: "place" },
+  { id: "statejail", name: "RIVERS STATE CORRECTIONAL CENTRE", sub: "SECURE FACILITY · CELL BLOCK", color: 0x8a8e94, pos: [-8,0,-22], rot: 0, kind: "place" },
   { id: "vastcity", name: "VAST CITY", sub: "WALKABLE METROPOLIS", color: 0x6a8aae, pos: [16,0,46], rot: 0, kind: "place" },
   { id: "duplex", name: "MODERN DUPLEX", sub: "LUXURY HOME · 2 FLOORS", color: 0xe8e4dc, pos: [-16,0,56], rot: 0, kind: "place" },
   { id: "lagosflat", name: "LAGOS LIFE APARTMENT", sub: "FLAT · VICTORIA ISLAND", color: 0xe8c668, pos: [-8,0,56], rot: 0, kind: "place" },

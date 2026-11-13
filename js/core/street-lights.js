@@ -15,9 +15,9 @@ const smoothstep = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
-const POOL_SIZE = 4;
-const POOL_INTENSITY = 14;       /* candela-ish; physically-based point light units */
-const POOL_RANGE = 30;
+const POOL_SIZE = 6;
+const POOL_INTENSITY = 18;       /* physically-based point-light intensity */
+const POOL_RANGE = 42;
 
 export const StreetLights = {
   lamps: [],          /* { light, base } for real scene PointLights */

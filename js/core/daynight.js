@@ -26,7 +26,7 @@ const OPEN_ROUTES = new Set([
    purpose: it is already a stylised night-ride scene. */
 const OPEN_PLACES = new Set([
   "university", "beach", "boropark", "citypark", "forest",
-  "market", "village", "zoo", "vastcity", "vatican", "airport",
+  "market", "village", "zoo", "vastcity", "vatican", "airport", "govhouse",
 ]);
 function isOpenScene(cur) {
   const route = cur._routeName || "";

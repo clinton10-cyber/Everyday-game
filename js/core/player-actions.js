@@ -158,7 +158,7 @@ export const PlayerActions = {
     if (walker) walker._carryMul = 1;
     try {
       const W = window.__ph3d_world_objects;
-      if (item && W) { W.drop(item, x, z); mesh.rotation.set(0, 0, 0); mesh.scale.setScalar(1); }
+      if (item && W) { W.drop(item, x, z, walker && Number.isFinite(walker.floorY) ? walker.floorY : 0); mesh.rotation.set(0, 0, 0); mesh.scale.setScalar(1); }
       else if (mesh.parent) mesh.parent.remove(mesh);
       window.__ph3d_pocket?.remove?.(item ? item.type : "", 1);
       window.__ph3d_phone?._toast("✋ Dropped " + ((item && item.label) || "item"));
@@ -166,6 +166,25 @@ export const PlayerActions = {
     return true;
   },
   heldItem() { return this._held && this._held.mesh.userData && this._held.mesh.userData._item || null; },
+
+  /* ── THROW: release the held world prop into a real ballistic arc ── */
+  throw(walker) {
+    if (!this._held || this._active) return false;
+    const mesh = this._held.mesh;
+    const item = mesh && mesh.userData && mesh.userData._item;
+    const W = window.__ph3d_world_objects;
+    if (!mesh || !item || !W || typeof W.throw !== "function") return false;
+    this._held = null;
+    if (walker) walker._carryMul = 1;
+    mesh.userData._inHand = false;
+    try {
+      const ok = W.throw(item, 0, 0, walker);
+      if (!ok) return false;
+      try { window.__ph3d_pocket?.remove?.(item.type, 1); } catch (e) {}
+      try { window.__ph3d_phone?._toast("Threw " + (item.label || item.type)); } catch (e) {}
+      return true;
+    } catch (e) { console.warn("[object-throw]", e); return false; }
+  },
 
   /* ── HOLD: attach a mesh to the player's hand ───────────────── */
   hold(walker, mesh) {

@@ -259,6 +259,11 @@ export class Phone{
           </div>
           <div class="tacts" style="grid-template-columns:1fr">
             <button id="heal-btn"><i class="fa-solid fa-notes-medical"></i> Use Medkit</button>
+            <button id="visit-hospital-btn"><i class="fa-solid fa-hospital"></i> Visit City Hospital</button>
+          </div>
+          <div class="tstat-panel" style="margin-top:10px">
+            <div style="font-weight:900;font-size:12px;margin-bottom:5px">CITY HOSPITAL · 24/7</div>
+            <div style="font-size:10px;line-height:1.5;opacity:.78">Visit the hospital in person for triage, a doctor's consultation and treatment. Hospital services use your in-game naira.</div>
           </div>
         </div>
 
@@ -342,14 +347,13 @@ export class Phone{
         <!-- ── MUSIC ────────────────────────────────────── -->
         <div class="tapp" id="app-music">
           <button class="tbk" data-back><i class="fa-solid fa-chevron-left"></i> Home</button>
-          <div class="tbal">
-            <div class="tlbl">Now Playing</div>
-            <div class="tamt" style="font-size:22px">PH City Lights</div>
-            <div style="font-size:13px;opacity:.7;margin-top:8px">Naija Beats · 3:42</div>
-          </div>
-          <div class="tacts" style="grid-template-columns:1fr">
-            <button><i class="fa-solid fa-play"></i> / <i class="fa-solid fa-pause"></i></button>
-          </div>
+          <div class="music-art"><i class="fa-solid fa-wave-square"></i></div>
+          <div class="music-title">Port Harcourt Soundscape</div>
+          <div class="music-sub">EVERYDAY AUDIO · CITY AMBIENCE</div>
+          <div class="music-note">The game currently plays location-aware city ambience and environmental sounds rather than licensed songs. Control the in-game sound mix here.</div>
+          <div class="music-controls"><button id="music-mute"><i class="fa-solid fa-volume-xmark"></i> Mute / Unmute</button><button id="music-next"><i class="fa-solid fa-location-crosshairs"></i> Current scene</button></div>
+          <label class="music-volume-label" for="music-volume">SOUND LEVEL</label><input id="music-volume" type="range" min="0" max="100" value="40" style="width:100%;accent-color:#f4b6d2">
+          <div id="music-status" class="music-sub">Ambient sound follows your location.</div>
         </div>
 
         <!-- ── POLICE ───────────────────────────────────── -->
@@ -441,6 +445,12 @@ export class Phone{
       }
     };
 
+    document.getElementById("visit-hospital-btn").onclick = () => {
+      const r = window.__ph3d_router;
+      if (r) { this.hide(); r.go("interior", { id: "hospital" }); }
+      else this._toast("Hospital navigation is unavailable.");
+    };
+
     document.getElementById("heal-btn").onclick = () => {
       const hp = window.__ph3d_combat;
       if (!hp) return;
@@ -514,9 +524,31 @@ export class Phone{
     else if (model?.brand === "Tecno" || model?.brand === "itel") skin = "skin-hios";
     else if (model?.brand === "Infinix") skin = "skin-xos";
     else if (model?.brand === "Google") skin = "skin-pixel";
-    shell.classList.add(skin); shell.dataset.phoneModel = id || "starter";
+    else if (model?.brand === "Xiaomi") skin = "skin-hyperos";
+    shell.classList.add(skin);
+    shell.dataset.phoneModel = id || "starter";
+    const deviceThemes = {
+      itel_a18:       ["#36c6a0", "#092b2a", "14px", "#102f31"],
+      tecno_spark:    ["#21c7b1", "#073b3a", "18px", "#0b3034"],
+      infinix_hot:    ["#ff9a45", "#44202f", "16px", "#2b1b30"],
+      redmi_note:     ["#ff7043", "#3c201d", "22px", "#2a201e"],
+      galaxy_a:       ["#78a8ff", "#142b50", "24px", "#172c4b"],
+      pixel_8:        ["#a8c7fa", "#172944", "28px", "#1c2d47"],
+      iphone_15:      ["#8eb5ff", "#1d1d2d", "26px", "#202131"],
+      galaxy_s24:     ["#b7a5ff", "#242044", "28px", "#282442"],
+      tecno_camon30:  ["#65e0c0", "#103d39", "20px", "#123b38"],
+      infinix_note40: ["#f3a4ff", "#35203f", "18px", "#2b1d37"],
+      iphone16:       ["#b9c8ff", "#202438", "30px", "#24283c"],
+      galaxy_zflip:   ["#e6a6ff", "#382344", "30px", "#30203b"],
+    };
+    const theme = deviceThemes[id] || ["#67d9c0", "#102d32", "18px", "#142c34"];
+    shell.style.setProperty("--device-accent", theme[0]);
+    shell.style.setProperty("--device-glow", theme[1]);
+    shell.style.setProperty("--device-radius", theme[2]);
+    shell.style.setProperty("--device-panel", theme[3]);
     const brand = document.querySelector(".thdr .tbr span");
-    if (brand) brand.textContent = model ? `${model.brand} ${model.name}` : "Everyday Phone";
+    const osName = {"skin-ios":"iOS","skin-oneui":"One UI","skin-hios":"HiOS","skin-xos":"XOS","skin-pixel":"Pixel UI","skin-hyperos":"HyperOS","skin-android":"Android"}[skin];
+    if (brand) brand.textContent = model ? `${model.brand} ${model.name} · ${osName}` : "Everyday Phone · Android";
     this._renderBatteryStatus();
   }
 
@@ -621,6 +653,13 @@ export class Phone{
     const id = map[n];
     const el = id && document.getElementById(id);
     if (el) el.classList.add("on");
+    const shell = document.getElementById("tphone");
+    if (shell) {
+      shell.classList.toggle("app-immersive", n !== "home");
+      shell.querySelectorAll(".tapp").forEach(a => a.classList.remove("phone-theme-active"));
+      if (el) { el.classList.add("phone-theme-active"); el.dataset.phoneTheme = n; }
+      shell.dataset.activeApp = n;
+    }
     this.app = n;
 
     if (n === "bank") { this._bmini(); import("../ui/banking-panel.js").then(m => m.BankingPanel.render()).catch(e => console.warn("[banking panel]",e)); }
@@ -740,28 +779,23 @@ export class Phone{
     el.innerHTML = h;
   }
 
-  /* ── PLAYERS ────────────────────────────────────────── */
+  /* ── CITY PEOPLE DIRECTORY (NPCs, not online players) ── */
   _renderMP(){
     const el = document.getElementById("mplist");
     if (!el) return;
-    const mp = window.__ph3d_mp;
-    if (!mp || !mp.ready) {
-      el.innerHTML = '<div class="tempty">Multiplayer starting…</div>';
-      return;
-    }
-    let h = `<div style="font-size:10px;letter-spacing:.22em;color:rgba(244,244,244,.55);font-weight:800;margin:8px 0 10px">You · ${mp.self.name}</div>`;
-    if (!mp.players.size) {
-      h += '<div class="tempty">No other players nearby.<br/>Open another tab to test.</div>';
-    } else {
-      mp.players.forEach(p => {
-        h += `<div class="ttx">
-          <div><div class="who">${p.name}</div>
-          <div class="when">${p.state || "standing"} · ${p.scene || "city"}</div></div>
-          <div class="r pos">●</div>
-        </div>`;
-      });
-    }
-    el.innerHTML = h;
+    import("./npcs.js").then(({ NPCs }) => {
+      const people = (NPCs.list || []).filter(n => n && !n.dead);
+      const roles = { police:"Police", doctor:"Medical", trader:"Trader", mechanic:"Mechanic", banker:"Banking", priest:"Clergy", taxi:"Driver" };
+      const counts = people.reduce((a,n)=>{ const r=roles[n.role]||"Resident"; a[r]=(a[r]||0)+1; return a; },{});
+      const chips = Object.entries(counts).map(([k,v])=>`<span class="people-chip">${k} <b>${v}</b></span>`).join("");
+      const rows = people.slice(0,60).map((n,i)=>{
+        const role=roles[n.role]||"City resident";
+        const name=String(n.name||n.label||`${role} ${i+1}`).replace(/[<>&"']/g,'');
+        const initials=name.split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase();
+        return `<article class="people-row"><div class="people-avatar">${initials||"PH"}</div><div class="people-copy"><b>${name}</b><small>${role} · ${n.groupTag?"With a group":"Around the city"}</small></div><span class="people-presence">IN CITY</span></article>`;
+      }).join("");
+      el.innerHTML=`<header class="people-head"><div class="people-eyebrow">GARDEN CITY DIRECTORY</div><h2>People around you</h2><p>Meet the residents and characters living in Port Harcourt.</p><div class="people-total"><strong>${people.length}</strong><span>active city characters</span></div></header><div class="people-filters">${chips||'<span class="people-chip">City residents</span>'}</div><div class="people-list-title">CITY DIRECTORY <span>${Math.min(people.length,60)} shown</span></div>${rows||'<div class="tempty">The streets are quiet right now. Explore the city to meet people.</div>'}<div class="people-footnote">These are computer-controlled NPCs, not connected human players. Online multiplayer is a separate feature.</div>`;
+    }).catch(()=>{el.innerHTML='<div class="tempty">City directory is loading. Try again shortly.</div>';});
   }
 
   /* ── SHOP ───────────────────────────────────────────── */
@@ -1109,26 +1143,32 @@ export class Phone{
 
   /* ── WEATHER / MUSIC ────────────────────────────────── */
   _renderWeather(){ try { PhoneGames.weather(); } catch (e) { console.warn(e); } }
-  _renderMusic(){}
+  _renderMusic(){
+    import("./audio.js").then(({ AudioSystem }) => {
+      const mute=document.getElementById("music-mute"), vol=document.getElementById("music-volume"), status=document.getElementById("music-status");
+      if(!mute||!vol)return;
+      mute.innerHTML=AudioSystem.muted?'<i class="fa-solid fa-volume-high"></i> Unmute sound':'<i class="fa-solid fa-volume-xmark"></i> Mute sound';
+      vol.value=Math.round((AudioSystem._userVol==null?.4:AudioSystem._userVol)*100);
+      if(status)status.textContent=AudioSystem.muted?"Sound is muted.":`Soundscape: ${AudioSystem.mood||"city ambience"}.`;
+      mute.onclick=()=>{const muted=AudioSystem.toggleMute();mute.innerHTML=muted?'<i class="fa-solid fa-volume-high"></i> Unmute sound':'<i class="fa-solid fa-volume-xmark"></i> Mute sound';if(status)status.textContent=muted?"Sound is muted.":`Soundscape: ${AudioSystem.mood||"city ambience"}.`;};
+      vol.oninput=()=>AudioSystem.setMusicVolume(Number(vol.value)/100);
+      const scene=document.getElementById("music-next");if(scene)scene.onclick=()=>{if(status)status.textContent=`Current soundscape: ${AudioSystem.mood||"city ambience"}. It changes automatically as you move.`;};
+    }).catch(()=>{});
+  }
 
   /* ── INVENTORY ──────────────────────────────────────── */
   _renderInv(){
     const el = document.getElementById("invlist");
     if (!el) return;
     const inv = window.__ph3d_inv;
-    if (!inv || !inv.items.length) {
-      el.innerHTML = '<div class="tempty">Your inventory is empty.<br/>Pick up items with E / Take.</div>';
+    const items = inv && Array.isArray(inv.items) ? inv.items : [];
+    if (!items.length) {
+      el.innerHTML = '<header class="inventory-head"><span>POCKET STORAGE</span><h2>Your carry bag</h2><p>Items you collect in the city appear here.</p></header><div class="inventory-empty"><i class="fa-solid fa-box-open"></i><b>Nothing in your bag</b><span>Pick up items around the city with E / Take.</span></div>';
       return;
     }
-    let h = `<div style="font-size:10px;letter-spacing:.22em;color:rgba(244,244,244,.55);font-weight:800;margin:8px 0 10px">Carrying</div>`;
-    inv.items.forEach(it => {
-      h += `<div class="ttx">
-        <div><div class="who">${it.name}</div>
-          <div class="when">${it.type}</div></div>
-        <div class="r">${it.qty || 1}×</div>
-      </div>`;
-    });
-    el.innerHTML = h;
+    const total=items.reduce((a,it)=>a+(Number(it.qty)||1),0);
+    el.innerHTML=`<header class="inventory-head"><span>POCKET STORAGE</span><h2>Your carry bag</h2><p>${total} item units · ${items.length} item types</p><div class="inventory-capacity"><i style="width:${Math.min(100,items.length/8*100)}%"></i></div><small>${items.length} / 8 slots used</small></header><div class="inventory-grid">${items.map((it,i)=>`<button class="inventory-item" data-item-index="${i}"><span class="inventory-item-icon"><i class="fa-solid ${/food|drink/i.test(it.type||"")?"fa-apple-whole":/tool/i.test(it.type||"")?"fa-screwdriver-wrench":"fa-cube"}"></i></span><b>${String(it.name||"Item").replace(/[<>&]/g,"")}</b><small>${String(it.type||"Miscellaneous").replace(/[<>&]/g,"")}</small><em>×${it.qty||1}</em></button>`).join("")}</div><div class="inventory-detail" id="inventory-detail">Select an item to inspect its details.</div>`;
+    el.querySelectorAll("[data-item-index]").forEach(b=>b.onclick=()=>{const it=items[Number(b.dataset.itemIndex)];const d=el.querySelector("#inventory-detail");if(d)d.innerHTML=`<b>${String(it.name||"Item").replace(/[<>&]/g,"")}</b><span>${String(it.type||"Item").replace(/[<>&]/g,"")}</span><small>Quantity: ${it.qty||1}</small>`;el.querySelectorAll(".inventory-item").forEach(x=>x.classList.toggle("selected",x===b));});
   }
 
   /* ── receipt ────────────────────────────────────────── */

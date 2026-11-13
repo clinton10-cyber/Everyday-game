@@ -7,6 +7,8 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { createPlaneNPCs } from "../../core/plane-npcs.js";
+import { Economy } from "../../core/economy.js";
 import meta from "./meta.js";
 
 function buildTerminal(router) {
@@ -357,6 +359,15 @@ function buildTerminal(router) {
     collider(-18, -15.9, -57, -47);
   }
 
+  /* Boarding gate A04: a staffed gate desk and clear passenger queue. */
+  box(2.8, 1.08, 1.15, 12.4, 0, -52, M.blueDark);
+  box(2.95, 0.12, 1.25, 12.4, 1.08, -52, M.white);
+  box(0.16, 0.72, 0.12, 11.25, 1.2, -52, M.green);
+  box(0.16, 0.72, 0.12, 13.55, 1.2, -52, M.green);
+  box(2.3, 0.28, 0.08, 12.4, 2.15, -52, M.blue);
+  box(2.0, 0.12, 0.06, 12.4, 2.18, -52, M.light);
+  collider(10.8, 14.0, -53.0, -51.0);
+
   /* Hanging signs */
   const signColors = [M.blue, M.red, M.green];
   for (let i = 0; i < 6; i++) {
@@ -474,10 +485,19 @@ function buildTerminal(router) {
     collidersTp.push({ minX: c.x0, maxX: c.x1, minZ: c.z0, maxZ: c.z1, level: 0 });
   }
 
+  const flightKey = "ph3d.airport.flight.v1";
+  const readFlight = () => { try { return JSON.parse(localStorage.getItem(flightKey) || "null"); } catch (_) { return null; } };
+  const saveFlight = (v) => { try { localStorage.setItem(flightKey, JSON.stringify(v)); } catch (_) {} };
+  let flight = readFlight();
+  const uses = [
+    { kind: "flight_checkin", label: "CHECK IN · GET BOARDING PASS", x: -14.25, z: 19.2, y: 0, level: 0, r: 2.1 },
+    { kind: "flight_security", label: "AIRPORT SECURITY SCREENING", x: -6.0, z: -11.3, y: 0, level: 0, r: 1.9 },
+    { kind: "flight_gate", label: "GATE A04 · BOARD FLIGHT", x: 12.2, z: -49.8, y: 0, level: 0, r: 2.1 },
+  ];
   const world = {
     colliders: collidersTp,
     seats: seats,
-    uses: [],
+    uses,
     platforms: [],
     levelHeight: () => 0,
     bounds: { minX: -HW + 1.0, maxX: HW - 1.0, minZ: -HL + 1.2, maxZ: HL - 1.2 },
@@ -488,8 +508,37 @@ function buildTerminal(router) {
     x: 0, z: 50, yaw: 0, level: 0,
     speedMult: 1.0,
     onUse: (use) => {
-      if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE");
+      const toast = (msg) => window.__ph3d_phone && window.__ph3d_phone._toast(msg);
+      if (use.kind === "flight_checkin") {
+        if (flight && flight.checkedIn && !flight.departed) { toast(`BOARDING PASS ${flight.code} · ${flight.from} → ${flight.to}. Proceed to security.`); return; }
+        const fare = 25000;
+        if (Economy.balance < fare || !Economy.withdraw(fare)) { toast("CHECK-IN: ₦25,000 ticket fare required. Visit Everyday Pay to check your balance."); return; }
+        flight = { code: "GA" + String(200 + Math.floor(Math.random() * 700)), airline: "GARDEN AIR", from: "PORT HARCOURT", to: "LAGOS", gate: "A04", fare, checkedIn: true, securityCleared: false, boarded: false, createdAt: Date.now() };
+        saveFlight(flight);
+        toast(`CHECK-IN COMPLETE · ${flight.code} · PORT HARCOURT → LAGOS · GATE A04. Collect your boarding pass and proceed to security.`);
+      } else if (use.kind === "flight_security") {
+        if (!flight || !flight.checkedIn || flight.departed) { toast("SECURITY: Check in and collect a boarding pass first."); return; }
+        if (flight.securityCleared) { toast("SECURITY CLEARED · Proceed to Gate A04."); return; }
+        flight.securityCleared = true; saveFlight(flight);
+        toast("SECURITY CLEARED · ID and cabin baggage checked. Proceed to Gate A04 for boarding.");
+      } else if (use.kind === "flight_gate") {
+        if (!flight || !flight.checkedIn || !flight.securityCleared || flight.departed) { toast("GATE A04: Complete check-in and security screening before boarding."); return; }
+        flight.boarded = true; flight.departed = true; saveFlight(flight);
+        toast("BOARDING NOW · Garden Air " + flight.code + " · Follow the crew onto the aircraft.");
+        setTimeout(() => router.go("airplane", { flight }), 850);
+      }
     },
+  });
+
+  const terminalNPCs = createPlaneNPCs({
+    scene, floorY: 0, colliders: collidersTp,
+    bounds: world.bounds,
+    spawn: [
+      { minX: -11.5, maxX: -9.0, minZ: -48, maxZ: 46 },
+      { minX: 8.0, maxX: 10.5, minZ: -43, maxZ: 45 },
+    ],
+    count: 12, speed: 1.05,
+    getPlayer: () => ({ x: ctl.pos.x, z: ctl.pos.z }),
   });
 
   return {
@@ -502,8 +551,8 @@ function buildTerminal(router) {
   hint: "",
   isInterior: true,
   sceneId: "airport",
-  update: (dt) => { ctl.update(dt); },
-  dispose: () => { ctl.dispose(); },
+  update: (dt) => { ctl.update(dt); terminalNPCs.update(dt); },
+  dispose: () => { terminalNPCs.dispose(); ctl.dispose(); },
 };
 }
 

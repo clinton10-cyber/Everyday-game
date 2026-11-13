@@ -31,6 +31,12 @@ const SEAT_LERP_SPEED = 6.0;
 const SEAT_SNAP_SPEED = 9.0;
 const HEAD_CLEARANCE = 1.72;
 
+function worldCeilingHeight(world, level) {
+  if (!world) return 0;
+  const value = world.ceilingHeight;
+  return typeof value === "function" ? (Number(value(level)) || 0) : (Number(value) || 0);
+}
+
 const USE_BEND = {
   wash: 0.35, cook: 0.25, fridge: 0.20, mirror: 0.10,
   shower: 0.15, run: 0.10, lift: 0.20, read: 0.10, play: 0.20,
@@ -235,7 +241,14 @@ export class ThirdPersonControls {
       if (it) PA.use(this, it);
     });
     this._dropItemBtn = mkItemBtn("ph3d-drop-item", "DROP", () => {
-      const PA = window.__ph3d_playerActions; if (PA) PA.drop(this);
+      const PA = window.__ph3d_playerActions;
+      if (PA && PA.heldItem?.()) PA.drop(this);
+      else if (this.held) this.dropHeld(false);
+    });
+    this._throwItemBtn = mkItemBtn("ph3d-throw-item", "THROW", () => {
+      const PA = window.__ph3d_playerActions;
+      if (PA && PA.heldItem?.()) PA.throw(this);
+      else if (this.held) this.dropHeld(true);
     });
 
     const oldMenu = document.getElementById("ph3d-menu-btn"); oldMenu && oldMenu.remove();
@@ -476,7 +489,10 @@ export class ThirdPersonControls {
     this._kd = e => {
       this.keys[e.code] = true;
       if (e.code === "KeyE") this.triggerAction();
-      if (e.code === "KeyQ" && this.held) this.dropHeld(true);
+      if (e.code === "KeyQ") {
+        if (this.held) this.dropHeld(true);
+        else { const PA = window.__ph3d_playerActions; if (PA && PA.heldItem?.()) PA.throw(this); }
+      }
       if (e.code === "KeyF") {
         if (this.weapons.isArmed()) this.weapons.attack(this._getWeaponTargets());
         else this._lie();
@@ -820,9 +836,11 @@ export class ThirdPersonControls {
 
   _ub() {
     const PA = window.__ph3d_playerActions;
-    const hasItem = !!(PA && PA._held && PA._held.mesh);
-    if (this._useItemBtn) this._useItemBtn.style.display = hasItem ? "block" : "none";
+    const hasWorldItem = !!(PA && PA._held && PA._held.mesh);
+    const hasItem = hasWorldItem || !!this.held;
+    if (this._useItemBtn) this._useItemBtn.style.display = hasWorldItem ? "block" : "none";
     if (this._dropItemBtn) this._dropItemBtn.style.display = hasItem ? "block" : "none";
+    if (this._throwItemBtn) this._throwItemBtn.style.display = hasItem ? "block" : "none";
     const b = this._b; if (!b) return;
     /* HUD CSS reads data-state; no inline colours here */
     let t = "", ds = "default";
@@ -853,12 +871,13 @@ export class ThirdPersonControls {
     const lh = this.world.levelHeight ? this.world.levelHeight(this.level) : 0;
     this._jetBase = lh;
     let ceil = Infinity;
-    if (this.world.ceilingHeight) ceil = lh + this.world.ceilingHeight - 0.05;
+    const ceilingHeight = worldCeilingHeight(this.world, this.level);
+    if (ceilingHeight) ceil = lh + ceilingHeight - 0.05;
     else ceil = lh + 80;
     if (this.jet.on && !this.onGround && ((this._rcFrame = (this._rcFrame + 1) % 3) === 0)) {
       const h = this._meshRay(this.pos.x, this.floorY + 1.7, this.pos.z, 0, 1, 0, 90);
       this._jetCeilY = h ? h.point.y : Infinity;
-      if (!this.world.ceilingHeight) {
+      if (!ceilingHeight) {
         const d = this._meshRay(this.pos.x, this.floorY + 0.6, this.pos.z, 0, -1, 0, 4);
         this._jetFloorY = d && d.point.y > gi.y + 0.05 ? d.point.y : -Infinity;
       }
@@ -1049,11 +1068,13 @@ this.moving = this._movingTimer > 0;
       }
     } else {
       const speedMult = (this.opts.speedMult || 1) * (window.__ph3d_moveSpeed || 1) * (this.rig && this.rig._carryPose ? 0.86 : 1);   /* carrying an infant: a bit slower */
+      const swimming = !!(this.world && typeof this.world.isSwimming === "function" && this.world.isSwimming(this.pos.x, this.pos.z));
+      this._swimming = swimming;
       const baseWalk = this.driveFeel ? DRIVE_WALK : WALK;
       const baseRun = this.driveFeel ? DRIVE_WALK * DRIVE_RUN_MULT : RUN;
-      let speed = baseWalk * speedMult;
-      if (this.state === "crouching") speed = CROUCH_SP;
-      else if (this.running) speed = baseRun * speedMult;
+      let speed = baseWalk * speedMult * (swimming ? (this._lifeJacketOn ? 0.70 : 0.58) : 1);
+      if (this.state === "crouching") speed = CROUCH_SP * (swimming ? 0.7 : 1);
+      else if (this.running && !swimming) speed = baseRun * speedMult;
       if (this.jet && this.jet.on && !this.onGround) speed *= 2.8;   /* jetpack flight is much faster than walking */
       const gunOut = this.weapons &&
         (this.weapons.current === "pistol" || this.weapons.current === "sniper" || this.weapons.current === "bazooka");
@@ -1077,6 +1098,7 @@ this.moving = this._movingTimer > 0;
         this.pos.x = nx; this.pos.z = nz;
       }
       const gi = this._groundInfo(this.pos.x, this.pos.z, this.level, this.floorY);
+      if (this._swimming) { gi.y = Math.max(-0.28, Math.min(-0.12, gi.y)); gi.onStairs = false; }
       this.level = gi.level;
       const _jt = this.jet;
       const _want = _jt.on && (_jt.thrust || this.keys.Space) && _jt.fuel > 0;
@@ -1186,11 +1208,12 @@ this._lastVy = vyBeforeSnap;
       avX += Math.sin(this.yaw) * 0.04; avZ += Math.cos(this.yaw) * 0.04;
     }
     {
-      const tl = this._tiltNow || 0;
+      const swimBob = this._swimming ? Math.sin(performance.now() * 0.0045) * 0.055 : 0;
+      const tl = (this._tiltNow || 0) + (this._swimming ? -0.22 : 0);
       this.avatar.rotation.order = "YXZ";
       this.avatar.rotation.x = tl;
       const HP = 1.0, c = Math.cos(tl), sn = Math.sin(tl);
-      this.avatar.position.set(avX - Math.sin(this.yaw) * HP * sn, this.floorY + HP * (1 - c), avZ - Math.cos(this.yaw) * HP * sn);
+      this.avatar.position.set(avX - Math.sin(this.yaw) * HP * sn, this.floorY + HP * (1 - c) + swimBob, avZ - Math.cos(this.yaw) * HP * sn);
     }
     this.avatar.rotation.y = this.yaw;
 
@@ -1316,9 +1339,10 @@ _updateCamera(dt, snap) {
   }
 
   /* #18 #20 — hard ceiling clamp (fixes mansion upstairs AND low interior walls) */
-  if (this.world && this.world.ceilingHeight) {
+  const activeCeilingHeight = worldCeilingHeight(this.world, this.level);
+  if (activeCeilingHeight) {
     const floorTop = baseY;
-    const absoluteCeiling = floorTop + this.world.ceilingHeight - 0.28;
+    const absoluteCeiling = floorTop + activeCeilingHeight - 0.28;
     if (camPos.y > absoluteCeiling) camPos.y = absoluteCeiling;
   }
 
@@ -1351,7 +1375,7 @@ _updateCamera(dt, snap) {
   }
 
   /* flying: never let the camera poke above a roof/ceiling directly over it */
-  if (flyCam && !this.world.ceilingHeight && this._jetCeilY < Infinity && camPos.y > this._jetCeilY - 0.3) camPos.y = Math.max(targetPos.y, this._jetCeilY - 0.3);
+  if (flyCam && !worldCeilingHeight(this.world, this.level) && this._jetCeilY < Infinity && camPos.y > this._jetCeilY - 0.3) camPos.y = Math.max(targetPos.y, this._jetCeilY - 0.3);
   if (flyCam) { const dv = camPos.clone().sub(targetPos), L = dv.length(); if (L > 0.05) { dv.divideScalar(L); const mh = this._meshRay(targetPos.x, targetPos.y, targetPos.z, dv.x, dv.y, dv.z, L + 0.2); if (mh && mh.point.y > baseY + 1.2 && mh.distance < L + 0.2) camPos.copy(targetPos).addScaledVector(dv, Math.max(0.5, mh.distance - 0.25)); } }
   /* never let the camera dip under terrain (beach dunes) */
   if (this.world.groundAt) { const gy = this.world.groundAt(camPos.x, camPos.z) + 0.3; if (camPos.y < gy) camPos.y = gy; }
@@ -1362,8 +1386,9 @@ _updateCamera(dt, snap) {
     const hd = camPos.distanceTo(targetPos);
     if (!seated && hd < 1.2) {
       camPos.set(targetPos.x - dir.x * 0.6, targetPos.y + 1.7, targetPos.z - dir.z * 0.6);
-      if (this.world && this.world.ceilingHeight) {
-        const cap = baseY + this.world.ceilingHeight - 0.2;
+      const activeCeilingHeight = worldCeilingHeight(this.world, this.level);
+      if (activeCeilingHeight) {
+        const cap = baseY + activeCeilingHeight - 0.2;
         if (camPos.y > cap) camPos.y = cap;
       }
     }

@@ -364,20 +364,22 @@ export const WorldObjects = {
     }
   },
 
-  /** Drop a currently held world object with a short physical fall and bounce. */
-  drop(item, x, z) {
+  /** Drop an object at the current floor height with a short, damped fall. */
+  drop(item, x, z, groundY = 0) {
     if (!item || !_scene) return false;
+    groundY = Number.isFinite(groundY) ? groundY : 0;
     try { window.__ph3d_sfx && window.__ph3d_sfx.dropSound(item, x, z, false); } catch (e) {}
     item.taken = false;
     item.holder = null;
     item.dropped = true;
+    item.groundY = groundY;
     item.x = x; item.z = z;
     if (item.mesh) {
       if (item.mesh.parent) item.mesh.parent.remove(item.mesh);
-      item.mesh.position.set(x, 0.95, z);
+      item.mesh.position.set(x, groundY + 0.85, z);
       item.mesh.rotation.set(0, 0, 0);
       _scene.add(item.mesh);
-      item.physics = { vx: 0, vy: 0.7, vz: 0, bounce: 0 };
+      item.physics = { vx: 0, vy: 0.9, vz: 0, gravity: 13.5, bounce: 0, groundY, spin: 0.8 };
     }
     if (!_items.includes(item)) _items.push(item);
     return true;
@@ -410,7 +412,8 @@ export const WorldObjects = {
     const glow = _makeGlow();
     glow.visible = false;
     mesh.add(glow);
-    mesh.position.set(x, 0.92, z);
+    const groundY = Number.isFinite(actor && actor.floorY) ? actor.floorY : 0;
+    mesh.position.set(x, groundY + 0.92, z);
     mesh.rotation.set(0, yaw, 0);
     mesh.scale.setScalar(0.82);
     mesh.userData = mesh.userData || {};
@@ -419,8 +422,8 @@ export const WorldObjects = {
       id, type: slot.id, x, z, mesh, glow, taken: false, holder: null,
       label: slot.name || slot.id.replace(/_/g, " ").toUpperCase(),
       icon: slot.icon || "ITEM", use: slot.desc || "Pick up this item.",
-      dropped: true,
-      physics: { vx: Math.sin(yaw) * 0.35, vy: 0.8, vz: Math.cos(yaw) * 0.35, bounce: 0 },
+      dropped: true, groundY,
+      physics: { vx: Math.sin(yaw) * 0.35, vy: 0.8, vz: Math.cos(yaw) * 0.35, gravity: 13.5, groundY, bounce: 0, restitution: 0.18, spin: 1.4 },
     };
     mesh.userData._item = item;
     _scene.add(mesh);
@@ -429,48 +432,44 @@ export const WorldObjects = {
     return item;
   },
 
-  /** Throw an item toward a target (basic arc; disappears on landing) */
+  /** Throw an object with a ballistic arc, weight-aware range and bounce. */
   throw(item, tx, tz, holder) {
-    if (!item) return;
-    item.taken = false;
-    item.dropped = true;
-    const startX = holder?.x ?? 0;
-    const startZ = holder?.z ?? 0;
-    item.x = tx; item.z = tz;
-    // Animate across frames
-    let t = 0;
-    const duration = 0.55;
-    const tick = (dt) => {
-      if (!item.mesh) return;
-      t += dt;
-      const p = Math.min(t / duration, 1);
-      item.mesh.position.x = startX + (tx - startX) * p;
-      item.mesh.position.y = Math.sin(p * Math.PI) * 3.5;
-      item.mesh.position.z = startZ + (tz - startZ) * p;
-      item.mesh.rotation.x += dt * 8;
-      if (p >= 1) {
-        item.mesh.position.y = 0.05;
-        if (_scene && !item.mesh.parent) _scene.add(item.mesh);
-        return;
-      }
-      // Will be called externally from the game loop via WorldObjects.tickThrows()
+    if (!item || !_scene || !item.mesh) return false;
+    const mesh = item.mesh;
+    const start = new THREE.Vector3();
+    mesh.getWorldPosition(start);
+    if (mesh.parent) mesh.parent.remove(mesh);
+    _scene.add(mesh);
+    mesh.position.copy(start);
+    const yaw = Number.isFinite(holder?.yaw) ? holder.yaw : 0;
+    const groundY = Number.isFinite(holder?.floorY) ? holder.floorY : (Number.isFinite(item.groundY) ? item.groundY : 0);
+    const type = item.type || "";
+    const heavy = type === "crate" || type === "dumbbell" || type === "bag";
+    const fragile = type === "bottle" || type === "phone";
+    const speed = heavy ? 3.6 : (fragile ? 6.2 : 5.2);
+    item.taken = false; item.holder = null; item.dropped = true; item.groundY = groundY;
+    item.x = start.x; item.z = start.z;
+    mesh.userData = mesh.userData || {};
+    mesh.userData._inHand = false;
+    mesh.userData._hands = 1;
+    item.physics = {
+      vx: Math.sin(yaw) * speed,
+      vy: heavy ? 2.8 : 4.4,
+      vz: Math.cos(yaw) * speed,
+      gravity: 12.5,
+      groundY,
+      bounce: 0,
+      spin: fragile ? 10 : 6,
+      restitution: heavy ? 0.12 : (fragile ? 0.28 : 0.20),
     };
-    item._throwTick = tick;
-    if (_scene && !item.mesh.parent) _scene.add(item.mesh);
+    if (!_items.includes(item)) _items.push(item);
+    try { window.__ph3d_sfx && window.__ph3d_sfx.dropSound(item, start.x, start.z, true); } catch (e) {}
+    return true;
   },
 
   tickThrows(dt) {
-    for (const item of _items) {
-      if (item._throwTick) {
-        item._throwTick(dt);
-        if (!item._throwTick._done) {
-          // after a second call reset
-          const origTick = item._throwTick;
-          let done = false;
-          item._throwTick = (d) => { if (done) { item._throwTick = null; return; } done = true; origTick(d); };
-        }
-      }
-    }
+    // Kept as a compatibility hook; all thrown and dropped object motion is
+    // integrated in tick() so it runs exactly once per rendered frame.
   },
 
   /** Remove item permanently */
@@ -488,29 +487,41 @@ export const WorldObjects = {
     for (const item of _items) {
       if (item.taken) continue;
       const ddx = item.x - playerX, ddz = item.z - playerZ;
-      if (ddx * ddx + ddz * ddz > R2) continue;
-      // Dropped pocket items and hand-held props fall, bounce once, then settle.
+      const nearby = ddx * ddx + ddz * ddz <= R2;
+      // Physics continues even when an object travels beyond the nearby
+      // interaction radius; only decorative idle animation is distance-culled.
       if (item.mesh && item.physics) {
         const ph = item.physics;
-        ph.vy -= 13.5 * dt;
-        item.mesh.position.x += ph.vx * dt;
-        item.mesh.position.y += ph.vy * dt;
-        item.mesh.position.z += ph.vz * dt;
-        item.mesh.rotation.y += dt * 1.2;
+        const step = Math.min(dt, 0.05);
+        ph.vy -= (ph.gravity || 13.5) * step;
+        item.mesh.position.x += ph.vx * step;
+        item.mesh.position.y += ph.vy * step;
+        item.mesh.position.z += ph.vz * step;
+        const spin = ph.spin || 1.2;
+        item.mesh.rotation.x += step * spin;
+        item.mesh.rotation.z += step * spin * 0.35;
+        // Air drag and ground friction make light objects travel further.
+        ph.vx *= Math.pow(0.992, step * 60);
+        ph.vz *= Math.pow(0.992, step * 60);
         item.x = item.mesh.position.x; item.z = item.mesh.position.z;
-        if (item.mesh.position.y <= 0.05) {
-          item.mesh.position.y = 0.05;
-          if (!ph.bounce && Math.abs(ph.vy) > 1.25) {
-            ph.vy = Math.abs(ph.vy) * 0.22;
-            ph.vx *= 0.42; ph.vz *= 0.42; ph.bounce = 1;
+        const floor = (Number.isFinite(ph.groundY) ? ph.groundY : 0) + 0.05;
+        if (item.mesh.position.y <= floor) {
+          item.mesh.position.y = floor;
+          const impact = Math.abs(ph.vy);
+          if (impact > 1.0 && ph.bounce < 2) {
+            ph.vy = impact * (ph.restitution || 0.20);
+            ph.vx *= 0.62; ph.vz *= 0.62; ph.bounce++;
           } else {
             item.physics = null;
             item.mesh.rotation.x = 0; item.mesh.rotation.z = 0;
+            item.mesh.rotation.y = Math.round(item.mesh.rotation.y / (Math.PI / 2)) * (Math.PI / 2);
           }
         }
+      } else if (!nearby) {
+        continue;
       } else if (item.mesh && item.dropped) {
-        // Dropped inventory items stay exactly where they landed; only world-spawned pickups bob.
-        item.mesh.position.y = 0.05;
+        // Dropped objects remain at their resting point.
+        item.mesh.position.y = (Number.isFinite(item.groundY) ? item.groundY : 0) + 0.05;
       } else if (item.mesh) {
         item.mesh.position.y = 0.05 + Math.sin(Date.now() * 0.002 + item.x) * 0.025;
         item.mesh.rotation.y += dt * 0.16;
