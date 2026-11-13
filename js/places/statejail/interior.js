@@ -480,10 +480,11 @@ export async function buildInterior(router) {
     box(1.4,.08,.8,-6+i*6,H2-.08,11.5,glow(0xeaf2ff));
 
   /* ================= OUTER SAFETY BOUNDS ================= */
-  solid.push({x:0,z:-D/2+.25,hw:W/2,hd:.1});
-  solid.push({x:0,z:D/2-.25,hw:W/2,hd:.1});
-  solid.push({x:-W/2+.25,z:0,hw:.1,hd:D/2});
-  solid.push({x:W/2-.25,z:0,hw:.1,hd:D/2});
+  /* thick safety bounds so fast movement / frame hitches cannot tunnel through */
+  solid.push({x:0,z:-D/2+.25,hw:W/2,hd:.45});
+  solid.push({x:0,z:D/2-.25,hw:W/2,hd:.45});
+  solid.push({x:-W/2+.25,z:0,hw:.45,hd:D/2});
+  solid.push({x:W/2-.25,z:0,hw:.45,hd:D/2});
   /* ======== game glue ======== */
   camera.fov = 95; camera.updateProjectionMatrix();
   const __cols = [];
@@ -520,7 +521,7 @@ export async function buildInterior(router) {
     onUse: (use) => {
       if (use && use.kind === "exit") {
         const P = window.__ph3d_prison;
-        if (P && P.inJail) {
+        if (P && (P.inJail || (P.timeLeft || 0) > 0)) {
           if (window.__ph3d_phone) window.__ph3d_phone._toast("You must serve your sentence or pay bail.");
           return;
         }
@@ -542,7 +543,9 @@ export async function buildInterior(router) {
     isInterior: true,
     sceneId: "statejail",
     update: (dt) => {
-      ctl.update(dt);
+      /* sub-step so a lag spike cannot carry the player through thin walls/bars */
+      let r = Math.min(dt, 0.25);
+      while (r > 1e-6) { const t = Math.min(r, 1 / 60); ctl.update(t); r -= t; }
     },
     dispose: () => ctl.dispose(),
   };
