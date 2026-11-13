@@ -111,6 +111,40 @@ function injectCSS() {
     .tc-typing span:nth-child(2){animation-delay:.15s}
     .tc-typing span:nth-child(3){animation-delay:.3s}
     @keyframes tcDot{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}
+
+    /* ── WhatsApp polish + fit for phones (portrait AND landscape) ── */
+    #tc-sheet{height:min(88vh,720px,calc(100vh - var(--tc-kb,0px) - 6px));height:min(88dvh,720px,calc(100dvh - var(--tc-kb,0px) - 6px));max-width:100vw}
+    #tc-header{padding-top:max(10px,env(safe-area-inset-top,0px))}
+    #tc-messages{min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+      background-color:#ECE5DD;
+      background-image:radial-gradient(rgba(7,94,84,.07) 1.2px,transparent 1.4px),radial-gradient(rgba(7,94,84,.05) 1px,transparent 1.2px);
+      background-size:22px 22px,34px 34px;background-position:0 0,11px 11px}
+    .tc-bubble{min-width:64px;padding:6px 10px 17px 9px;font-size:14px;overflow-wrap:anywhere;word-break:normal}
+    .tc-row.npc .tc-bubble::before{content:"";position:absolute;top:0;left:-6px;border:6px solid transparent;border-top-color:#fff;border-right-color:#fff}
+    .tc-row.me .tc-bubble::before{content:"";position:absolute;top:0;right:-6px;border:6px solid transparent;border-top-color:#DCF8C6;border-left-color:#DCF8C6}
+    #tc-input-bar{align-items:center}
+    #tc-input{height:auto;min-height:20px;font-size:16px}
+    .tc-icon-btn{width:42px;height:42px;touch-action:manipulation}
+    #tc-send{box-shadow:0 1px 3px rgba(0,0,0,.25)}
+    #tc-quick button{min-height:34px;touch-action:manipulation}
+    #tc-sheet *{-webkit-tap-highlight-color:transparent}
+    /* landscape phones: the sheet becomes a full-height WhatsApp pane so messages have room */
+    @media (orientation:landscape) and (max-height:560px){
+      #tc-sheet{width:min(100vw,560px);height:100vh;height:100dvh;border-radius:0;bottom:0}
+      #tc-header{padding:4px 10px;padding-left:max(10px,env(safe-area-inset-left,0px))}
+      .tc-avatar{width:32px;height:32px;font-size:16px}
+      .tc-name{font-size:14px}.tc-status{font-size:10.5px}
+      #tc-rel{padding:3px 12px;font-size:9.5px}
+      #tc-messages{padding:6px 8px 4px}
+      .tc-bubble{font-size:13px;padding:5px 9px 15px 8px}
+      #tc-quick{padding:4px 8px}#tc-quick button{padding:5px 10px;font-size:11px;min-height:28px}
+      #tc-input-bar{padding:4px 8px calc(env(safe-area-inset-bottom,0px) + 4px)}
+      .tc-icon-btn{width:36px;height:36px;font-size:17px}
+      #tc-input{padding:8px 12px}
+      #tc-emoji-picker{padding:4px 8px;max-height:96px;overflow-y:auto}
+      #tc-emoji-picker button{width:34px;height:34px;font-size:19px}
+    }
+    @media (max-width:360px){#tc-sheet{width:100vw;border-radius:14px 14px 0 0}.tc-bubble{max-width:84%}}
   `;
   document.head.appendChild(s);
 }

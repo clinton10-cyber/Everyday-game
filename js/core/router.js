@@ -171,6 +171,7 @@ export class Router {
     }
     scene._routeName = name; scene._routeParams = params;
     this.current = scene;
+    try { window.dispatchEvent(new CustomEvent("ph3d:scene-enter", { detail: { name, id: (params && params.id) || name } })); } catch (e) {}
     try {
       if (window.__ph3d_mp) window.__ph3d_mp.scene = name;
     } catch (e) {}
