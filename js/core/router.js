@@ -119,7 +119,7 @@ export class Router {
        __release__ sentinel) may be routed to. */
     try {
       const Pr = window.__ph3d_prison;
-      if (Pr && Pr.inJail && Pr.canLeaveTo && !Pr.canLeaveTo(name)) {
+      if (Pr && Pr.inJail && Pr.canLeaveTo && !Pr.canLeaveTo(name, params)) {
         try { window.__ph3d_phone && window.__ph3d_phone._toast("Serve your sentence or pay bail."); } catch (e) {}
         return null;
       }

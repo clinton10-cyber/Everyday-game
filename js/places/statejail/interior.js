@@ -189,16 +189,16 @@ export async function buildInterior(router) {
     function furnish(yb){
       const bx = xc - dir*0.55;
       /* bunk bed frame */
-      box(1.0,.12,1.9,bx,yb+.55,zc-.45,steel,{solid:true});
-      box(.95,.22,1.85,bx,yb+.72,zc-.45,mat(0x5a6070));
-      box(.5,.14,.3,bx,yb+.9,zc-1.1,white);
+      box(1.0,.12,1.9,bx,yb+.55,zc+.55,steel,{solid:true});
+      box(.95,.22,1.85,bx,yb+.72,zc+.55,mat(0x5a6070));
+      box(.5,.14,.3,bx,yb+.9,zc-.1,white);
       /* blanket */
-      box(.95,.06,1.1,bx,yb+.82,zc-.05,orange);
+      box(.95,.06,1.1,bx,yb+.82,zc+.95,orange);
       /* legs */
       [[-.45,-.85],[.45,-.85],[-.45,.35],[.45,.35]].forEach(p=>
-        box(.07,.55,.07,bx+p[0],yb+.28,zc-.45+p[1],steel));
+        box(.07,.55,.07,bx+p[0],yb+.28,zc+.55+p[1],steel));
       const lvl = yb>0 ? 1 : 0;
-      seats.push({ type: "lie", label: "LIE DOWN", x: bx, z: zc-.45, yaw: 0, h: 0.72+yb, level: lvl, taken: false });
+      seats.push({ type: "lie", label: "LIE DOWN", x: bx, z: zc+.55, yaw: 0, h: 0.72+yb, level: lvl, taken: false });
       /* toilet */
       cyl(.24,.42,xc+dir*1.05,yb+.21,zc+1.1,white);
       box(.5,.28,.18,xc+dir*1.15,yb+.42,zc+1.28,white);
@@ -208,8 +208,8 @@ export async function buildInterior(router) {
       cyl(.045,.28,xc+dir*1.1,yb+1.0,zc+0.2,steel);
       uses.push({ kind: "sink", label: "WASH", x: xc+dir*1.1, z: zc+0.35, y: yb, level: lvl, r: 1.2 });
       /* stool */
-      box(.38,.06,.38,xc-dir*0.2,yb+.45,zc+0.9,woodM);
-      seats.push({ type: "sit", label: "SIT", x: xc-dir*0.2, z: zc+0.9, yaw: 0, h: 0.45+yb, level: lvl, taken: false });
+      box(.38,.06,.38,xc+dir*1.1,yb+.45,zc-0.9,woodM);
+      seats.push({ type: "sit", label: "SIT", x: xc+dir*1.1, z: zc-0.9, yaw: 0, h: 0.45+yb, level: lvl, taken: false });
       /* wall scratch / notice */
       box(.5,.35,.03,xc+dir*1.44,yb+1.9,zc-.2,mat(0xd8d4c8));
     }
@@ -573,6 +573,17 @@ export async function buildInterior(router) {
     }
   }
 
+  /* Story link: a sentenced player is booked straight into a cell and locked in. */
+  const __P0 = window.__ph3d_prison;
+  if (__P0 && __P0.inJail) {
+    const cands = doors.filter(d => d.lvl === 0);
+    const d0 = cands[Math.floor(Math.random() * cands.length)];
+    if (d0) {
+      START.x = d0.xFront + d0.dir * 2.0; START.z = d0.zc - 0.6;
+      START.yaw = d0.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+      d0.locked = true; d0.armed = false; d0.lockedAt = 0;
+    }
+  }
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, __world, {
     scene, x: START.x, z: START.z, yaw: Math.PI + (START.yaw || 0), level: 0,
     onUse: (use) => {

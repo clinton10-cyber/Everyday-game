@@ -107,20 +107,22 @@ export const Prison = {
 
   /* Router asks this before every navigation.  While serving, only the
      prison scene itself and the __release__ sentinel are allowed. */
-  canLeaveTo(targetName) {
+  canLeaveTo(targetName, params) {
     if (!this.inJail) return true;
+    /* A prisoner with a scheduled hearing may be escorted to the courthouse. */
+    if (this.courtEscort && targetName === "interior" && params && params.id === "courthouse") return true;
     return targetName === "prisonScene" || targetName === "__release__";
   },
 
   release() {
     const wasJailed = this.inJail;
-    this.inJail = false; this.timeLeft = 0; this.reason = "";
+    this.inJail = false; this.timeLeft = 0; this.reason = ""; this.courtEscort = false;
     _restoreClothes();
     try { localStorage.removeItem(JAIL_STATE_KEY); } catch (e) {}
     /* Walk out through the sentinel, which the router sends to the city. */
     try {
       const r = window.__ph3d_router;
-      if (wasJailed && r && r.current && r.current.sceneId === "statejail") {
+      if (wasJailed && r && r.current && (r.current.sceneId === "statejail" || r.current.sceneId === "courthouse")) {
         r.go("__release__");
       }
     } catch (e) {}

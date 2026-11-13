@@ -17,3 +17,11 @@
 - Doors open automatically as you approach; once you step inside the cell the door closes and LOCKS (light turns red, "CELL DOOR LOCKED").
 - Prisoners stay locked in until their sentence ends or bail is paid. Visitors who walk in are let out by the guard after ~2.5s.
 - Door collision is added/removed live so a closed door is solid.
+
+## Story flow: arrest → cell → court → verdict
+- Sentenced players are booked straight into a random ground-floor cell and locked in.
+- Cell bunks moved away from the doorway (they blocked the entrance, making cells unreachable).
+- From jail, the Justice app's "Visit Courthouse" now works when the case is awaiting court: guards escort you; the lock otherwise still blocks travel.
+- Verdict in court: convicted while jailed → returned to the cell block; acquitted → released and freed; leaving court while jailed → back to the cell.
+- Convicted outside jail → no longer stranded in the courtroom: taken into custody and sent to the cell block.
+- Release while in court now routes to the city.
