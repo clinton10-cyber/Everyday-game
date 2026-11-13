@@ -37,7 +37,7 @@ export function attachCosmeticWings(root) {
   const accent = new THREE.MeshStandardMaterial({ color: mid, roughness: 0.4, metalness: 0.22, emissive: glow, emissiveIntensity: owned === "angel_wings" ? 0.12 : 0.48, side: THREE.DoubleSide });
   for (const side of [-1, 1]) {
     const wing = new THREE.Group(); wing.name = side < 0 ? "left-wing" : "right-wing";
-    wing.position.set(side * 0.19, 1.28, 0.13); wing.rotation.z = side * -0.12;
+    wing.position.set(side * 0.19, 1.28, -0.22); wing.rotation.z = side * -0.12;
     const outline = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 9), mat);
     outline.scale.set(0.78, 1.48, 0.18); outline.rotation.z = side * -0.35; wing.add(outline);
     for (let i=0;i<7;i++) {

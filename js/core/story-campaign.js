@@ -84,11 +84,19 @@ function chip(){
   let el=document.getElementById("ph3d-story-chip");
   if(!el){
     const st=document.createElement("style");
-    st.textContent="#ph3d-story-chip{position:fixed;left:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:26;max-width:min(46vw,260px);padding:6px 10px;border-radius:12px;background:rgba(10,16,13,.78);color:#f3f1e8;border:1px solid rgba(231,186,255,.4);font:700 11px/1.3 Archivo,system-ui,sans-serif;display:none;cursor:pointer;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}#ph3d-story-chip.on{display:block}#ph3d-story-chip small{display:block;color:#e6baff;font-size:9px;letter-spacing:.14em}#ph3d-story-chip.done{border-color:#35d07f}";
+    st.textContent="#ph3d-story-chip{position:fixed;left:var(--h-left,12px);top:calc(env(safe-area-inset-top,0px) + 96px);z-index:24;pointer-events:auto;max-width:min(46vw,260px);padding:6px 10px;border-radius:12px;background:rgba(10,16,13,.78);color:#f3f1e8;border:1px solid rgba(231,186,255,.4);font:700 11px/1.3 Archivo,system-ui,sans-serif;display:none;cursor:pointer;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}#ph3d-story-chip.on{display:block}#ph3d-story-chip small{display:block;color:#e6baff;font-size:9px;letter-spacing:.14em}#ph3d-story-chip.done{border-color:#35d07f}";
     document.head.appendChild(st);
     el=document.createElement("div");el.id="ph3d-story-chip";
     el.onclick=()=>{try{const ph=window.__ph3d_phone;if(ph&&!ph.visible)ph.show();ph?.showApp("story")}catch(_){}};
     document.body.appendChild(el);
+  }
+  /* keep the chip directly under the HUD's top-left block (player card + menu rail) */
+  if(!window.__ph3dChipPlace){
+    window.__ph3dChipPlace=setInterval(()=>{
+      const c=document.getElementById("ph3d-story-chip"),tl=document.getElementById("hud-tl");
+      if(!c||!tl)return; const r=tl.getBoundingClientRect();
+      if(r.height>0)c.style.top=Math.round(r.bottom+8)+"px";
+    },700);
   }
   const m=active();
   if(!m){el.classList.remove("on");return;}
