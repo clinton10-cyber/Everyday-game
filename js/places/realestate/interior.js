@@ -1,6 +1,4 @@
-import * as THREE from "three";
-import { ThirdPersonControls } from "../../core/thirdperson.js";
-import { HousesPanel } from "../../ui/houses-panel.js";
+import * as THREE from "../../../vendor/three/three.module.min.js";
 
 export async function buildInterior(router) {
   const scene = new THREE.Scene();
@@ -311,12 +309,21 @@ export async function buildInterior(router) {
     bounds: { minX: -5.5, maxX: 5.5, minZ: -5.5, maxZ: 5.5 },
   };
 
-  const ctl = new ThirdPersonControls(camera, router.renderer.domElement, world, {
-    scene, x: 0, z: 4, yaw: Math.PI, level: 0,
-    onUse: (use) => {
-      if (use.label === "BUY PROPERTY") HousesPanel.show();
-    },
-  });
+  // Cinematic scenes reuse this exact room geometry without loading the full
+  // gameplay controller dependency tree. Normal gameplay keeps its controls.
+  let ctl = { update() {}, dispose() {} };
+  if (!router?.cinematic) {
+    const [{ ThirdPersonControls }, { HousesPanel }] = await Promise.all([
+      import("../../core/thirdperson.js"),
+      import("../../ui/houses-panel.js"),
+    ]);
+    ctl = new ThirdPersonControls(camera, router.renderer.domElement, world, {
+      scene, x: 0, z: 4, yaw: Math.PI, level: 0,
+      onUse: (use) => {
+        if (use.label === "BUY PROPERTY") HousesPanel.show();
+      },
+    });
+  }
 
   // Throttled glow pulse
   let accum = 0;

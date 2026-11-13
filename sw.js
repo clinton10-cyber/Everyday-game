@@ -7,7 +7,7 @@
               cache-first with background refresh.
    Bump CACHE_VERSION on every release to discard old caches. */
 
-const CACHE_VERSION = "v116";
+const CACHE_VERSION = "v124";
 const SHELL_CACHE   = "ph3d-shell-"   + CACHE_VERSION;
 const RUNTIME_CACHE = "ph3d-runtime-" + CACHE_VERSION;
 

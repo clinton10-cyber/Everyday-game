@@ -7,7 +7,7 @@ export async function buildInterior(router){
  const camera=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.1,120);
  scene.add(new THREE.HemisphereLight(0xfff2d9,0x34313a,1.25));
  const sun=new THREE.DirectionalLight(0xffe6bd,1.15);sun.position.set(-8,18,12);scene.add(sun);
- const W=26,D=32,H=8,world=new THREE.Group();scene.add(world),solid=[],uses=[];
+ const W=26,D=32,H=8,world=new THREE.Group();scene.add(world);const solid=[],uses=[];
  const boxGeo=new THREE.BoxGeometry(1,1,1),cylGeo=new THREE.CylinderGeometry(.5,.5,1,12),sphereGeo=new THREE.SphereGeometry(.5,12,8),mats=new Map();
  const mat=(c)=>{if(!mats.has(c))mats.set(c,new THREE.MeshLambertMaterial({color:c}));return mats.get(c)};
  function box(w,h,d,x,y,z,c,collide=false){const m=new THREE.Mesh(boxGeo,mat(c));m.scale.set(w,h,d);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;world.add(m);if(collide)solid.push({x,z,hw:w/2,hd:d/2});return m;}

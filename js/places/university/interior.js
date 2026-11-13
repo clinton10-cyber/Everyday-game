@@ -7,6 +7,8 @@ import { ThirdPersonControls } from "../../core/thirdperson.js";
 import { ZoneDrive } from "../../core/drive-zones.js";
 import { addStreetLamp } from "../../core/scene-lamps.js";
 import { addPoleLine } from "../../core/power-lines.js";
+import { NPCs } from "../../core/npcs.js";
+import { Quality } from "../../core/quality.js";
 
 export async function buildInterior(router) {
   const scene = new THREE.Scene();
@@ -761,7 +763,7 @@ export async function buildInterior(router) {
       // Law: courthouse-like pediment and ceremonial columns.
       for(const sx of [-5,-2.5,0,2.5,5]) cyl(B.solid, MAT.trim, x+sx, 2.3, z1+2.7, 0.27, 4.6, 0, UNIT_CYL);
       box(B.solid, accent, x, 4.85, z1+2.7, 13.0, 0.5, 0.8);
-      const ped=new THREE.Mesh(new THREE.ConeGeometry(7.2,2.4,4),accent);ped.position.set(x,6.1,z1+2.5);ped.rotation.y=Math.PI/4;B.solid.add(ped);
+      const ped=new THREE.Object3D();ped.position.set(x,6.1,z1+2.5);ped.rotation.y=Math.PI/4;ped.updateMatrix();B.solid.add(new THREE.ConeGeometry(7.2,2.4,4),accent,ped.matrix); /* Batch.add takes (geometry, material, matrix), not a Mesh */
     } else if (title.includes("ARTS")) {
       // Arts: colourful vertical fins and a shaded courtyard canopy.
       const colours=[0xc65b4b,0xe0a33c,0x4e8d83,0x6576b8];
@@ -976,10 +978,75 @@ export async function buildInterior(router) {
 
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, world, {
     scene, x: 0, z: 214, yaw: Math.PI, level: 0,
-    onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
+    onUse: (use) => {
+      const nearby = NPCs.nearest(ctl.pos.x, ctl.pos.z, 2.8);
+      if (nearby) { NPCs.talk(nearby); return; }
+      if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE");
+    },
   });
 
-  const drv = ZoneDrive.attach({
+  /* Populate every campus building with real, talkable NPC characters.
+     Students are placed in the central corridor of each walkable building;
+     faculty/admin roles vary so the campus does not feel copy-pasted. */
+  const campusNpcUses = [];
+  const spawnCampusNpc = (role, x, z) => {
+    const npc = NPCs.spawnRole(scene, role, x, z);
+    if (npc) {
+      const marker = { x, z, r: 2.7, level: 0, label: "TALK TO " + (npc.roleDef?.label || "STUDENT"), kind: "npc", onUse: () => NPCs.talk(npc) };
+      world.uses.push(marker); campusNpcUses.push({ npc, marker });
+    }
+    return npc;
+  };
+  if (!router.cinematic) {
+  try {
+    NPCs.despawn();
+    NPCs.setScene(scene);
+    NPCs.setAABBs(colliders
+      .filter(c => c && Number.isFinite(c.minX) && Number.isFinite(c.maxX))
+      .map(c => ({ x: (c.minX + c.maxX) / 2, z: (c.minZ + c.maxZ) / 2,
+        hx: (c.maxX - c.minX) / 2, hz: (c.maxZ - c.minZ) / 2 })));
+    NPCs.setTerrain(() => 0, world.bounds);
+    const campusRoles = {
+      "SENATE BUILDING": "clerk",
+      "FACULTY OF SCIENCE": "student",
+      "FACULTY OF ENGINEERING": "student",
+      "FACULTY OF LAW": "student",
+      "FACULTY OF ARTS": "student",
+      "FACULTY OF SOCIAL SCIENCES": "student",
+      "COLLEGE OF HEALTH SCIENCES": "doctor",
+      "ICT & INNOVATION CENTRE": "student",
+      "UNIVERSITY LIBRARY": "student",
+      "STUDENT UNION & CAFETERIA": "trader",
+      "FACULTY OF MANAGEMENT SCIENCES": "student",
+      "FACULTY OF AGRICULTURE": "student",
+      "FACULTY OF EDUCATION": "student",
+      "FACULTY OF PHARMACEUTICAL SCIENCES": "student",
+      "FACULTY OF DENTISTRY": "doctor",
+      "FACULTY OF COMMUNICATION & MEDIA STUDIES": "student",
+      "STUDENT HOSTELS": "student"
+    };
+    for (const b of BUILDINGS) {
+      const bx = Math.cos(b.a) * b.r;
+      const bz = Math.sin(b.a) * b.r;
+      const role = campusRoles[b.title] || "student";
+      // Main corridor is kept clear by the building's paired room wings.
+      const insideZ = bz + (b.d > 25 ? 1.2 : 0.4);
+      spawnCampusNpc(role, bx, insideZ);
+      // Add a second student/staff member in the larger public buildings.
+      if (Quality.current.tier !== "low" && ["UNIVERSITY LIBRARY", "STUDENT UNION & CAFETERIA", "STUDENT HOSTELS", "SENATE BUILDING"].includes(b.title)) {
+        spawnCampusNpc(b.title === "STUDENT UNION & CAFETERIA" ? "student" : "clerk", bx + 0.9, insideZ - 3.2);
+      }
+    }
+    // Everyday campus foot traffic around the central quad and ring paths.
+    const campusWalkers = [
+      [-12, 18, "student"], [12, 18, "student"], [-18, -16, "student"], [18, -16, "student"],
+      [-42, 4, "student"], [42, 4, "student"], [-4, 42, "clerk"], [4, 42, "student"]
+    ];
+    for (const [x, z, role] of campusWalkers.slice(0, Quality.current.tier === "low" ? 4 : campusWalkers.length)) spawnCampusNpc(role, x, z);
+  } catch (e) { console.warn("[university] NPC population skipped", e); }
+  }
+
+  const drv = router.cinematic ? null : ZoneDrive.attach({
     scene, camera, renderer: router.renderer, world,
     spawn: { x: 0, z: 214, y: 0 },
   });
@@ -995,9 +1062,19 @@ export async function buildInterior(router) {
     isInterior: true,
     sceneId: "university",
     update: (dt) => {
-      if (!drv.isDriving()) ctl.update(dt);
-      drv.update(dt);
+      if (!router.cinematic) {
+        if (!drv.isDriving()) ctl.update(dt);
+        drv.update(dt);
+      }
+      try {
+        if (!router.cinematic) NPCs.tick(dt, ctl.pos.x, ctl.pos.z);
+        for (const item of campusNpcUses) {
+          if (item.npc && item.npc.ctl && item.npc.ctl.pos) {
+            item.marker.x = item.npc.ctl.pos.x; item.marker.z = item.npc.ctl.pos.z;
+          }
+        }
+      } catch (e) {}
     },
-    dispose: () => { drv.dispose(); ctl.dispose(); },
+    dispose: () => { if (!router.cinematic) { try { NPCs.despawn(); } catch (e) {} drv?.dispose(); } ctl.dispose(); },
   };
 }

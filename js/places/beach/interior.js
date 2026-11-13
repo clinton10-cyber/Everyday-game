@@ -16,6 +16,7 @@ export async function buildInterior(router) {
   };
 
   const scene = new THREE.Scene();
+  const vestOrange = new THREE.MeshStandardMaterial({ color:0xff7a18, roughness:0.78 });
   const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.15, 800);
   camera.rotation.order = "YXZ";
   const FOG_COLOR = new THREE.Color(0xcabfae), FOG_DENSITY = 0.0056;
@@ -517,7 +518,7 @@ export async function buildInterior(router) {
 
   // Wearable life jacket: available at the beach rental point and toggled with a clear mobile control.
   const vest = new THREE.Group();
-  const vestOrange = new THREE.MeshStandardMaterial({ color:0xff7a18, roughness:0.78 });
+  /* vestOrange is declared near the top of buildInterior (it is used earlier by the swimmer). */
   const vestDark = new THREE.MeshStandardMaterial({ color:0x202a32, roughness:0.9 });
   const vestLeft = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.52,0.22), vestOrange); vestLeft.position.set(-0.2,1.12,0.02); vest.add(vestLeft);
   const vestRight = vestLeft.clone(); vestRight.position.x = 0.2; vest.add(vestRight);

@@ -9,12 +9,26 @@
 */
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { ThirdPersonControls } from "../../core/thirdperson.js";
-import { NPCs } from "../../core/npcs.js";
-import { NpcTalk } from "../../core/npc-talk.js";
 import { M, EM } from "../../core/kit.js";
-import { Economy } from "../../core/economy.js";
-import { HotelGuestServices } from "./guest-services.js";
+
+/* Gameplay-only modules (controls, NPC talk, wallet, guest services) are loaded
+   on demand. Cinematic story playback builds the identical room without pulling
+   them in, so no game HUD or save-state code is created on a story page. */
+let ThirdPersonControls, NPCs, NpcTalk, Economy, HotelGuestServices;
+async function loadGameplayModules() {
+  const [tp, npcs, talk, eco, gs] = await Promise.all([
+    import("../../core/thirdperson.js"),
+    import("../../core/npcs.js"),
+    import("../../core/npc-talk.js"),
+    import("../../core/economy.js"),
+    import("./guest-services.js"),
+  ]);
+  ThirdPersonControls = tp.ThirdPersonControls;
+  NPCs = npcs.NPCs;
+  NpcTalk = talk.NpcTalk;
+  Economy = eco.Economy;
+  HotelGuestServices = gs.HotelGuestServices;
+}
 
 
 const HOTEL_ROOMS = [
@@ -189,6 +203,7 @@ const ROOMS = [
 ];
 
 export async function buildInterior(router) {
+  if (!router?.cinematic) await loadGameplayModules();
   const LOW = (window.__ph3d_quality && window.__ph3d_quality.tier === "low");
 
   const scene = new THREE.Scene();
@@ -840,7 +855,7 @@ export async function buildInterior(router) {
     bounds: { minX: 1, maxX: 43, minZ: 1, maxZ: 45 },
   };
 
-  const ctl = new ThirdPersonControls(camera, router.renderer.domElement, world, {
+  const ctlOpts = {
     scene, x: SPAWN.x, z: SPAWN.z, yaw: SPAWN.yaw, level: 0,
     speedMult: 1.0,
     camDist: 4.2,
@@ -863,38 +878,35 @@ export async function buildInterior(router) {
       }[u.kind] || u.label;
       if (window.__ph3d_phone) window.__ph3d_phone._toast(msg);
     },
-  });
-  window.__ph3d_walkCtrl = ctl;
+  };
+  const ctl = router.cinematic
+    ? { pos: { x: SPAWN.x, z: SPAWN.z }, yaw: SPAWN.yaw, update() {}, dispose() {} }
+    : new ThirdPersonControls(camera, router.renderer.domElement, world, ctlOpts);
+  if (!router.cinematic) window.__ph3d_walkCtrl = ctl;
 
-  /* ── NPCs ────────────────────────────────────────────────── */
-  try {
-    const { spawnInteriorNPCs } = await import("../../core/interior-npcs.js");
-    spawnInteriorNPCs(scene, "hotel", {
-      aabbs: colliders.filter(c => c.level === 0).map(c => ({
-        x: (c.minX + c.maxX) / 2,
-        z: (c.minZ + c.maxZ) / 2,
-        hx: (c.maxX - c.minX) / 2,
-        hz: (c.maxZ - c.minZ) / 2,
-      })),
-      seats: seats.filter(s => s.level === 0),
-      targetCount: 10,
-      fallback: { role: "walker", x: 12, z: 8 },
-    });
-  } catch (e) { console.warn("[hotel] NPC spawn failed:", e); }
-  HotelGuestServices.init(scene, ctl);
-  try {
-    NpcTalk.mount({
-      getPos: () => ({ x: ctl.pos.x, z: ctl.pos.z }),
-      getYaw: () => ctl.yaw,
-    });
-  } catch (e) {}
-
+  /* Gameplay NPCs and booking services are intentionally disabled in the
+     cinematic copy so rendering a comic cannot alter live game NPC state. */
   const _talkKey = (e) => {
     if (e.code !== "KeyE" || e.repeat) return;
     const npc = NPCs.nearest(ctl.pos.x, ctl.pos.z, 2.5);
     if (npc) { NPCs.talk(npc); e.preventDefault(); }
   };
-  window.addEventListener("keydown", _talkKey, { capture: true });
+  if (!router.cinematic) {
+    try {
+      const { spawnInteriorNPCs } = await import("../../core/interior-npcs.js");
+      spawnInteriorNPCs(scene, "hotel", {
+        aabbs: colliders.filter(c => c.level === 0).map(c => ({
+          x: (c.minX + c.maxX) / 2, z: (c.minZ + c.maxZ) / 2,
+          hx: (c.maxX - c.minX) / 2, hz: (c.maxZ - c.minZ) / 2,
+        })),
+        seats: seats.filter(s => s.level === 0), targetCount: 10,
+        fallback: { role: "walker", x: 12, z: 8 },
+      });
+    } catch (e) { console.warn("[hotel] NPC spawn failed:", e); }
+    HotelGuestServices.init(scene, ctl);
+    try { NpcTalk.mount({ getPos: () => ({ x: ctl.pos.x, z: ctl.pos.z }), getYaw: () => ctl.yaw }); } catch (e) {}
+    window.addEventListener("keydown", _talkKey, { capture: true });
+  }
 
   /* ── MERGE STATIC MESHES ─────────────────────────────────── */
   const all = [];
@@ -931,17 +943,21 @@ export async function buildInterior(router) {
     sceneId: "hotel",
 
     update: (dt) => {
-      ctl.update(dt);
-      try { NPCs.tick(dt, ctl.pos.x, ctl.pos.z); } catch (e) {}
-      try { HotelGuestServices.tick(dt); } catch (e) {}
-      try { NpcTalk.tick(dt); } catch (e) {}
+      if (!router.cinematic) {
+        ctl.update(dt);
+        try { NPCs.tick(dt, ctl.pos.x, ctl.pos.z); } catch (e) {}
+        try { HotelGuestServices.tick(dt); } catch (e) {}
+        try { NpcTalk.tick(dt); } catch (e) {}
+      }
     },
 
     dispose: () => {
-      window.removeEventListener("keydown", _talkKey, { capture: true });
-      try { NpcTalk.unmount(); } catch (e) {}
-      try { HotelGuestServices.dispose(); } catch (e) {}
-      try { NPCs.despawn(); } catch (e) {}
+      if (!router.cinematic) {
+        window.removeEventListener("keydown", _talkKey, { capture: true });
+        try { NpcTalk.unmount(); } catch (e) {}
+        try { HotelGuestServices.dispose(); } catch (e) {}
+        try { NPCs.despawn(); } catch (e) {}
+      }
       ctl.dispose();
       try {
         scene.traverse(o => {

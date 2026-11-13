@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Quality } from "../../core/quality.js";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { NPCs } from "../../core/npcs.js";
 
 export async function buildPleasurePark(router) {
   const isMobile = Quality.current.tier === "low";
@@ -1027,10 +1028,43 @@ export async function buildPleasurePark(router) {
     x: 0, z: 12, yaw: Math.PI, level: 0,
     speedMult: 1.0,
     onUse: (use) => {
+      const nearby = NPCs.nearest(ctrl.pos.x, ctrl.pos.z, 2.8);
+      if (nearby) { NPCs.talk(nearby); return; }
       if (use.onUse) use.onUse();
       else if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE");
     }
   });
+
+  /* Populate the open-air park with visitors, families, ride attendants,
+     food vendors and security. Locations correspond to the actual attractions. */
+  const parkNpcUses = [];
+  const spawnParkNpc = (role, x, z) => {
+    const npc = NPCs.spawnRole(scene, role, x, z);
+    if (npc) {
+      const marker = { x, z, r: 2.7, level: 0, label: "TALK TO " + (npc.roleDef?.label || "VISITOR"), kind: "npc", onUse: () => NPCs.talk(npc) };
+      world.uses.push(marker); parkNpcUses.push({ npc, marker });
+    }
+    return npc;
+  };
+  try {
+    NPCs.despawn();
+    NPCs.setScene(scene);
+    NPCs.setAABBs((world.colliders || [])
+      .filter(c => c && Number.isFinite(c.minX) && Number.isFinite(c.maxX))
+      .map(c => ({ x: (c.minX + c.maxX) / 2, z: (c.minZ + c.maxZ) / 2,
+        hx: (c.maxX - c.minX) / 2, hz: (c.maxZ - c.minZ) / 2 })));
+    NPCs.setTerrain(groundHeight, world.bounds);
+    const parkPeople = [
+      [0, 20, "walker"], [-8, 24, "walker"], [8, 24, "student"],
+      [61, -42, "clerk"], [76, -42, "walker"], [68, -82, "student"],
+      [-88, -72, "student"], [-78, -48, "walker"], [54, 48, "clerk"], [76, 48, "walker"],
+      [-72, 44, "walker"], [-58, 70, "student"], [0, -96, "walker"], [12, -96, "student"],
+      [-40, 96, "trader"], [-20, 96, "trader"], [0, 96, "trader"], [20, 96, "trader"], [40, 96, "trader"],
+      [-108, 4, "walker"], [-108, 18, "walker"], [82, 18, "walker"]
+    ];
+    const maxPeople = Quality.current.tier === "low" ? 14 : (Quality.current.tier === "medium" ? 18 : 22);
+    for (const [x, z, role] of parkPeople.slice(0, maxPeople)) spawnParkNpc(role, x, z);
+  } catch (e) { console.warn("[pleasurepark] NPC population skipped", e); }
 
   return {
     three: scene,
@@ -1042,8 +1076,17 @@ export async function buildPleasurePark(router) {
     hint: "",
     update: (dt) => {
       ctrl.update(dt);
+      try {
+        NPCs.tick(dt, ctrl.pos.x, ctrl.pos.z);
+        for (const item of parkNpcUses) {
+          if (item.npc && item.npc.ctl && item.npc.ctl.pos) {
+            item.marker.x = item.npc.ctl.pos.x; item.marker.z = item.npc.ctl.pos.z;
+          }
+        }
+      } catch (e) {}
     },
     dispose: () => {
+      try { NPCs.despawn(); } catch (e) {}
       ctrl.dispose();
       scene.traverse(o => {
         if (o.geometry) o.geometry.dispose();

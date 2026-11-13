@@ -3,7 +3,8 @@
    renderer were replaced by the game's ThirdPersonControls (player avatar,
    wardrobe, phone, weapons...). Collision boxes are converted below. */
 import * as THREE from "three";
-import { ThirdPersonControls } from "../../core/thirdperson.js";
+/* ThirdPersonControls is loaded on demand: cinematic story playback builds the same
+   room without creating any gameplay HUD. */
 
 export async function buildInterior(router) {
   /* ======== prototype kit + world ======== */
@@ -228,10 +229,14 @@ export async function buildInterior(router) {
     bounds: { minX: -ROOM.x, maxX: ROOM.x, minZ: -ROOM.z, maxZ: ROOM.z },
   };
 
-  const ctl = new ThirdPersonControls(camera, router.renderer.domElement, __world, {
-    scene, x: START.x, z: START.z, yaw: Math.PI + (START.yaw || 0), level: 0,
-    onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
-  });
+  let ctl = { update() {}, dispose() {} };
+  if (!router?.cinematic) {
+    const { ThirdPersonControls } = await import("../../core/thirdperson.js");
+    ctl = new ThirdPersonControls(camera, router.renderer.domElement, __world, {
+      scene, x: START.x, z: START.z, yaw: Math.PI + (START.yaw || 0), level: 0,
+      onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
+    });
+  }
 
   return {
     three: scene,

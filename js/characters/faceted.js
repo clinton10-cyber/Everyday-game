@@ -111,9 +111,14 @@ export function loft(rings, o = {}) {
   return ng;
 }
 
+/* convert to non-indexed only when the geometry actually has an index (avoids three.js warnings) */
+function nonIdx(g) { return g.index ? g.toNonIndexed() : g; }
+
 /* low-poly ball / blob (flat shaded icosahedron) */
 function blobGeo(r, detail = 0) {
-  const g = new THREE.IcosahedronGeometry(r, detail).toNonIndexed();
+  /* PolyhedronGeometry (Icosahedron) is already non-indexed in three r169+; only convert when an index exists. */
+  let g = new THREE.IcosahedronGeometry(r, detail);
+  if (g.index) g = g.toNonIndexed();
   g.computeVertexNormals();
   return g;
 }
@@ -270,7 +275,7 @@ function buildHead(rig, B, M, o) {
   }
   /* nose: a small faceted wedge */
   const noseY = 0.078 * B.head.h;
-  const nose = mesh(new THREE.ConeGeometry(0.0135, 0.026, 4).toNonIndexed(), M.skinD, head, 0, noseY, zf(noseY) + 0.005);
+  const nose = mesh(nonIdx(new THREE.ConeGeometry(0.0135, 0.026, 4)), M.skinD, head, 0, noseY, zf(noseY) + 0.005);
   nose.geometry.computeVertexNormals();
   nose.rotation.x = Math.PI / 2 - 0.30; nose.rotation.y = Math.PI / 4;
   /* mouth */
@@ -467,7 +472,7 @@ function buildTopShell(rig, B, M, o, T) {
   const neckR = B.neck;
   if (S.hood) {
     /* hood: a collar ring + the pouch hanging behind the neck */
-    const ring = mesh(new THREE.TorusGeometry(neckR + 0.036, 0.026, 5, 10).toNonIndexed(), M.top, spine, 0, 0.424, 0.006);
+    const ring = mesh(nonIdx(new THREE.TorusGeometry(neckR + 0.036, 0.026, 5, 10)), M.top, spine, 0, 0.424, 0.006);
     ring.geometry.computeVertexNormals(); ring.rotation.x = Math.PI / 2 - 0.42;
     const pouch = loft([
       { y: 0.318, t: 0, rx: 0.100, rz: 0.040, cx: 0, cz: -0.070 },
@@ -477,7 +482,7 @@ function buildTopShell(rig, B, M, o, T) {
     ], { seg: 8, caps: "top" });
     mesh(pouch, M.top, spine);
   } else if (S.collar === "crew") {
-    const ring = mesh(new THREE.TorusGeometry(neckR + 0.014, 0.012, 5, 9).toNonIndexed(), M.topD, spine, 0, 0.432, 0.004);
+    const ring = mesh(nonIdx(new THREE.TorusGeometry(neckR + 0.014, 0.012, 5, 9)), M.topD, spine, 0, 0.432, 0.004);
     ring.geometry.computeVertexNormals(); ring.rotation.x = Math.PI / 2 - 0.22;
   } else if (S.collar === "turtle") {
     mesh(loft([
