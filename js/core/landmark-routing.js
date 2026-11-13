@@ -21,7 +21,7 @@ export function routeForLandmark(lm, router) {
   }
 
   if (id === "pleasurepark") {
-    return router.go("minimap", { id });
+    return router.go("pleasurepark", { id });
   }
 
   /* myhouse uses the full third-person room build (places/myhouse/interior.js)

@@ -242,7 +242,8 @@ carMesh.rotation.y = FRONT_CORRECTION[model] !== undefined
     setTimeout(function () {
       let dest = "interior"; let destParams = { id: target };
       if (params.parent) destParams.parent = params.parent;
-      if (kind === "parent") { dest = "minimap"; destParams = { id: target }; }
+      if (target === "pleasurepark") { dest = "pleasurepark"; destParams = { id: target }; }
+      else if (kind === "parent") { dest = "minimap"; destParams = { id: target }; }
       else if (target === "showroom") { dest = "showroom"; destParams = { id: target }; }
       else if (target === "pleasurepark") { dest = "pleasurepark"; destParams = { id: target }; }
       router.go(dest, destParams);

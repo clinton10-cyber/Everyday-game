@@ -104,6 +104,7 @@ const PLACES = LANDMARKS.map((lm, i) => {
 
 function routeFor(pl) {
   if (pl.lm.kind === "parent") return { route: "minimap", params: { id: pl.id } };
+  if (pl.id === "pleasurepark") return { route: "pleasurepark", params: { id: pl.id } };
   if (pl.id === "showroom")    return { route: "showroom", params: { id: pl.id } };
   if (pl.id === "airplane")    return { route: "airplane", params: {} };
   if (pl.id === "prison")      return { route: "prisonScene", params: {} };
