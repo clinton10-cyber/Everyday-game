@@ -108,6 +108,8 @@ function buildCity() {
       name: lm.name,
       sub: "",
       kind: (lm.id === "university" || lm.id === "pleasurepark") ? "parent" : "place",
+      // Keep world coordinates on the landmark passed to JobObjectives.
+      x: lm.x, z: lm.z,
     },
     x: lm.x, z: lm.z, ry: 0,
   }));
@@ -1318,7 +1320,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   /* ── Social reactions, world events, job objectives ─────────── */
   window.__ph3d_social = Social;
   try { WorldEvents.init(three); } catch (e) { console.warn("[drive] WorldEvents:", e); }
-  try { JobObjectives.init(three, compounds.map((c) => c.lm)); } catch (e) { console.warn("[drive] JobObjectives:", e); }
+  try { JobObjectives.init(three, compounds.map((c) => c.lm), roads); } catch (e) { console.warn("[drive] JobObjectives:", e); }
   try { ObjectiveHUD.mount(); } catch (e) { console.warn("[drive] ObjectiveHUD:", e); }
 
   /* Any new crime event (not the periodic decay ping) draws a reaction.

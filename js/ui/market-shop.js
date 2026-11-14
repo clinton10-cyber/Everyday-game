@@ -176,8 +176,12 @@ export const MarketShop = {
       try { Combat.heal(it.heal || 5); } catch (e) {}
       this._toast("You eat the " + it.label.toLowerCase() + ". +" + (it.heal || 5) + " HP.");
     } else {
-      Pocket.add(it.id, 1);
-      this._toast("Bought " + it.label.toLowerCase() + ".");
+      const stored = Pocket.add(it.id, 1);
+      if (!stored) {
+        try { Economy.receive("MARKET REFUND", it.price, it.label); } catch (e) {}
+        return this._toast("Could not store item. Payment refunded.", true);
+      }
+      this._toast("Bought " + it.label.toLowerCase() + ". Open Pocket Storage to use or equip it.");
     }
     try {
       Engagement.collect("mile1", it.id);   /* every unique item counts toward the Mile 1 collection */

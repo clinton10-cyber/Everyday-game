@@ -148,11 +148,13 @@ export function measures(cfg) {
   const female = cfg.gender === "feminine";
   const male   = cfg.gender === "masculine";
   const b = clamp(+cfg.build || 0, -1, 1);
-  const sxT = (female ? 0.93 : male ? 1.06 : 1.00) * (1 + 0.16 * b);   /* torso width  */
-  const szT = (female ? 0.68 : male ? 0.72 : 0.70) * (1 + 0.14 * b);   /* torso depth  */
+  const style = cfg.bodyStyle || "faceted";
+  const styleShape = ({heroic:[1.10,1.08,1.04],sleek:[0.91,0.94,0.90],angular:[1.04,1.02,1.03],refined:[0.98,0.98,0.96],classic:[1,1,1],faceted:[1,1,1],faceted_plus:[1.02,1.01,1.01]})[style] || [1,1,1];
+  const sxT = (female ? 0.93 : male ? 1.06 : 1.00) * (1 + 0.16 * b) * styleShape[0];   /* torso width  */
+  const szT = (female ? 0.68 : male ? 0.72 : 0.70) * (1 + 0.14 * b) * styleShape[1];   /* torso depth  */
   const sxP = (female ? 1.08 : male ? 0.98 : 1.00) * (1 + 0.13 * b);   /* pelvis width */
   const szP = (female ? 0.78 : 0.74)               * (1 + 0.11 * b);   /* pelvis depth */
-  const limb = 1 + 0.10 * b;                                            /* limb thickness */
+  const limb = (1 + 0.10 * b) * styleShape[2];                                            /* limb thickness */
   const waistK = female ? 0.90 : male ? 0.97 : 0.94;
 
   /* world half-width where torso meets pelvis (the narrower of the two) */

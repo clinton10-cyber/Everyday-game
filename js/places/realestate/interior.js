@@ -118,6 +118,8 @@ export async function buildInterior(router) {
 
   scene.add(deskGroup);
 
+  const seats = [];
+
   // ---------- CHAIR BEHIND DESK ----------
   const chair = new THREE.Group();
   chair.position.set(0, 0, -4.9);
@@ -125,6 +127,7 @@ export async function buildInterior(router) {
   chair.add(mkBox(MAT.chair, 0.6, 0.65, 0.08, 0, 0.85, -0.26));
   chair.add(mkBox(MAT.metal, 0.08, 0.5, 0.08, 0, 0.28, 0));
   scene.add(chair);
+  seats.push({ type:"sit", label:"SIT AT RECEPTION", x:0, z:-4.9, yaw:Math.PI, h:0.59, level:0, taken:false });
 
   // ---------- WAITING SOFA (against right wall) ----------
   const sofa = new THREE.Group();
@@ -147,6 +150,10 @@ export async function buildInterior(router) {
     }
   }
   scene.add(sofa);
+  seats.push(
+    { type:"sit", label:"SIT ON SOFA", x:4.3, z:-2.05, yaw:Math.PI/2, h:0.725, level:0, taken:false },
+    { type:"sit", label:"SIT ON SOFA", x:4.3, z:-0.95, yaw:Math.PI/2, h:0.725, level:0, taken:false }
+  );
 
   // ---------- COFFEE TABLE (in front of sofa) ----------
   const table = new THREE.Group();
@@ -303,7 +310,7 @@ export async function buildInterior(router) {
   ];
 
   const world = {
-    colliders, seats: [], uses, platforms: [],
+    colliders, seats, uses, platforms: [],
     levelHeight: () => 0,
     ceilingHeight: 8.0,
     bounds: { minX: -5.5, maxX: 5.5, minZ: -5.5, maxZ: 5.5 },

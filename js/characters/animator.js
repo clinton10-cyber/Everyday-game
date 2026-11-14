@@ -56,8 +56,11 @@ export const HIPS_MEDITATE = 0.20;
 /* ── emote table (durations unchanged from the old controller) ─── */
 export const EMOTES = {
   wave:     { dur: 3.0, label: "WAVING" },
+  preach:   { dur: 6.0, label: "PREACHING" },
   clap:     { dur: 3.0, label: "CLAPPING" },
   flex:     { dur: 3.0, label: "FLEXING" },
+  lift_weights: { dur: 16.0, label: "LIFTING WEIGHTS" },
+  treadmill_run: { dur: 16.0, label: "RUNNING ON TREADMILL" },
   meditate: { dur: 4.0, label: "MEDITATING" },
   dance:    { dur: 5.0, label: "DANCING" },
   azonto_step: { dur: 6.0, label: "AZONTO-INSPIRED" },
@@ -799,6 +802,46 @@ EMOTES.handshake  = { dur: 3.0, label: "HANDSHAKE" };
 EMOTES.lean_table = { dur: 60, label: "LEANING" };
 
 Object.assign(EMOTE_FN, {
+  /* Repeating dumbbell curls: elbows stay tucked while forearms curl up and down. */
+  lift_weights(t, P) {
+    const curl = 0.5 - 0.5 * Math.cos(t * 5.2);
+    const effort = 0.5 + 0.5 * Math.sin(t * 2.6);
+    standAt(P, 0.806 - 0.018 * effort);
+    P.aL.sh = [-0.16, 0.02, 0.30]; P.aR.sh = [-0.16, -0.02, -0.30];
+    P.aL.el = [-1.05 - 1.05 * curl, 0, 0.04];
+    P.aR.el = [-1.05 - 1.05 * curl, 0, -0.04];
+    P.aL.wr = [0, RELAX_WRIST, 0]; P.aR.wr = [0, RELAX_WRIST, 0];
+    P.spine[0] = 0.025 * effort; P.spine[2] = 0.018 * Math.sin(t * 2.6);
+    P.head[0] = -0.025 * effort; P.hL = HAND.fist; P.hR = HAND.fist;
+  },
+  /* Stationary treadmill run: alternating knees, foot lifts and counter-swinging arms. */
+  treadmill_run(t, P) {
+    const b = t * 8.2, s = Math.sin(b), c = Math.cos(b);
+    const liftL = Math.max(0, s), liftR = Math.max(0, -s);
+    standAt(P, 0.795 - 0.025 * Math.abs(s), 0.025 + 0.105 * liftL, 0.025 + 0.105 * liftR, 0.10 * s, -0.10 * s);
+    P.lL.hip[0] = -0.22 + 0.62 * s; P.lR.hip[0] = -0.22 - 0.62 * s;
+    P.lL.knee[0] = 0.18 + 0.72 * liftR; P.lR.knee[0] = 0.18 + 0.72 * liftL;
+    P.aL.sh = [-0.70 - 0.24 * s, 0.04, 0.34]; P.aR.sh = [-0.70 + 0.24 * s, -0.04, -0.34];
+    P.aL.el = [-0.92 - 0.28 * s, 0, 0.03]; P.aR.el = [-0.92 + 0.28 * s, 0, -0.03];
+    P.spine[0] = 0.055 + 0.025 * Math.abs(c); P.spine[1] = 0.035 * s;
+    P.head[0] = -0.035; P.head[1] = -0.025 * s; P.hL = HAND.fist; P.hR = HAND.fist;
+  },
+  /* Repeating pulpit gesture: one hand emphasizes the message while the
+     other opens toward the congregation. */
+  preach(t, P) {
+    const s = Math.sin(t * 2.35), c = Math.cos(t * 1.18);
+    standAt(P, 0.812, 0, 0, 0, 0);
+    P.aR.sh = [-0.78 + 0.16 * s, 0, -0.62 - 0.12 * c];
+    P.aR.el = [-0.78 - 0.22 * Math.max(0, s), 0, 0.04];
+    P.aR.wr = [0, 0.08 * s, 0];
+    P.aL.sh = [-0.48 - 0.12 * c, 0, 0.52 + 0.12 * s];
+    P.aL.el = [-0.88 + 0.18 * s, 0, -0.04];
+    P.aL.wr = [0, -0.06 * s, 0];
+    P.hR = HAND.point; P.hL = HAND.open;
+    P.spine[1] = 0.055 * s; P.spine[2] = 0.025 * c;
+    P.head[1] = 0.07 * s; P.head[2] = -0.035 * Math.max(0, c);
+    P.hips[1] = 0.025 * s;
+  },
   /* Original routines inspired by popular Nigerian/African dance trends.
      They are procedural game animations, not copied choreography. */
   azonto_step(t, P) {
@@ -1216,6 +1259,122 @@ Object.assign(EMOTE_FN, {
    (y = 0 is the floor / bed top / tub bottom the group stands on). Poses that rest on a surface
    (lying, kneeling, bath, sitting on the ground, meditating) are placed exactly flush; every
    other emote is only pushed UP if it would dip below the floor (flip landings, crouch hits…). */
+/* ── PHYSICAL EVERYDAY OBJECT ACTIVITIES ─────────────────────────
+   These poses are intentionally loopable while the player uses a prop.
+   Each one has a distinct hand, arm, head and torso motion. */
+const OBJECT_ACTIVITY_EMOTES = {
+  wash_dishes: [14, "WASHING DISHES"], brush_teeth: [9, "BRUSHING TEETH"],
+  play_piano: [18, "PLAYING PIANO"], cook_food: [14, "COOKING"],
+  chop_food: [10, "CHOPPING FOOD"], read_book: [18, "READING"],
+  use_computer: [18, "USING COMPUTER"], swim_pool: [14, "SWIMMING"], swim_entry: [1.05, "ENTERING WATER"], swim_exit: [0.9, "LEAVING WATER"],
+  shower_wash: [12, "TAKING A SHOWER"], clean_surface: [10, "CLEANING"]
+};
+for (const [name, cfg] of Object.entries(OBJECT_ACTIVITY_EMOTES)) EMOTES[name] = { dur: cfg[0], label: cfg[1] };
+Object.assign(EMOTE_FN, {
+  wash_dishes(t, P) {
+    const s=Math.sin(t*8.5), reach=0.5+0.5*Math.sin(t*4.25);
+    standAt(P,0.79,0,0,0,0); P.spine[0]=0.13; P.head[0]=0.12;
+    P.aL.sh=[-1.02+0.08*s,0,0.38]; P.aR.sh=[-1.12-0.08*s,0,-0.38];
+    P.aL.el=[-1.05-0.18*reach,0,0.04]; P.aR.el=[-1.05-0.18*(1-reach),0,-0.04];
+    P.aL.wr=[0,0.18*s,0]; P.aR.wr=[0,-0.18*s,0]; P.hL=HAND.open; P.hR=HAND.open;
+  },
+  brush_teeth(t,P) {
+    const s=Math.sin(t*15); standAt(P,0.806); P.head[0]=0.12+0.035*Math.sin(t*5);
+    P.aR.sh=[-1.72,0,-0.20]; P.aR.el=[-1.72,0,0]; P.aR.wr=[0,0.22*s,0];
+    P.aL.sh=[-0.12,0,0.10]; P.aL.el=[-0.25,0,0]; P.hR=HAND.relaxed;
+  },
+  play_piano(t,P) {
+    const a=Math.sin(t*10), b=Math.sin(t*10+1.4); standAt(P,0.80);
+    P.spine[0]=0.08; P.head[0]=0.12+0.035*Math.sin(t*2.2);
+    P.aL.sh=[-1.02,0,0.34]; P.aR.sh=[-1.02,0,-0.34];
+    P.aL.el=[-0.45-0.12*a,0,0]; P.aR.el=[-0.45-0.12*b,0,0];
+    P.aL.wr=[0,0.12*a,0]; P.aR.wr=[0,0.12*b,0]; P.hL=HAND.open; P.hR=HAND.open;
+  },
+  cook_food(t,P) {
+    const s=Math.sin(t*5.5), stir=0.5+0.5*Math.sin(t*2.75); standAt(P,0.79); P.spine[0]=0.16; P.head[0]=0.18;
+    P.aL.sh=[-1.10,0,0.42]; P.aL.el=[-0.72,0,0]; P.aL.wr=[0,0.25*s,0];
+    P.aR.sh=[-1.25-0.10*stir,0,-0.25]; P.aR.el=[-1.0-0.22*stir,0,0]; P.aR.wr=[0,0.35*s,0]; P.hL=HAND.open; P.hR=HAND.open;
+  },
+  chop_food(t,P) {
+    const hit=Math.max(0,Math.sin(t*8)); standAt(P,0.79); P.spine[0]=0.20; P.head[0]=0.22;
+    P.aL.sh=[-1.15,0,0.40]; P.aL.el=[-0.95,0,0]; P.aR.sh=[-1.35-0.24*hit,0,-0.22]; P.aR.el=[-0.75-0.45*hit,0,0];
+    P.aR.wr=[0,0.12,0]; P.hL=HAND.open; P.hR=HAND.fist;
+  },
+  read_book(t,P) {
+    const nod=Math.sin(t*1.8); standAt(P,0.80); P.spine[0]=0.08; P.head[0]=0.18+0.025*nod;
+    P.aL.sh=[-1.12,0,0.42]; P.aR.sh=[-1.12,0,-0.42]; P.aL.el=[-1.28,0,0]; P.aR.el=[-1.28,0,0];
+    P.aL.wr=[0,0.08,0]; P.aR.wr=[0,-0.08,0]; P.hL=HAND.open; P.hR=HAND.open;
+  },
+  use_computer(t,P) {
+    const a=Math.sin(t*12),b=Math.sin(t*12+1.1); standAt(P,0.80); P.spine[0]=0.10; P.head[0]=0.17;
+    P.aL.sh=[-1.25,0,0.32]; P.aR.sh=[-1.25,0,-0.32]; P.aL.el=[-0.92,0,0]; P.aR.el=[-0.92,0,0];
+    P.aL.wr=[0,0.12*a,0]; P.aR.wr=[0,0.12*b,0]; P.hL=HAND.open; P.hR=HAND.open;
+  },
+  swim_entry(t,P) {
+    /* A short crouch-and-lean transition before the body becomes horizontal. */
+    const k=Math.max(0,Math.min(1,t/1.05));
+    standAt(P,0.80-0.12*k,0,0,0,0); P.spine[0]=0.18+0.34*k; P.head[0]=0.12;
+    P.aL.sh=[-0.9-0.35*k,0,0.38]; P.aR.sh=[-0.9-0.35*k,0,-0.38];
+    P.aL.el=[-0.75,0,0]; P.aR.el=[-0.75,0,0];
+    P.lL.hip[0]=0.12+0.22*k; P.lR.hip[0]=0.12-0.12*k;
+    P.hL=HAND.open; P.hR=HAND.open;
+  },
+  swim_exit(t,P) {
+    /* Recover from horizontal swimming into a stable upright standing pose. */
+    const k=Math.max(0,Math.min(1,t/0.9));
+    standAt(P,0.68+0.12*k); P.spine[0]=0.28*(1-k); P.head[0]=0.10*(1-k);
+    P.aL.sh=[-0.75+0.28*k,0,0.30]; P.aR.sh=[-0.75+0.28*k,0,-0.30];
+    P.aL.el=[-0.45,0,0]; P.aR.el=[-0.45,0,0];
+    P.hL=HAND.open; P.hR=HAND.open;
+  },
+  swim_pool(t,P) {
+    /* Cycle three recognisable strokes during a long swim. Each keeps the
+       torso horizontal and animates arms and legs rather than using a walk. */
+    const style=Math.floor(t/18)%3, phase=t*(style===2?4.2:6.2), s=Math.sin(phase), c=Math.cos(phase);
+    P.hipsPos[1]=0.18+0.025*Math.sin(phase*2);
+    P.hips[0]=-Math.PI/2; P.hips[1]=0.035*Math.sin(phase*0.5); P.hips[2]=0.045*Math.sin(phase);
+    P.spine[0]=0.015*Math.sin(phase*0.5); P.head[0]=-0.10+0.035*Math.sin(phase*0.5); P.head[1]=0.035*Math.sin(phase*0.5);
+    if (style===0) {
+      /* Front crawl: alternating recovery and underwater pulls. */
+      const pullL=Math.max(0,-s), pullR=Math.max(0,s);
+      P.aL.sh=[-0.72+0.72*s,0,0.34]; P.aR.sh=[-0.72-0.72*s,0,-0.34];
+      P.aL.el=[-0.30-0.72*pullL,0,0]; P.aR.el=[-0.30-0.72*pullR,0,0];
+      P.aL.wr=[0,0.10*c,0]; P.aR.wr=[0,-0.10*c,0];
+      P.lL.hip[0]=0.18+0.22*s; P.lR.hip[0]=0.18-0.22*s;
+      P.lL.knee[0]=0.16+0.22*Math.max(0,c); P.lR.knee[0]=0.16+0.22*Math.max(0,-c);
+    } else if (style===1) {
+      /* Backstroke: alternating straight-arm overhead circles, supine head. */
+      P.head[0]=-0.02; P.aL.sh=[-0.35+0.82*s,0,0.55]; P.aR.sh=[-0.35-0.82*s,0,-0.55];
+      P.aL.el=[-0.18,0,0]; P.aR.el=[-0.18,0,0];
+      P.aL.wr=[0,0.08*c,0]; P.aR.wr=[0,-0.08*c,0];
+      P.lL.hip[0]=0.16+0.20*s; P.lR.hip[0]=0.16-0.20*s;
+      P.lL.knee[0]=0.12+0.18*Math.max(0,c); P.lR.knee[0]=0.12+0.18*Math.max(0,-c);
+    } else {
+      /* Breaststroke: symmetrical outward sweep, recovery and frog kick. */
+      const open=0.5+0.5*Math.sin(phase);
+      P.aL.sh=[-0.55-0.50*open,0,0.35+0.25*open]; P.aR.sh=[-0.55-0.50*open,0,-0.35-0.25*open];
+      P.aL.el=[-0.65-0.35*open,0,0]; P.aR.el=[-0.65-0.35*open,0,0];
+      P.aL.wr=[0,0.08*s,0]; P.aR.wr=[0,-0.08*s,0];
+      const tuck=Math.max(0,Math.cos(phase));
+      P.lL.hip[0]=0.10+0.30*tuck; P.lR.hip[0]=0.10+0.30*tuck;
+      P.lL.knee[0]=0.10+0.55*tuck; P.lR.knee[0]=0.10+0.55*tuck;
+      P.lL.ank[0]=-0.20-0.25*tuck; P.lR.ank[0]=-0.20-0.25*tuck;
+    }
+    if (style!==2) { P.lL.ank[0]=-0.08; P.lR.ank[0]=-0.08; }
+    P.hL=HAND.open; P.hR=HAND.open;
+  },
+  shower_wash(t,P) {
+    const s=Math.sin(t*5); standAt(P,0.80); P.head[0]=0.16; P.spine[0]=0.08;
+    P.aR.sh=[-1.75+0.18*s,0,-0.18]; P.aR.el=[-1.25,0,0]; P.aL.sh=[-1.45-0.14*s,0,0.22]; P.aL.el=[-1.0,0,0];
+    P.hL=HAND.open; P.hR=HAND.open;
+  },
+  clean_surface(t,P) {
+    const s=Math.sin(t*8); standAt(P,0.79); P.spine[0]=0.17; P.head[0]=0.18;
+    P.aR.sh=[-1.15,0,-0.25]; P.aR.el=[-0.75,0,0]; P.aR.wr=[0,0.24*s,0];
+    P.aL.sh=[-0.65,0,0.32]; P.aL.el=[-0.8,0,0]; P.hL=HAND.open; P.hR=HAND.open;
+  }
+});
+
 const FLUSH_EMOTES = new Set(["sit_ground", "meditate"]);
 const _CAP = [
   ["hips", 0, 0, 0, 0.125], ["hips", 0, -0.09, 0, 0.11], ["spine", 0, 0.12, 0, 0.14], ["spine", 0, 0.30, 0, 0.15], ["head", 0, 0.10, 0, 0.105],
@@ -1310,11 +1469,18 @@ export function animate(ctl, dt) {
 
   /* ── emote timers ── */
   let emoting = false;
+  if (ctl._swimming && !seated && !["swim_entry", "swim_exit"].includes(ctl._emoteName)) {
+    if (ctl._emoteName !== "swim_pool") { ctl._emoteName = "swim_pool"; ctl._emotePhase = 0; }
+    ctl._emoteTimer = 1000000; /* swimming is state-driven, not a timed emote */
+  } else if (!ctl._swimming && ctl._emoteName === "swim_pool") {
+    ctl._emoteTimer = Math.min(ctl._emoteTimer || 0, 0.45);
+  }
   if (ctl._emoteTimer > 0 && ctl._emoteName && !seated) {
     const emoteSpeed = 1.4;
-    ctl._emoteTimer -= dt * emoteSpeed;
+    const persistentSwim = ctl._emoteName === "swim_pool" && ctl._swimming;
+    if (!persistentSwim) ctl._emoteTimer -= dt * emoteSpeed;
     ctl._emotePhase = (ctl._emotePhase || 0) + dt * emoteSpeed;
-    if (ctl._emoteTimer <= 0) { ctl._emoteTimer = 0; ctl._emoteName = null; if (ctl._ul) ctl._ul(); }
+    if (ctl._emoteTimer <= 0) { ctl._emoteTimer = 0; ctl._emoteName = null; if (typeof ctl._onEmoteEnd === "function") { const done = ctl._onEmoteEnd; ctl._onEmoteEnd = null; try { done(); } catch (e) {} } if (ctl._ul) ctl._ul(); }
     else emoting = true;
   }
 

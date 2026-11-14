@@ -165,7 +165,7 @@ export const WalkActions = {
   cancelEmote() {
     if (!S) return;
     const wk = S.walker;
-    if (wk._emoteTimer > 0) { wk._emoteTimer = 0; wk._emoteName = null; }
+    if (wk._emoteTimer > 0) { wk._emoteTimer = 0; wk._emoteName = null; if (typeof wk._onEmoteEnd === "function") { const done = wk._onEmoteEnd; wk._onEmoteEnd = null; try { done(); } catch (e) {} } }
   },
 
   /* hug / handshake with the nearest NPC: they walk over, then both play the pose */

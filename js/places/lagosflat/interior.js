@@ -4,6 +4,7 @@
    wardrobe, phone, weapons...). Collision boxes are converted below. */
 import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { handleFurnitureUse } from "../../core/furniture-interactions.js";
 
 export async function buildInterior(router) {
   /* ======== prototype kit + world ======== */
@@ -468,7 +469,7 @@ export async function buildInterior(router) {
 
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, __world, {
     scene, x: 0, z: 10, yaw: Math.PI + (START.yaw || 0), level: 0,
-    onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
+    onUse: (use) => { handleFurnitureUse(use, window.__ph3d_walkCtrl || window.__ph3d_player); },
   });
 
   return {

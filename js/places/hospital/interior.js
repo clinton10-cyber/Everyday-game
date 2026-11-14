@@ -31,6 +31,7 @@ export async function buildInterior(router) {
   const glow=c=>new THREE.MeshBasicMaterial({color:c});
   const world=new THREE.Group(); scene.add(world);
   const solid=[];
+  const seats=[];
   function box(w,h,d,x,y,z,m,o){
     o=o||{};
     const s=new THREE.Mesh(BOXG,typeof m==='number'?mat(m):m);
@@ -143,12 +144,20 @@ export async function buildInterior(router) {
   /* --- place everything --- */
   bed(-3.1,-3.2);
   bed(3.1,-3.2);
+  seats.push(
+    { type:"lie", label:"LIE ON HOSPITAL BED", x:-3.1, z:-3.2, yaw:0, h:0.91, level:0, taken:false },
+    { type:"lie", label:"LIE ON HOSPITAL BED", x:3.1, z:-3.2, yaw:0, h:0.91, level:0, taken:false }
+  );
   cabinet(-4.55,-3.2);
   cabinet(4.55,-3.2);
   overbed(-3.1,-3.0);
   overbed(3.1,-3.0);
   chair(-3.2,-.2,Math.PI);
   chair(3.2,-.2,Math.PI);
+  seats.push(
+    { type:"sit", label:"SIT", x:-3.2, z:-.2, yaw:Math.PI, h:0.485, level:0, taken:false },
+    { type:"sit", label:"SIT", x:3.2, z:-.2, yaw:Math.PI, h:0.485, level:0, taken:false }
+  );
 
   /* privacy curtain between beds */
   cyl(.03,3.0,0,1.6,-4.6,metal,{rx:Math.PI/2});
@@ -220,7 +229,7 @@ export async function buildInterior(router) {
     { kind: "pharmacy", label: "HOSPITAL PHARMACY · ₦3,000", x: 4.1, z: 1.0, y: 0, level: 0, r: 1.8 },
   ];
   const __world = {
-    colliders: __cols, seats: [], uses,
+    colliders: __cols, seats, uses,
     stairs: [],
     platforms: [],
     levelHeight: () => 0,

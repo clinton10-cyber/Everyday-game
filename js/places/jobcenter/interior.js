@@ -182,14 +182,17 @@ export async function buildInterior(router) {
   scene.add(desk);
 
   // ---------- BENCHES ----------
+  const seats = [];
   for (let i = 0; i < 3; i++) {
     const b = new THREE.Group();
     b.add(mkBox(MAT.bench, 1.6, 0.08, 0.5, 0, 0.5, 0));
     b.add(mkBox(MAT.bench, 1.6, 0.5, 0.08, 0, 0.78, -0.21));
     b.add(mkBox(MAT.bench, 0.08, 0.5, 0.4, -0.7, 0.25, 0));
     b.add(mkBox(MAT.bench, 0.08, 0.5, 0.4, 0.7, 0.25, 0));
-    b.position.set(3.8, 0, -2.5 + i * 1.6);
+    const bz = -2.5 + i * 1.6;
+    b.position.set(3.8, 0, bz);
     b.rotation.y = -Math.PI / 2;
+    seats.push({ type:"sit", label:"SIT IN WAITING AREA", x:3.8, z:bz, yaw:Math.PI/2, h:0.54, level:0, taken:false });
     scene.add(b);
   }
 
@@ -284,7 +287,7 @@ export async function buildInterior(router) {
   ];
 
   const world = {
-    colliders, seats: [], uses, platforms: [],
+    colliders, seats, uses, platforms: [],
     levelHeight: () => 0,
     ceilingHeight: 8.0,
     bounds: { minX: -5.5, maxX: 5.5, minZ: -5.5, maxZ: 5.5 },

@@ -1,7 +1,7 @@
 export const LANDMARKS = [
   { id: "courthouse", name: "RIVERS STATE HIGH COURT", sub: "COURTROOM · JUSTICE DISTRICT", color: 0xd6c6a2, pos: [-31,0,-24], rot: 0.08, kind: "place" },
   { id: "govhouse", name: "GOVERNMENT HOUSE", sub: "STATE SECRETARIAT", color: 0xc9a961, pos: [-19,0,-11], rot: 0.22, kind: "place" },
-  { id: "hotel", name: "HOTEL PRESIDENTIAL", sub: "5-STAR · WOJI ROAD", color: 0xe8c99a, pos: [17,0,-12], rot: -0.18, kind: "place" },
+  { id: "hotel", name: "HOTEL PRESIDENTIAL", sub: "5-STAR · ABA ROAD, GRA PHASE II", color: 0xe8c99a, pos: [17,0,-12], rot: -0.18, kind: "place" },
   { id: "boropark", name: "ISAAC BORO PARK", sub: "MEMORIAL GROUNDS", color: 0x88c68a, pos: [-20,0,10], rot: 0.1, kind: "place" },
   { id: "market", name: "MILE 1 MARKET", sub: "TRADING DISTRICT", color: 0xe6a45e, pos: [19,0,10], rot: -0.12, kind: "place" },
   { id: "airport", name: "OMAGWA AIRPORT", sub: "INTERNATIONAL", color: 0xbfd3e2, pos: [0,0,-22], rot: 0.05, kind: "place" },

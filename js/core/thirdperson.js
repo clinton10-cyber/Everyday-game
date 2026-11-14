@@ -660,6 +660,10 @@ export class ThirdPersonControls {
   }
 
   sit(seat, slot) {
+    if (!seat || (seat.taken && !seat._takenByPlayer)) return false;
+    this._releaseSeat();
+    seat.taken = true;
+    seat._takenByPlayer = true;
     this.state = seat.type === "lie" ? "lying" : seat.type === "bath" ? "bathing" : seat.type === "toilet" ? "seated" : seat.type === "kneel" ? "kneel" : "sitting";
     this.sitTarget = seat;
     this._seatArrived = false;
@@ -673,6 +677,15 @@ export class ThirdPersonControls {
     this._emoteTimer = 0;
     this._emoteName = null;
     this._ul();
+    return true;
+  }
+  _releaseSeat() {
+    const seat = this.sitTarget;
+    if (seat && seat._takenByPlayer) {
+      seat._takenByPlayer = false;
+      seat.taken = false;
+    }
+    this.sitTarget = null;
   }
   /* sit on flat ground anywhere */
   _sitHere() {
@@ -681,7 +694,7 @@ export class ThirdPersonControls {
     this.sit({ type: "sit", label: "GROUND", x: this.pos.x, z: this.pos.z, dx, dz, yaw: this.yaw,
       h: (this.floorY || 0) + 0.045, level: this.level, taken: false });
   }
-  stand() { this.state = "standing"; this.sitTarget = null; this._seatArrived = false; this._ul(); }
+  stand() { this._releaseSeat(); this.state = "standing"; this._seatArrived = false; this._ul(); }
   crouch() {
     if (this.state !== "standing" && this.state !== "crouching") return;
     this.state = this.state === "crouching" ? "standing" : "crouching";
@@ -774,7 +787,7 @@ export class ThirdPersonControls {
     if (this.state === "lying") { this.stand(); return; }
     let best = null, bd = 2.4 * 2.4;
     for (const s of (this.world.seats || [])) {
-      if (s.type !== "lie" || s.level !== this.level) continue;
+      if (s.type !== "lie" || s.level !== this.level || s.taken) continue;
       const dx = s.x - this.pos.x, dz = s.z - this.pos.z, d = dx * dx + dz * dz;
       if (d < bd) { bd = d; best = s; }
     }
@@ -1028,7 +1041,7 @@ this.moving = this._movingTimer > 0;
     if (_rogueRun) this.running = true;
 
     if (this.moving) {
-      if (this._emoteTimer > 0 && !this._fightLock) { this._emoteTimer = 0; this._emoteName = null; this._ul(); }
+      if (this._emoteTimer > 0 && !this._fightLock && !["swim_pool", "swim_entry", "swim_exit"].includes(this._emoteName)) { this._emoteTimer = 0; this._emoteName = null; this._ul(); }
       if (this._useTimer > 0) this._useTimer = 0;
     }
 
@@ -1036,7 +1049,7 @@ this.moving = this._movingTimer > 0;
 
     if (seated) {
       if (this._lyingCooldown > 0) this._lyingCooldown -= dt;
-      if (L > 0.5 && this.state === "sitting" && (this._lyingCooldown || 0) <= 0) this.stand();
+      if (L > 0.5 && ["sitting", "lying", "bathing", "seated", "kneel"].includes(this.state) && (this._lyingCooldown || 0) <= 0) this.stand();
       else if (this.sitTarget) {
         const tx = this.sitTarget.x, tz = this.sitTarget.z;
         const dxs = tx - this.pos.x, dzs = tz - this.pos.z;
@@ -1068,11 +1081,28 @@ this.moving = this._movingTimer > 0;
       }
     } else {
       const speedMult = (this.opts.speedMult || 1) * (window.__ph3d_moveSpeed || 1) * (this.rig && this.rig._carryPose ? 0.86 : 1);   /* carrying an infant: a bit slower */
-      const swimming = !!(this.world && typeof this.world.isSwimming === "function" && this.world.isSwimming(this.pos.x, this.pos.z));
+      const _swimArea = this._swimArea;
+      const _insidePool = !!(_swimArea && this.level === _swimArea.level &&
+        Math.abs(this.pos.x - _swimArea.x) <= _swimArea.halfW &&
+        Math.abs(this.pos.z - _swimArea.z) <= _swimArea.halfD);
+      const _worldWater = !!(this.world && typeof this.world.isSwimming === "function" && this.world.isSwimming(this.pos.x, this.pos.z));
+      const _wasSwimming = !!this._swimming;
+      const swimming = _insidePool || _worldWater;
       this._swimming = swimming;
+      if (this._swimTransition && performance.now() >= (this._swimTransitionUntil || 0)) this._swimTransition = null;
+      if (swimming && !_wasSwimming && this._emoteName !== "swim_entry") {
+        this._swimTransition = "enter";
+        this._swimTransitionUntil = performance.now() + 700;
+        this._emoteName = "swim_entry"; this._emoteTimer = 0.95; this._emotePhase = 0;
+      } else if (!swimming && _wasSwimming) {
+        this._swimArea = null;
+        this._swimTransition = "exit";
+        this._swimTransitionUntil = performance.now() + 650;
+        this._emoteName = "swim_exit"; this._emoteTimer = 0.9; this._emotePhase = 0;
+      }
       const baseWalk = this.driveFeel ? DRIVE_WALK : WALK;
       const baseRun = this.driveFeel ? DRIVE_WALK * DRIVE_RUN_MULT : RUN;
-      let speed = baseWalk * speedMult * (swimming ? (this._lifeJacketOn ? 0.70 : 0.58) : 1);
+      let speed = baseWalk * speedMult * (swimming ? (this._lifeJacketOn ? 0.50 : 0.38) : 1);
       if (this.state === "crouching") speed = CROUCH_SP * (swimming ? 0.7 : 1);
       else if (this.running && !swimming) speed = baseRun * speedMult;
       if (this.jet && this.jet.on && !this.onGround) speed *= 2.8;   /* jetpack flight is much faster than walking */
@@ -1098,7 +1128,11 @@ this.moving = this._movingTimer > 0;
         this.pos.x = nx; this.pos.z = nz;
       }
       const gi = this._groundInfo(this.pos.x, this.pos.z, this.level, this.floorY);
-      if (this._swimming) { gi.y = Math.max(-0.28, Math.min(-0.12, gi.y)); gi.onStairs = false; }
+      if (this._swimming) {
+        if (this._swimArea && this.level === this._swimArea.level) gi.y = this._swimArea.waterY;
+        else gi.y = Math.max(-0.28, Math.min(-0.12, gi.y));
+        gi.onStairs = false;
+      }
       this.level = gi.level;
       const _jt = this.jet;
       const _want = _jt.on && (_jt.thrust || this.keys.Space) && _jt.fuel > 0;
@@ -1182,7 +1216,7 @@ this._lastVy = vyBeforeSnap;
     this._animate(animDt);
     try { window.__ph3d_playerActions?.tick?.(this, dt, this.camera); } catch (e) {}
     this._jetVis.update(dt, this.jet.on, this.jet.on && (this.jet.thrust || this.keys.Space) && this.jet.fuel > 0);
-    try { updateCosmeticWings(this.avatar, performance.now() / 1000); } catch (e) {}
+    try { const flipping=!!(this._emoteTimer>0 && Animator.FLIP_EMOTES && Animator.FLIP_EMOTES[this._emoteName]); const falling=!this.onGround && (this.vel?.y||0)<-0.8; updateCosmeticWings(this.avatar, performance.now()/1000,{state:this.state,flip:flipping,falling}); } catch (e) {}
     {
       const flying = this.jet.on && !this.onGround;
       const hs = Math.hypot(this.vel.x || 0, this.vel.z || 0);
@@ -1208,12 +1242,17 @@ this._lastVy = vyBeforeSnap;
       avX += Math.sin(this.yaw) * 0.04; avZ += Math.cos(this.yaw) * 0.04;
     }
     {
-      const swimBob = this._swimming ? Math.sin(performance.now() * 0.0045) * 0.055 : 0;
-      const tl = (this._tiltNow || 0) + (this._swimming ? -0.22 : 0);
+      /* Lower the visual rig into the water and ease it back out on exit. The
+         controller's collision floor remains unchanged, so leaving the pool
+         does not cause a sudden physics snap. */
+      this._swimVisualBlend = lerp(this._swimVisualBlend || 0, this._swimming ? 1 : 0, Math.min(1, dt * 3.5));
+      const swimBlend = this._swimVisualBlend;
+      const swimBob = Math.sin(performance.now() * 0.0045) * 0.055 * swimBlend;
+      const tl = (this._tiltNow || 0) - 0.22 * swimBlend;
       this.avatar.rotation.order = "YXZ";
       this.avatar.rotation.x = tl;
       const HP = 1.0, c = Math.cos(tl), sn = Math.sin(tl);
-      this.avatar.position.set(avX - Math.sin(this.yaw) * HP * sn, this.floorY + HP * (1 - c) + swimBob, avZ - Math.cos(this.yaw) * HP * sn);
+      this.avatar.position.set(avX - Math.sin(this.yaw) * HP * sn, this.floorY + HP * (1 - c) - 0.52 * swimBlend + swimBob, avZ - Math.cos(this.yaw) * HP * sn);
     }
     this.avatar.rotation.y = this.yaw;
 
@@ -1413,6 +1452,7 @@ _updateCamera(dt, snap) {
 }
 
   dispose() {
+    this._releaseSeat();
     this._disposed = true;
     const wasActiveWalkCtrl = window.__ph3d_walkCtrl === this;
     if (this._WA) { try { this._WA.unmount(); } catch (e) {} this._WA = null; }

@@ -1578,7 +1578,15 @@ export const NPCs = {
             npc.ctl.yaw = tgt.yaw || 0;
             npc.state = "sitting";
             npc.stateT = 20 + rnd() * 25;
-          } else if (d > 2.0 && this._stepToward(npc, dx, dz, 1.4, dt)) {
+          } else if (d <= 1.6) {
+            /* Final seat approach is allowed to cross the seat's own collider:
+               the target is the cushion itself, not a walk-through obstacle. */
+            const sp = 1.4;
+            npc.ctl.pos.x += (dx / d) * Math.min(d, sp * dt);
+            npc.ctl.pos.z += (dz / d) * Math.min(d, sp * dt);
+            npc.moveSpeed = sp;
+            npc.yawTarget = Math.atan2(dx, dz);
+          } else if (this._stepToward(npc, dx, dz, 1.4, dt)) {
             /* routed around furniture and walls */
           } else {
             const sp = 1.4;

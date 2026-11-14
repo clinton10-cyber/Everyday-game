@@ -25,12 +25,122 @@ const CHILD_ONLY = new Set(CHAT_CORPUS.flatMap((i) => i.child || []));
 const EMOJI_RE = /[^\x00-\x7F]/;
 
 function normalize(s) {
-  return String(s || "").toLowerCase()
+  let out = String(s || "").toLowerCase()
     .replace(/[^\w\s'\u2600-\u27BF\u{1F000}-\u{1FFFF}\u2764\uFE0F₦]/gu, " ")
     .replace(/\s+/g, " ").trim();
+  /* Common chat shorthand, Nigerian English and predictable mobile typos. */
+  const aliases = {
+    "u":"you","ur":"your","r":"are","hw":"how","wht":"what","wat":"what",
+    "wer":"where","whr":"where","cn":"can","gt":"get","hv":"have","pls":"please","plz":"please",
+    "dis":"this","dat":"that","dem":"them","dey":"they","d":"the",
+    "b":"be","nd":"and","bt":"but","coz":"because","cuz":"because",
+    "gud":"good","gd":"good","m":"am","im":"i am","ive":"i have",
+    "wanna":"want to","wan":"want","gonna":"going to","gon":"going",
+    "fud":"food","fudds":"food","expensiv":"expensive","cheep":"cheap",
+    "resturant":"restaurant","restraunt":"restaurant","univers ty":"university"
+  };
+  return out.split(" ").map(t => aliases[t] || t).join(" ").replace(/\s+/g," ").trim();
 }
 const tokens = (s) => normalize(s).split(" ").filter(Boolean);
 
+/* Small, conservative spell correction. Only correct longer words when one
+   clear corpus word is a close match; names, numbers and short slang stay intact. */
+const WORD_BANK = (() => {
+  const set = new Set(("where what when which who why how much many expensive cheap food restaurant shop market "
+    +"university school hospital police doctor mechanic money friend family house home work job salary price "
+    +"taxi ride car bus airport flight ticket road direction location place near far today tomorrow yesterday "
+    +"hungry thirsty tired angry happy sad beautiful handsome sorry please thank welcome relationship girlfriend "
+    +"boyfriend married dating children child brother sister mother father university church mosque bank "
+    +"football match Arsenal Chelsea Liverpool weather rain hot cold phone battery data internet message "
+    +"buy sell borrow lend give take help need want looking find tell explain remember know understand "
+    +"Port Harcourt Rumuola Mile Eleme Chika Daniel Amara Kelechi").toLowerCase().split(/\s+/));
+  for (const intent of CHAT_CORPUS) for (const phrase of intent.pats || [])
+    for (const word of normalize(phrase).split(" ")) if (word.length > 3) set.add(word);
+  return [...set];
+})();
+function correctTypos(input) {
+  const raw = normalize(input).split(" ");
+  return raw.map(word => {
+    if (word.length < 5 || /^\d+$/.test(word) || WORD_BANK.includes(word)) return word;
+    let best = null, bestD = 3, tied = false;
+    for (const candidate of WORD_BANK) {
+      if (Math.abs(candidate.length - word.length) > 1) continue;
+      const d = lev(word, candidate);
+      if (d < bestD) { best = candidate; bestD = d; tied = false; }
+      else if (d === bestD) tied = true;
+      if (bestD === 1 && tied) break;
+    }
+    return best && bestD <= 1 && !tied ? best : word;
+  }).join(" ");
+}
+
+const CONTEXT_KEY = "ph3d.chatbrain.context.v2";
+const CHAT_CONTEXT = new Map();
+let contextLoaded = false;
+function loadChatContext() {
+  if (contextLoaded) return;
+  contextLoaded = true;
+  try {
+    const saved = JSON.parse(localStorage.getItem(CONTEXT_KEY) || "{}");
+    for (const [id, value] of Object.entries(saved)) CHAT_CONTEXT.set(id, value);
+  } catch (e) {}
+}
+function saveChatContext() {
+  try {
+    const entries = [...CHAT_CONTEXT.entries()].slice(-100);
+    localStorage.setItem(CONTEXT_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch (e) {}
+}
+function topicFor(intent, text) {
+  const id = String(intent && intent.id || "").toLowerCase();
+  const s = normalize(text);
+  const has = (...words) => words.some(w => s.includes(w));
+  if (has("food","hungry","restaurant","meal","eat","drink","bread","rice","pepper","tomato") || /food|eat|restaurant|meal|drink|hungry|cook|market_food/.test(id)) return "food";
+  if (has("price","money","naira","cash","broke","loan","borrow","salary","expensive","cheap") || /money|broke|loan|borrow|salary|price|naira|cash/.test(id)) return "money";
+  if (has("job","work","salary","employ","career","boss") || /job|work|career|employ/.test(id)) return "work";
+  if (has("taxi","ride","bus","car","airport","flight","road","direction","travel") || /taxi|ride|travel|airport|flight|road|distance|direction/.test(id)) return "travel";
+  if (has("where","place","location","house","home","shop","market","university","school","hospital","church","bank") || /place|location|house|home|shop|market|university|school|hospital|church|bank/.test(id)) return "place";
+  if (has("friend","love","date","marry","relationship","girlfriend","boyfriend","family") || /friend|love|date|marry|relationship|family|flirt/.test(id)) return "relationship";
+  if (has("football","match","goal","arsenal","chelsea") || /football|match|sport/.test(id)) return "sports";
+  if (has("weather","rain","sun","hot","cold") || /weather|rain|hot|cold/.test(id)) return "weather";
+  return id || "general";
+}
+function topicLabel(topic) {
+  return ({food:"food and places to eat",money:"money and prices",work:"work and jobs",travel:"travel and transport",
+    place:"places around town",relationship:"relationships",sports:"football",weather:"the weather"})[topic] || "that";
+}
+function contextualFollowup(text, ctx, npc) {
+  if (!ctx || !ctx.topic) return null;
+  const s = normalize(text);
+  const short = s.split(" ").length <= 9;
+  if (!short) return null;
+  const name = npc && npc._life && npc._life.name ? npc._life.name.split(" ")[0] : "my friend";
+  if (/^(is it expensive|is that expensive|how much|how much is it|what is the price|whats the price|price|cost|how costly)/.test(s)) {
+    if (ctx.topic === "food") return "Depends on what you order, my friend. Some meals are affordable, while others cost more. Which food are you considering?";
+    if (ctx.topic === "travel") return "The fare depends on where you're going and the time of day. What's your destination?";
+    if (ctx.topic === "work") return "Are you asking about the salary or the cost of getting the job?";
+    return "Which exact item or service do you mean? I don't want to give you the wrong price.";
+  }
+  if (/^(where is it|where is that|where can i find it|how do i get there|is it nearby|is that nearby)/.test(s)) {
+    return "You mean the place we were discussing about " + topicLabel(ctx.topic) + "? Tell me its name or the area, and I can help narrow it down.";
+  }
+  if (/^(what about (the )?(one|place|shop|restaurant) (near|by)|what about the one near)/.test(s)) {
+    return "Are you comparing another place near the university or a different area? Give me the name so I don't mix them up.";
+  }
+  if (/^(tell me more|more about it|explain more|go on|continue|and then|why|how come|really|are you sure)/.test(s)) {
+    if (ctx.topic === "food") return "There are usually a few options, depending on your budget and what you feel like eating. Are you looking for something cheap, local or a proper restaurant?";
+    if (ctx.topic === "money") return "Money matter get many sides. Are you asking about earning, saving, borrowing or prices?";
+    if (ctx.topic === "travel") return "The route and transport option matter. Tell me where you're starting from and where you're heading.";
+    return "I fit explain am better. Which part of " + topicLabel(ctx.topic) + " you want make we discuss?";
+  }
+  if (/^(what do you mean|which one|who do you mean|who is he|who is she|who is that)/.test(s) && ctx.lastEntity) {
+    return "I was referring to " + ctx.lastEntity + ".";
+  }
+  if (/^(okay|ok|alright|yes|yeah|true|exactly|i see|oh)/.test(s)) {
+    return null; // normal corpus response; preserve conversational acknowledgements
+  }
+  return null;
+}
 function lev(a, b) {
   if (!a.length) return b.length;
   if (!b.length) return a.length;
@@ -131,62 +241,73 @@ export const ChatBrain = {
   reply(npc, text) {
     const npcId = npc && npc._life && npc._life.id;
     if (!npcId) return fallback(npc);
-    const norm = normalize(text), toks = tokens(text);
+    loadChatContext();
+    const norm = correctTypos(text), toks = norm.split(" ").filter(Boolean);
     if (!toks.length) return fallback(npc);
     const padded = " " + norm + " ";
-
-    /* sometimes continue the previous topic with its follow-up intent */
-    const hist = TOPIC_MEMORY.get(npcId) || [];
-    const last = BY_ID.get(hist[hist.length - 1]);
-    if (last && last.child && toks.length <= 3 && Math.random() < 0.4) {
-      const child = BY_ID.get(last.child[Math.floor(Math.random() * last.child.length)]);
-      if (child) {
-        const r = this._pick(child, npc, npcId);
-        this._remember(npcId, r, child.id);
-        return r;
-      }
+    const ctx = CHAT_CONTEXT.get(npcId) || {};
+    const follow = contextualFollowup(norm, ctx, npc);
+    if (follow) {
+      ctx.lastPlayerText = String(text || "").slice(0, 180);
+      ctx.turn = (ctx.turn || 0) + 1;
+      CHAT_CONTEXT.set(npcId, ctx); saveChatContext();
+      return fillTokens(follow, npc);
     }
-
     const scored = [];
     for (const intent of CHAT_CORPUS) {
       if (CHILD_ONLY.has(intent.id)) continue;
-      let s = scoreIntent(padded, toks, intent);
-      if (s > 0 && intent.action && intent._phrase) s += 10;   /* a clear money/action phrase wins ties */
-      if (s > 0) scored.push({ intent, score: s });
+      let score = scoreIntent(padded, toks, intent);
+      if (score > 0 && intent.action && intent._phrase) score += 10;
+      if (score > 0 && ctx.topic && topicFor(intent, norm) === ctx.topic && toks.length <= 5) score += 2.5;
+      if (/\b(food|eat|hungry|restaurant|meal|buka|rice|bread)\b/.test(norm) && /food|restaurant|buka|eat|meal/i.test(intent.id)) score += 8;
+      if (/\b(job|work|employ|salary)\b/.test(norm) && /job|work|career|employ|salary/i.test(intent.id)) score += 6;
+      if (score > 0) scored.push({ intent, score });
     }
     scored.sort((a, b) => b.score - a.score);
-    if (!scored.length || scored[0].score < 3) { this._remember(npcId, null, null); return fallback(npc); }
-
-    /* weighted pick among near-best candidates only */
-    const best = scored[0].score;
-    const top = scored.slice(0, 3).filter((s) => s.score >= best * 0.6);
-    let roll = Math.random() * top.reduce((a, s) => a + s.score, 0);
-    let chosen = top[0].intent;
-    if (!top[0].intent.action) for (const s of top) { roll -= s.score; if (roll <= 0) { chosen = s.intent; break; } }
-
-    let r = null;
-    /* intents with an action (money, memory...) get first go; null = fall back to normal replies */
-    if (chosen.action) {
-      try {
-        r = chosen.action === "memory" ? this._memory(npc) : NpcMoney.handle(chosen.action, npc, text);
-      } catch (e) { console.warn("[chat] action failed", e); r = null; }
+    if (!scored.length || scored[0].score < 3) {
+      ctx.lastPlayerText = String(text || "").slice(0, 180);
+      CHAT_CONTEXT.set(npcId, ctx); saveChatContext();
+      this._remember(npcId, null, null);
+      return fallback(npc);
     }
-    if (!r) r = this._pick(chosen, npc, npcId);
+    const best = scored[0].score;
+    const top = scored.slice(0, 3).filter(item => item.score >= best * 0.6);
+    let roll = Math.random() * top.reduce((sum, item) => sum + item.score, 0);
+    let chosen = top[0].intent;
+    if (!top[0].intent.action) for (const item of top) {
+      roll -= item.score;
+      if (roll <= 0) { chosen = item.intent; break; }
+    }
+    let reply = null;
+    if (chosen.action) {
+      try { reply = chosen.action === "memory" ? this._memory(npc) : NpcMoney.handle(chosen.action, npc, text); }
+      catch (e) { console.warn("[chat] action failed", e); reply = null; }
+    }
+    if (!reply) reply = this._pick(chosen, npc, npcId);
     if (chosen.id === "yourname" && npc._life.name) {
       const nm = npc._life.name;
-      r = [`I'm ${nm}.`, `My name na ${nm}.`, `${nm}. And you?`, `Everybody dey call me ${nm.split(" ")[0]}.`][Math.floor(Math.random() * 4)];
+      reply = [`I'm ${nm}.`, `My name na ${nm}.`, `${nm}. And you?`, `Everybody dey call me ${nm.split(" ")[0]}.`][Math.floor(Math.random() * 4)];
     }
-    /* mood colours the reply; greetings remind you of unpaid debts; kind words can earn a tip */
     if (!chosen.action) {
       const mood = npc._life.mood;
-      if (typeof mood === "number" && mood < 0.3 && Math.random() < 0.3) r = GRUMPY[Math.floor(Math.random() * GRUMPY.length)] + r;
-      else if (typeof mood === "number" && mood > 0.8 && Math.random() < 0.25) r = MERRY[Math.floor(Math.random() * MERRY.length)] + r;
-      if (/^greet/.test(chosen.id)) { try { r += NpcMoney.reminder(npc); } catch (e) {} }
-      if (TIPPABLE.has(chosen.id)) { try { r += NpcMoney.spontaneous(npc); } catch (e) {} }
+      if (typeof mood === "number" && mood < 0.3 && Math.random() < 0.3) reply = GRUMPY[Math.floor(Math.random() * GRUMPY.length)] + reply;
+      else if (typeof mood === "number" && mood > 0.8 && Math.random() < 0.25) reply = MERRY[Math.floor(Math.random() * MERRY.length)] + reply;
+      if (/^greet/.test(chosen.id)) { try { reply += NpcMoney.reminder(npc); } catch (e) {} }
+      if (TIPPABLE.has(chosen.id)) { try { reply += NpcMoney.spontaneous(npc); } catch (e) {} }
     }
-    r = fillTokens(r, npc);
-    this._remember(npcId, r, chosen.id);
-    return r;
+    reply = fillTokens(reply, npc);
+    ctx.topic = topicFor(chosen, norm);
+    ctx.lastIntent = chosen.id;
+    ctx.lastPlayerText = String(text || "").slice(0, 180);
+    ctx.lastNpcReply = String(reply || "").slice(0, 220);
+    ctx.turn = (ctx.turn || 0) + 1;
+    const entity = String(text || "").match(/\b(?:at|near|to|about|called|named)\s+([A-Za-z][A-Za-z'-]*(?:\s+[A-Za-z][A-Za-z'-]*){0,2})/i);
+    if (entity) ctx.lastEntity = entity[1].trim();
+    CHAT_CONTEXT.set(npcId, ctx);
+    if (CHAT_CONTEXT.size > 100) CHAT_CONTEXT.delete(CHAT_CONTEXT.keys().next().value);
+    saveChatContext();
+    this._remember(npcId, reply, chosen.id);
+    return reply;
   },
 
   /* "do you remember me?" answered from the real relationship value */
@@ -228,7 +349,7 @@ export const ChatBrain = {
 
   /* debug helper: top-N intent ids for a message (no side effects) */
   rank(text, n = 3) {
-    const padded = " " + normalize(text) + " ", toks = tokens(text), out = [];
+    const fixed = correctTypos(text), padded = " " + fixed + " ", toks = fixed.split(" ").filter(Boolean), out = [];
     for (const intent of CHAT_CORPUS) {
       if (CHILD_ONLY.has(intent.id)) continue;
       let sc = scoreIntent(padded, toks, intent);
@@ -242,6 +363,8 @@ export const ChatBrain = {
     const intent = BY_ID.get(intentId);
     return intent ? this._pick(intent, npc, npc && npc._life && npc._life.id) : null;
   },
+
+  understand(text) { return { normalized: correctTypos(text), intents: this.rank(text, 5) }; },
 
   stats() {
     return {

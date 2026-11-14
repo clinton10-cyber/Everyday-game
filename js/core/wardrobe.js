@@ -187,7 +187,9 @@ export function resolveColor(palette, v, fallback) {
 }
 
 const DEFAULT = {
-  look: "classic",
+  look: "faceted",
+  bodyStyle: "faceted",
+  bodyHeight: 1,
   gender: "neutral",
   build: 0,
   skinTone: 3,

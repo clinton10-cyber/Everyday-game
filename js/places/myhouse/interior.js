@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { Quality } from "../../core/quality.js";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { handleFurnitureUse } from "../../core/furniture-interactions.js";
 import { NPCs } from "../../core/npcs.js";
 import { NpcTalk } from "../../core/npc-talk.js";
 import { Surfaces } from "../../core/surfaces.js";
@@ -304,7 +305,7 @@ export async function buildInterior(router) {
   const ctrl = new ThirdPersonControls(cam, router.renderer.domElement, world, {
     scene: three, x: SPAWN_X, z: SPAWN_Z, yaw: SPAWN_YAW, level: 0,
     speedMult: 1.0,
-    onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
+    onUse: (use) => { handleFurnitureUse(use, window.__ph3d_walkCtrl || window.__ph3d_player); },
   });
 
   const carries = []; const BG = new THREE.BoxGeometry(1, 1, 1);

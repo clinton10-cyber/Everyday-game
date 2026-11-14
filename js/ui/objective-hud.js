@@ -151,10 +151,11 @@ export const ObjectiveHUD = {
     /* ── objective card ── */
     const job = JobObjectives.active();
     const t = JobObjectives.target();
+    const guide = JobObjectives.guidanceTarget(px, pz) || t;
     if (!job || !t) { _card.classList.remove("on"); return; }
     _card.classList.add("on");
 
-    const dx = t.x - px, dz = t.z - pz;
+    const dx = guide.x - px, dz = guide.z - pz;
     const dist = Math.hypot(dx, dz);
 
     /* Facing convention in this game: forward = (sin yaw, cos yaw).

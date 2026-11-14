@@ -289,6 +289,34 @@ export async function buildInterior(router) {
     scene.add(f);
   });
 
+  /* ── INTERIOR ZONING: rugs visually group furniture into planned spaces ── */
+  function placeRug(x, z, w, d, color, borderColor = 0xb79a62) {
+    const rugMat = new THREE.MeshLambertMaterial({ color });
+    const trimMat = new THREE.MeshLambertMaterial({ color: borderColor });
+    const rug = new THREE.Mesh(new THREE.BoxGeometry(w, 0.035, d), rugMat);
+    rug.position.set(x, 0.17, z);
+    scene.add(rug);
+    const t = 0.055;
+    for (const [rw, rd, rx, rz] of [
+      [w, t, x, z - d / 2 + t / 2], [w, t, x, z + d / 2 - t / 2],
+      [t, d, x - w / 2 + t / 2, z], [t, d, x + w / 2 - t / 2, z],
+    ]) {
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.018, rd), trimMat);
+      edge.position.set(rx, 0.193, rz);
+      scene.add(edge);
+    }
+  }
+  placeRug(29, 11.5, 7.4, 5.0, 0x66513a);      // reception waiting zone
+  placeRug(38.5, 22.4, 2.2, 10.8, 0x654b3b);   // private guest corridor
+  for (const roomId of ["suite101", "suite102", "suite103"]) {
+    const room = ROOMS.find(r => r.id === roomId);
+    placeRug(room.x + room.w / 2, room.z + 6.6, 4.6, 4.8, 0x60465a, 0xc4a36a);
+  }
+  placeRug(5.5, 32.1, 9.0, 5.7, 0x30343a, 0x7b8791); // gym training zone
+  placeRug(16.5, 32.1, 9.0, 5.7, 0x25414a, 0x9bb9ad); // spa relaxation zone
+  placeRug(11, 41.2, 19.0, 8.0, 0x392b35, 0xc4a36a); // fine dining zone
+  placeRug(28, 41.3, 10.0, 8.2, 0x403126, 0xc4a36a); // sky bar lounge zone
+
   /* ── CEILING ───────────────────────────────────────────────── */
   const CM = new THREE.MeshLambertMaterial({ color: 0xf3ecdc });
   const ceil = new THREE.Mesh(new THREE.BoxGeometry(44, 0.2, 46), CM);
@@ -325,6 +353,23 @@ export async function buildInterior(router) {
   wall(11, 16, 0.2, 6); wall(11, 22, 0.2, 6);
   wall(22, 16, 0.2, 6); wall(22, 22, 0.2, 6);
   wall(33, 16, 0.2, 12);
+  /* Gold-trimmed open door portals make the three guest-room entries legible. */
+  {
+    const frameMat = new THREE.MeshLambertMaterial({ color: 0xb99555 });
+    for (const cx of [7.5, 18.5, 29.5]) {
+      for (const side of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.65, 0.16), frameMat);
+        post.position.set(cx + side * 1.42, 1.325, 16.12);
+        scene.add(post);
+      }
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.96, 0.14, 0.16), frameMat);
+      lintel.position.set(cx, 2.65, 16.12);
+      scene.add(lintel);
+      const threshold = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.035, 0.42), frameMat);
+      threshold.position.set(cx, 0.18, 16.25);
+      scene.add(threshold);
+    }
+  }
   /* Suites ↔ Gym/Spa/Business (doorways at x 5..8, 16..19, 28..31) */
   wall(0, 28, 5, 0.2);
   wall(8, 28, 8, 0.2);
@@ -367,6 +412,22 @@ export async function buildInterior(router) {
     for (const px of [3, 8.5, 15.5, 21]) {
       const pil = new THREE.Mesh(new THREE.BoxGeometry(0.6, WH, 0.35), WM);
       pil.position.set(px, WH / 2, 0.3); scene.add(pil);
+    }
+  }
+
+  /* Room wayfinding plaques and warm corridor sconces. */
+  {
+    const plaqueMat = new THREE.MeshLambertMaterial({ color: 0x3b2a1c });
+    const letterMat = new THREE.MeshLambertMaterial({ color: 0xe4c783 });
+    for (const [x, z, labelWidth] of [[7.5, 15.78, 1.7], [18.5, 15.78, 1.7], [29.5, 15.78, 1.7]]) {
+      const plaque = new THREE.Mesh(new THREE.BoxGeometry(labelWidth, 0.42, 0.06), plaqueMat);
+      plaque.position.set(x, 3.15, z); scene.add(plaque);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(labelWidth - 0.18, 0.035, 0.025), letterMat);
+      stripe.position.set(x, 3.15, z - 0.045); scene.add(stripe);
+    }
+    for (const z of [19, 24]) {
+      const sconce = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.65, 0.16), EM(0xffd99a, 0.8, 0x5a3510));
+      sconce.position.set(43.72, 2.2, z); scene.add(sconce);
     }
   }
 
@@ -525,10 +586,11 @@ export async function buildInterior(router) {
     const sitZ = r.z + r.d - 3.5;
     B(1.6, 0.06, 0.9, cx, 0.4, sitZ, M(0x8a6a4a, 1));
     C(0.2, 0.2, 0.4, 6, cx, 0.22, sitZ, M(0x5a3a1a, 1));
-    for (const sx of [cx - 1.6, cx + 1.6]) {
-      B(0.6, 0.1, 0.6, sx, 0.5, sitZ, M(0x3a5578, 1));
-      B(0.6, 0.6, 0.1, sx, 0.8, sitZ + 0.3, M(0x3a5578, 1));
-      addSeat(sx, sitZ, Math.PI, 0.55, "SIT");
+    /* Lounge chairs face one another across the coffee table. */
+    for (const [sx, yaw, backX] of [[cx - 1.6, Math.PI / 2, cx - 1.9], [cx + 1.6, -Math.PI / 2, cx + 1.9]]) {
+      B(0.6, 0.1, 0.6, sx, 0.5, sitZ, M(0x3a5578, 1), yaw);
+      B(0.1, 0.6, 0.6, backX, 0.8, sitZ, M(0x3a5578, 1));
+      addSeat(sx, sitZ, yaw, 0.55, "SIT");
       addCol(sx, sitZ, 0.35, 0.35, 0, 0.9);
     }
     addCol(cx, sitZ, 0.85, 0.5, 0, 0.5);
@@ -545,7 +607,7 @@ export async function buildInterior(router) {
   /* ── GYM ───────────────────────────────────────────────────── */
   {
     /* 2 treadmills */
-    for (const tx of [2.5, 5.5]) {
+    for (const tx of [2.4, 5.0]) {
       B(1.2, 0.2, 2.4, tx, 0.1, 32, M(0x2a2a2e, 1));
       B(1.0, 0.1, 2.2, tx, 0.25, 32, M(0x3a3a44, 1));
       B(0.1, 1.6, 0.1, tx, 0.9, 30.9, M(0x2a2a2e, 1));
@@ -554,16 +616,16 @@ export async function buildInterior(router) {
       addUse(tx, 33.8, 1.8, "RUN ON TREADMILL", "run");
     }
     /* 2 weight benches */
-    for (const bx of [8.5, 10.5]) {
-      B(0.8, 0.15, 1.8, bx, 0.5, 32, M(0x2a2a2e, 1));
-      B(0.6, 0.15, 0.6, bx, 0.65, 31.3, M(0x2a2a2e, 1));
-      for (const off of [-0.3, 0.3]) B(0.08, 0.5, 1.6, bx + off, 0.25, 32, M(0x1a1a1e, 1));
-      addCol(bx, 32, 0.5, 0.95, 0, 0.8);
-      addUse(bx, 33.6, 1.8, "LIFT WEIGHTS", "lift");
+    for (const bx of [8.0, 10.0]) {
+      B(0.8, 0.15, 1.8, bx, 0.5, 33.7, M(0x2a2a2e, 1));
+      B(0.6, 0.15, 0.6, bx, 0.65, 33.0, M(0x2a2a2e, 1));
+      for (const off of [-0.3, 0.3]) B(0.08, 0.5, 1.6, bx + off, 0.25, 33.7, M(0x1a1a1e, 1));
+      addCol(bx, 33.7, 0.5, 0.95, 0, 0.8);
+      addUse(bx, 35.0, 1.25, "LIFT WEIGHTS", "lift");
     }
-    /* Dumbbell rack (east wall) */
-    B(0.7, 1.4, 3.0, 10.4, 0.7, 29.6, M(0x3a3a48, 1));
-    addCol(10.4, 29.6, 0.4, 1.55, 0, 1.4);
+    /* Dumbbell rack is now on the rear wall, clear of the bench stations. */
+    B(0.7, 1.4, 2.6, 9.8, 0.7, 29.5, M(0x3a3a48, 1));
+    addCol(9.8, 29.5, 0.4, 1.35, 0, 1.4);
   }
 
   /* ── SPA ───────────────────────────────────────────────────── */
@@ -582,9 +644,9 @@ export async function buildInterior(router) {
     addUse(20.5, 32, 2.4, "SOAK IN HOT TUB", "bath");
 
     /* Yoga mats */
-    for (const mx of [13.5, 14.7, 15.9]) {
-      B(0.6, 0.03, 1.5, mx, 0.015, 32, EM(0x7dff9b, 1.2, 0x0a2a10));
-      addSeat(mx, 32, 0, 0.05, "DO YOGA", "lie");
+    for (const mx of [12.6, 14.0, 15.4]) {
+      B(0.6, 0.03, 1.5, mx, 0.21, 34.4, EM(0x7dff9b, 1.2, 0x0a2a10));
+      addSeat(mx, 34.4, 0, 0.05, "DO YOGA", "lie");
     }
 
     /* Two chairs in the waiting corner */
@@ -699,8 +761,7 @@ export async function buildInterior(router) {
     /* Pool ladder */
     C(0.03, 0.03, 1.0, 4, 36, 0.6, 41, M(0xc9ced5, 1));
     /* 4 sun loungers */
-    for (let i = 0; i < 4; i++) {
-      const lx = 36 + i * 1.2;
+    for (const lx of [35.8, 37.4, 40.6, 42.2]) {
       B(0.6, 0.15, 1.6, lx, 0.3, 44, M(0xfff0d0, 1));
       B(0.6, 0.5, 0.1, lx, 0.55, 44.75, M(0xe0d0b0, 1));
       for (const [ox, oz] of [[-0.25, -0.7], [0.25, -0.7], [-0.25, 0.7], [0.25, 0.7]]) {
@@ -710,7 +771,8 @@ export async function buildInterior(router) {
       addCol(lx, 44, 0.4, 0.85, 0, 0.65);
     }
     /* Side table between loungers */
-    B(0.5, 0.55, 0.5, 39.8, 0.28, 44, M(0x8a6a4a, 1));
+    B(0.5, 0.55, 0.5, 39.0, 0.28, 44, M(0x8a6a4a, 1));
+    addCol(39.0, 44, 0.3, 0.3, 0, 0.6);
     /* Poolside bar */
     B(3.0, 0.9, 0.8, 42, 0.45, 38, M(0x8a5a2a, 1));
     addUse(42, 39, 1.5, "ORDER COCKTAIL", "cook");
@@ -937,7 +999,7 @@ export async function buildInterior(router) {
     controls: { update: () => {} },
     crumb: "HOTEL PRESIDENTIAL",
     title: "5-STAR LUXURY · TWO LEVELS",
-    subtitle: "GRAND LOBBY · VIP GALLERY · BALLROOM · SUITES · SKY BAR",
+    subtitle: "GRAND ATRIUM · RECEPTION · GUEST SUITES · WELLNESS · FINE DINING · VIP BALLROOM",
     hint: "LEFT: MOVE  ·  RIGHT: LOOK  ·  E: INTERACT  ·  USE STAIRS OR ELEVATOR",
     isInterior: true,
     sceneId: "hotel",

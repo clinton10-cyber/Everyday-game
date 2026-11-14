@@ -5,9 +5,14 @@
 import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
 import { Wedding } from "../../core/wedding.js";
+import { NPCs } from "../../core/npcs.js";
+import { DayNight } from "../../core/daynight.js";
+import { Lives } from "../../core/npc-lives.js";
 
 export async function buildInterior(router) {
   /* ======== prototype kit + world ======== */
+  const churchCrowd = [];
+  let churchServiceActive = false;
   /* ================= SHARED KIT ================= */
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0x1a1a20);
@@ -196,8 +201,11 @@ export async function buildInterior(router) {
     box(4,.6,.1,x,.8,z+.3,woodM);   /* backrest on the south edge, behind the seated player (yaw PI faces the altar at -z) */
     box(.1,.5,.6,x-1.95,.25,z,woodM);
     box(.1,.5,.6,x+1.95,.25,z,woodM);
-    seats.push({ type: "sit", label: "SIT IN PEW",
-                 x, z, yaw: Math.PI, h: 0.55, level: 0, taken: false });
+    /* Three proper sitting places on each pew, all facing the pulpit. */
+    for (const dx of [-1.25, 0, 1.25]) {
+      seats.push({ type: "sit", label: "SIT IN PEW",
+                   x: x + dx, z, yaw: Math.PI, h: 0.55, level: 0, taken: false });
+    }
   }
   for(let i=0;i<7;i++){
     pew(-4.5,-4+i*2.5);
@@ -238,6 +246,89 @@ export async function buildInterior(router) {
   box(3.4,.3,.3,0,4.1,D/2-.15,darkWood);
   box(.3,4.2,.3,-1.7,2.1,D/2-.15,darkWood);
   box(.3,4.2,.3,1.7,2.1,D/2-.15,darkWood);
+  /* ===== SUNDAY SERVICE CONGREGATION =====
+     The church fills on Sundays during the morning service. Congregants are
+     real NPC rigs seated in the pews; the pastor preaches at the pulpit and an
+     usher remains standing by the entrance. */
+  function clearChurchCrowd() {
+    for (const npc of churchCrowd) {
+      const i = NPCs.list.indexOf(npc);
+      if (i >= 0) NPCs.list.splice(i, 1);
+      if (npc.group && npc.group.parent) npc.group.parent.remove(npc.group);
+      if (npc.group) npc.group.traverse(o => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m && m.dispose && m.dispose());
+      });
+    }
+    churchCrowd.length = 0;
+    for (const seat of seats) seat.taken = false;
+  }
+
+  function addChurchNPC(role, x, z, seat) {
+    const npc = NPCs.spawnRole(scene, role, x, z, {});
+    if (!npc) return null;
+    npc._churchServiceNPC = true;
+    npc.stationary = true;
+    npc.homeX = x; npc.homeZ = z;
+    npc.ctl.pos.x = x; npc.ctl.pos.z = z; npc.ctl.pos.y = 0;
+    npc.group.position.set(x, 0, z);
+    if (seat) {
+      seat.taken = true;
+      npc.seatTarget = seat;
+      npc.state = "sitting";
+      npc.stateT = 1000000;
+      npc.ctl.yaw = seat.yaw;
+      npc.yawTarget = seat.yaw;
+    } else {
+      npc.state = "idle";
+      npc.stateT = 1000000;
+      npc.ctl.yaw = role === "priest" ? 0 : Math.PI;
+      npc.yawTarget = npc.ctl.yaw;
+    }
+    npc.group.rotation.y = npc.ctl.yaw;
+    churchCrowd.push(npc);
+    return npc;
+  }
+
+  function syncSundayService() {
+    Lives.init();
+    const lifeState = Lives.state();
+    /* The life-simulation calendar uses day 6 as Sunday. */
+    const active = !!(lifeState && lifeState.day % 7 === 6) && DayNight.hour >= 8 && DayNight.hour < 13.5;
+    if (active === churchServiceActive) return;
+    churchServiceActive = active;
+    clearChurchCrowd();
+    if (!active) return;
+
+    NPCs.setScene(scene);
+    NPCs.setAABBs([]);
+    NPCs.setSeats(seats);
+
+    /* Fill every pew seat except a few near the back for the player. */
+    const available = seats.filter(s => s.type === "sit");
+    const congregationCount = Math.min(available.length - 4, 38);
+    for (let i = 0; i < congregationCount; i++) {
+      const seat = available[i];
+      addChurchNPC("walker", seat.x, seat.z, seat);
+    }
+
+    /* Pastor at the pulpit, facing the congregation. */
+    const pastor = addChurchNPC("priest", -3, -9.75, null);
+    if (pastor && pastor.ctl) {
+      pastor.ctl._emoteName = "preach";
+      pastor.ctl._emoteTimer = 1000000;
+      pastor.ctl._emotePhase = Math.random() * 2;
+    }
+
+    /* One clearly visible usher standing near the main entrance. */
+    const usher = addChurchNPC("banker", 2.5, 11.1, null);
+    if (usher && usher.ctl) {
+      usher.ctl._emoteName = "wave";
+      usher.ctl._emoteTimer = 1000000;
+      usher.ctl._emotePhase = 0.4;
+    }
+  }
+
   /* ======== game glue ======== */
   camera.fov = 95; camera.updateProjectionMatrix();
   const __cols = [];
@@ -274,11 +365,13 @@ export async function buildInterior(router) {
     isInterior: true,
     sceneId: "church",
     update: (dt) => {
+      syncSundayService();
+      try { NPCs.tick(dt, ctl.pos.x, ctl.pos.z); } catch (e) { console.warn("[church NPCs]", e); }
       let cut = false;
       try { cut = wed ? wed.tick(dt) : false; } catch (e) { console.warn("[wedding]", e); }
       if (!cut) ctl.update(dt);
     },
-    dispose: () => { try { wed && wed.dispose(); } catch (e) {} ctl.dispose(); },
+    dispose: () => { clearChurchCrowd(); try { wed && wed.dispose(); } catch (e) {} ctl.dispose(); },
   };
 }
 

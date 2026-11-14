@@ -196,25 +196,43 @@ export const PlayerActions = {
       old.userData._inHand = false;
       this._held = null;
     }
+
     const prof = _handling(mesh);
+    mesh.userData = mesh.userData || {};
     mesh.userData._hands = prof.hands;
     walker._carryMul = prof.move;
+
+    /* Re-orient before measuring, then move the model's actual visual centre
+       to the palm/chest anchor. World props are built from a ground origin, so
+       simply assigning a fixed offset leaves a visible gap between fingers
+       and small objects (or makes large objects float beside the hand). */
+    mesh.rotation.set(0, 0, 0);
+    mesh.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(mesh);
+    const centerWorld = new THREE.Vector3();
+    if (!bounds.isEmpty()) bounds.getCenter(centerWorld);
+    else mesh.getWorldPosition(centerWorld);
+    const centerLocal = mesh.worldToLocal(centerWorld.clone());
+    const scaledCenter = centerLocal.multiply(mesh.scale);
+
     if (prof.hands === 2 && walker.rig.spine) {
-      /* two-hand carry: hug it against the chest, in front of the torso */
-      walker.rig.spine.add(mesh);
-      mesh.position.set(0, 0.34, 0.30);
-      mesh.rotation.set(0, 0, 0);
-      mesh.scale.setScalar(1);
+      /* Two-hand loads are centred against the torso, not positioned by the
+         object's ground-origin. This keeps crates/baskets from hovering away. */
+      const chest = walker.rig.spine;
+      chest.add(mesh);
+      mesh.position.set(0, 0.31, 0.245).sub(scaledCenter);
       mesh.userData._inHand = true;
       this._held = { mesh, walker };
       return;
     }
+
     const grip = walker.rig.armR.grip || walker.rig.armR.wrist;
-    if (!grip) return;
+    if (!grip) { walker._carryMul = 1; return; }
     grip.add(mesh);
-    mesh.position.set(0, -0.10, 0.06);
-    mesh.rotation.set(0, 0, 0);
-    mesh.scale.setScalar(1);
+    /* The object centre intersects the palm slightly; fingers can close around
+       it without leaving a gap. Keep the original scale so dropped props do not
+       unexpectedly grow when picked up. */
+    mesh.position.set(0, -0.006, 0.012).sub(scaledCenter);
     mesh.userData._inHand = true;
     this._held = { mesh, walker };
   },
@@ -303,6 +321,27 @@ export const PlayerActions = {
       /* one hand: forearm raised, load held at the side-front; left arm keeps swinging */
       _blendRot(R.armR.shoulder, -0.45, 0, -0.14, k);
       _blendRot(R.armR.elbow, -1.05, 0, 0, k);
+    }
+
+    /* Close fingers around the held prop. The old carry pose raised the arm
+       but left the fingers open, which made objects look magnetically attached. */
+    const curlHand = (arm, amount) => {
+      if (!arm || !arm.fingers) return;
+      for (const finger of arm.fingers) {
+        if (finger.group) _blendRot(finger.group, -0.72 * amount, 0, 0, k);
+        if (finger.midJoint) _blendRot(finger.midJoint, -0.62 * amount, 0, 0, k);
+      }
+      if (arm.thumb) _blendRot(arm.thumb, 0.28 * amount, 0, arm === R.armR ? -0.32 * amount : 0.32 * amount, k);
+    };
+    if (held && held.mesh.userData._hands === 2) {
+      curlHand(R.armL, 1);
+      curlHand(R.armR, 1);
+    } else if (held) {
+      curlHand(R.armR, 1);
+      curlHand(R.armL, 0);
+    } else {
+      curlHand(R.armR, 0);
+      curlHand(R.armL, 0);
     }
   },
 };

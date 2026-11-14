@@ -1,7 +1,8 @@
 import { PhoneGames } from "./phone-games.js";
 import { Economy } from "./economy.js";
 import { FOOD_ITEMS } from "./restaurants.js";
-import { Pocket } from "./pocket.js";
+import { Pocket, POCKET_ITEMS } from "./pocket.js";
+import { MILE1_BY_ID } from "../data/mile1-stalls.js";
 import { SELFIE_POSES, SELFIE_POSE_ORDER } from "./thirdperson.js";
 import { Sfx } from "./sfx.js";
 import { Engagement } from "./engagement.js";
@@ -391,12 +392,40 @@ export class Phone{
           </div>
         </div>
 
+        <div class="phone-lockscreen" id="phone-lockscreen" aria-label="Phone lock screen">
+          <button class="lock-close" id="phone-lock-close" type="button" aria-label="Close phone">×</button>
+          <div class="lock-wallpaper-glow"></div>
+          <div class="lock-date" id="phone-lock-date">FRIDAY, NOVEMBER 13</div>
+          <div class="lock-time" id="phone-lock-time">19:09</div>
+          <div class="lock-notification">
+            <div class="lock-notification-top"><b>EVERYDAY</b><span>NOW</span></div>
+            <div class="lock-notification-title">Welcome back</div>
+            <div class="lock-notification-text">Your day in Port Harcourt is waiting.</div>
+          </div>
+          <div class="lock-bottom"><span><i class="fa-solid fa-camera"></i></span><span class="lock-swipe" id="phone-unlock-hint">Swipe up to unlock <b>↑</b></span><span><i class="fa-solid fa-bolt"></i></span></div>
+          <button class="lock-unlock-btn" id="phone-unlock-btn" type="button">UNLOCK PHONE</button>
+        </div>
         <div class="thomebar"></div>
       </div>
     `);
 
     /* ── wiring ───────────────────────────────────────── */
     document.getElementById("tclose").onclick = () => this.hide();
+    const unlockPhone = () => this.unlock();
+    const lockClose = document.getElementById("phone-lock-close");
+    if (lockClose) lockClose.onclick = () => this.hide();
+    const unlockBtn = document.getElementById("phone-unlock-btn");
+    if (unlockBtn) unlockBtn.onclick = unlockPhone;
+    const lockScreen = document.getElementById("phone-lockscreen");
+    if (lockScreen) {
+      let touchStartY = null;
+      lockScreen.addEventListener("pointerdown", ev => { touchStartY = ev.clientY; });
+      lockScreen.addEventListener("pointerup", ev => {
+        if (touchStartY !== null && touchStartY - ev.clientY > 35) unlockPhone();
+        touchStartY = null;
+      });
+      lockScreen.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") unlockPhone(); });
+    }
     document.getElementById("tscrim").onclick = () => this.hide();
     document.getElementById("tpill").onclick = () => this.toggle();
 
@@ -499,9 +528,10 @@ export class Phone{
   /* ── tick / clock ───────────────────────────────────── */
   _tick(){
     const e = document.getElementById("tclock");
-    if (!e) return;
     const d = new Date();
-    e.textContent = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+    const clock = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+    if (e) e.textContent = clock;
+    if (this.visible && this.locked) this._updateLockScreen();
     PhoneLife.tick(); this._renderBatteryStatus();
   }
 
@@ -610,6 +640,9 @@ export class Phone{
 
   show(){
     this.visible = true;
+    this.locked = true;
+    this._updateLockScreen();
+    document.getElementById("phone-lockscreen")?.classList.remove("unlocked");
     window.__ph3d_phoneOpen = true;
     if (window.__ph3d_walkCtrl) window.__ph3d_walkCtrl.setPhoneHold(true);
     try { Sfx.play("phone_open"); } catch (_) {}
@@ -619,8 +652,25 @@ export class Phone{
     this._bal();
   }
 
+  unlock(){
+    if (!this.visible || !this.locked) return;
+    this.locked = false;
+    const lock = document.getElementById("phone-lockscreen");
+    if (lock) lock.classList.add("unlocked");
+    try { Sfx.play("phone_open"); } catch (_) {}
+  }
+
+  _updateLockScreen(){
+    const now = new Date();
+    const time = document.getElementById("phone-lock-time");
+    const date = document.getElementById("phone-lock-date");
+    if (time) time.textContent = String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
+    if (date) date.textContent = now.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"}).toUpperCase();
+  }
+
   hide(){
     this.visible = false;
+    this.locked = true;
     window.__ph3d_phoneOpen = false;
     if (window.__ph3d_walkCtrl) window.__ph3d_walkCtrl.setPhoneHold(false);
     this._clearSelfieState();
@@ -1160,15 +1210,50 @@ export class Phone{
   _renderInv(){
     const el = document.getElementById("invlist");
     if (!el) return;
-    const inv = window.__ph3d_inv;
-    const items = inv && Array.isArray(inv.items) ? inv.items : [];
-    if (!items.length) {
-      el.innerHTML = '<header class="inventory-head"><span>POCKET STORAGE</span><h2>Your carry bag</h2><p>Items you collect in the city appear here.</p></header><div class="inventory-empty"><i class="fa-solid fa-box-open"></i><b>Nothing in your bag</b><span>Pick up items around the city with E / Take.</span></div>';
+    const slots = Pocket.slots.map((slot, slotIndex) => slot ? ({ ...slot, slotIndex }) : null).filter(Boolean);
+    if (!slots.length) {
+      el.innerHTML = '<header class="inventory-head"><span>POCKET STORAGE</span><h2>Your carry bag</h2><p>Market purchases and city pickups appear here.</p></header><div class="inventory-empty"><i class="fa-solid fa-box-open"></i><b>Nothing in your bag</b><span>Buy goods at Mile 1 Market or collect items around the city.</span></div>';
       return;
     }
-    const total=items.reduce((a,it)=>a+(Number(it.qty)||1),0);
-    el.innerHTML=`<header class="inventory-head"><span>POCKET STORAGE</span><h2>Your carry bag</h2><p>${total} item units · ${items.length} item types</p><div class="inventory-capacity"><i style="width:${Math.min(100,items.length/8*100)}%"></i></div><small>${items.length} / 8 slots used</small></header><div class="inventory-grid">${items.map((it,i)=>`<button class="inventory-item" data-item-index="${i}"><span class="inventory-item-icon"><i class="fa-solid ${/food|drink/i.test(it.type||"")?"fa-apple-whole":/tool/i.test(it.type||"")?"fa-screwdriver-wrench":"fa-cube"}"></i></span><b>${String(it.name||"Item").replace(/[<>&]/g,"")}</b><small>${String(it.type||"Miscellaneous").replace(/[<>&]/g,"")}</small><em>×${it.qty||1}</em></button>`).join("")}</div><div class="inventory-detail" id="inventory-detail">Select an item to inspect its details.</div>`;
-    el.querySelectorAll("[data-item-index]").forEach(b=>b.onclick=()=>{const it=items[Number(b.dataset.itemIndex)];const d=el.querySelector("#inventory-detail");if(d)d.innerHTML=`<b>${String(it.name||"Item").replace(/[<>&]/g,"")}</b><span>${String(it.type||"Item").replace(/[<>&]/g,"")}</span><small>Quantity: ${it.qty||1}</small>`;el.querySelectorAll(".inventory-item").forEach(x=>x.classList.toggle("selected",x===b));});
+    const total = slots.reduce((a,it)=>a+(Number(it.qty)||1),0);
+    const esc = (v) => String(v == null ? "" : v).replace(/[<>&"']/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;", "'":"&#39;"}[c]));
+    el.innerHTML = `<header class="inventory-head"><span>POCKET STORAGE</span><h2>Your carry bag</h2><p>${total} item units · ${slots.length} item types</p><div class="inventory-capacity"><i style="width:${Math.min(100,slots.length/8*100)}%"></i></div><small>${slots.length} / 8 slots used</small></header><div class="inventory-grid">${slots.map((it)=>{const label=MILE1_BY_ID[it.id]?.label || POCKET_ITEMS[it.id]?.name || it.id;return `<button class="inventory-item" data-pocket-index="${it.slotIndex}"><span class="inventory-item-icon"><i class="fa-solid fa-cube"></i></span><b>${esc(label)}</b><small>${esc(it.id.replace(/_/g," "))}</small><em>×${it.qty||1}</em></button>`;}).join("")}</div><div class="inventory-detail" id="inventory-detail">Select an item to use, equip, sell or drop it.</div>`;
+    el.querySelectorAll("[data-pocket-index]").forEach(b=>b.onclick=()=>{
+      const index = Number(b.dataset.pocketIndex), slot = Pocket.slots[index];
+      if (!slot) return;
+      const detail = el.querySelector("#inventory-detail");
+      const displayName = MILE1_BY_ID[slot.id]?.label || POCKET_ITEMS[slot.id]?.name || slot.id.replace(/_/g," ").toUpperCase();
+      const name = esc(displayName);
+      const held = window.__ph3d_playerActions?.heldItem?.();
+      const isHeld = held?.type === slot.id && held?.mesh?.userData?.marketItemId === slot.id;
+      detail.innerHTML = `<b>${name}</b><span>${esc(slot.id.replace(/_/g," "))}</span><small>Quantity: ${slot.qty||1}</small><div class="inventory-item-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button type="button" data-pocket-use style="padding:11px 14px;border:0;border-radius:10px;background:#36d889;color:#07150e;font-weight:900">${isHeld?"PUT AWAY":"USE / EQUIP"}</button><button type="button" data-pocket-drop style="padding:11px 14px;border:1px solid #ff7777;border-radius:10px;background:#351b22;color:#ffaaaa;font-weight:900">DROP</button><button type="button" data-pocket-sell style="padding:11px 14px;border:1px solid #ffffff33;border-radius:10px;background:#172536;color:#fff;font-weight:900">SELL</button></div>`;
+      el.querySelectorAll(".inventory-item").forEach(x=>x.classList.toggle("selected",x===b));
+      detail.querySelector("[data-pocket-use]").onclick = async () => {
+        if (isHeld) {
+          const { unequipMarketPocketItem } = await import("./market-item-use.js");
+          unequipMarketPocketItem();
+        } else {
+          const { useMarketPocketItem } = await import("./market-item-use.js");
+          const result = await useMarketPocketItem(index);
+          if (!result.ok) this._toast(result.message || "Unable to use this item.");
+        }
+        this._renderInv();
+      };
+      detail.querySelector("[data-pocket-drop]").onclick = async () => {
+        const { POCKET_ITEMS } = await import("./pocket.js");
+        const spec = POCKET_ITEMS[slot.id] || { id:slot.id, name:displayName, desc:"Market item" };
+        const world = window.__ph3d_world_objects;
+        const visual = world?.dropPocketItem?.({ ...spec, id:slot.id, name:spec.name || slot.name }, window.__ph3d_player);
+        if (!visual) { this._toast("Cannot drop an item in this scene."); return; }
+        Pocket.remove(index, 1); this._toast("Dropped " + (spec.name || slot.id) + "."); this._renderInv();
+      };
+      detail.querySelector("[data-pocket-sell]").onclick = () => {
+        const spec = Pocket.slots[index] && Pocket.sellSlot(index);
+        if (spec > 0) { Economy.receive("POCKET", spec, displayName); this._toast("Sold for ₦" + spec.toLocaleString()); }
+        else this._toast("This item cannot be sold.");
+        this._renderInv();
+      };
+    });
   }
 
   /* ── receipt ────────────────────────────────────────── */

@@ -198,18 +198,21 @@ export async function buildInterior(router) {
       [[-.45,-.85],[.45,-.85],[-.45,.35],[.45,.35]].forEach(p=>
         box(.07,.55,.07,bx+p[0],yb+.28,zc+.55+p[1],steel));
       const lvl = yb>0 ? 1 : 0;
-      seats.push({ type: "lie", label: "LIE DOWN", x: bx, z: zc+.55, yaw: 0, h: 0.72+yb, level: lvl, taken: false });
+      /* Mattress top = yb + 0.83 m; use the measured top as the lying anchor. */
+      seats.push({ type: "lie", label: "LIE DOWN", x: bx, z: zc+.55, yaw: 0, h: 0.83+yb, level: lvl, taken: false });
       /* toilet */
       cyl(.24,.42,xc+dir*1.05,yb+.21,zc+1.1,white);
       box(.5,.28,.18,xc+dir*1.15,yb+.42,zc+1.28,white);
-      seats.push({ type: "toilet", label: "USE TOILET", x: xc+dir*1.05, z: zc+1.1, yaw: 0, h: 0.42+yb, level: lvl, taken: false });
+      /* Bowl rim is 0.42 m above this floor; add 0.02 m clearance. */
+      seats.push({ type: "toilet", label: "USE TOILET", x: xc+dir*1.05, z: zc+1.1, yaw: 0, h: 0.44+yb, level: lvl, taken: false });
       /* sink */
       box(.55,.1,.35,xc+dir*1.1,yb+.85,zc+0.35,white);
       cyl(.045,.28,xc+dir*1.1,yb+1.0,zc+0.2,steel);
       uses.push({ kind: "sink", label: "WASH", x: xc+dir*1.1, z: zc+0.35, y: yb, level: lvl, r: 1.2 });
       /* stool */
       box(.38,.06,.38,xc+dir*1.1,yb+.45,zc-0.9,woodM);
-      seats.push({ type: "sit", label: "SIT", x: xc+dir*1.1, z: zc-0.9, yaw: 0, h: 0.45+yb, level: lvl, taken: false });
+      /* Stool top = yb + 0.48 m; calibrated anchor = yb + 0.50 m. */
+      seats.push({ type: "sit", label: "SIT ON CELL STOOL", x: xc+dir*1.1, z: zc-0.9, yaw: 0, h: 0.50+yb, level: lvl, taken: false });
       /* wall scratch / notice */
       box(.5,.35,.03,xc+dir*1.44,yb+1.9,zc-.2,mat(0xd8d4c8));
     }
@@ -361,6 +364,11 @@ export async function buildInterior(router) {
     box(w,.5,.12,back.x,.72,back.z,benchM,{ry});
     box(.12,.45,.55,leg1.x,.22,leg1.z,steel);
     box(.12,.45,.55,leg2.x,.22,leg2.z,steel);
+    /* Bench top = .45 + .14/2 = .52 m. Register two separate sit slots. */
+    for (const ox of [-w*0.24, w*0.24]) {
+      const q = put(ox, 0);
+      seats.push({ type: "sit", label: "SIT ON PRISON BENCH", x: q.x, z: q.z, yaw: ry, h: 0.54, level: 0, taken: false });
+    }
   }
   bench(-8.5,9.6,3.0,0);
   bench( 8.5,9.6,3.0,0);
@@ -455,8 +463,7 @@ export async function buildInterior(router) {
     box(.12,.78,.12,x+1.5,.39,z+.35,steel);
     bench(x,z-.85,3.4,0);
     bench(x,z+.85,3.4,Math.PI);
-    seats.push({ type: "sit", label: "SIT", x: x, z: z-.85, yaw: 0, h: 0.45, level: 0, taken: false });
-    seats.push({ type: "sit", label: "SIT", x: x, z: z+.85, yaw: Math.PI, h: 0.45, level: 0, taken: false });
+    /* Seats are registered by bench(); no duplicate centre targets. */
   }
   messTable(-6.0,-11.4);
   messTable( 0.0,-11.4);

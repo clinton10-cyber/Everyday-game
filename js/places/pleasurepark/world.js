@@ -270,27 +270,105 @@ export async function buildPleasurePark(router) {
   outdoorSphere(-82,1.0,12,2.0,0.8,2.0,outdoor.turf2);
   for(let i=0;i<12;i++){const a=i/12*Math.PI*2;outdoorBox(-82+Math.cos(a)*21,0.16,12+Math.sin(a)*21,2.2,0.22,1.1,MAT.marbleDark,a);}
 
-  // Ferris wheel: open-air ride with support A-frame, coloured gondolas and queue plaza.
+  // Ride state: when a player boards, controls pause and the camera rides the moving attraction.
+  let rideState = null;
+  const finishRide = () => {
+    if (!rideState) return;
+    const exit = rideState.exit;
+    rideState = null;
+    if (ctrl && ctrl.avatar) ctrl.avatar.visible = true;
+    if (ctrl) {
+      ctrl.pos.set(exit.x, 0, exit.z); ctrl.floorY = 0; ctrl.vel.set(0,0,0);
+      ctrl.camera.position.set(exit.x, 5.5, exit.z + 8);
+      ctrl.camera.lookAt(exit.x, 1.2, exit.z);
+    }
+    if (window.__ph3d_phone) window.__ph3d_phone._toast("Ride finished. You are back at the exit platform.");
+  };
+  const startRide = (type, exit) => {
+    if (rideState) return;
+    if (ctrl && ctrl.avatar) ctrl.avatar.visible = false;
+    rideState = { type, started: performance.now(), duration: type === "ferris" ? 22000 : 16000, exit };
+    if (window.__ph3d_phone) window.__ph3d_phone._toast(type === "ferris" ? "Ferris wheel boarding! Enjoy the view." : "Roller coaster departing! Hold tight.");
+  };
+
+  // Properly braced Ferris wheel: rotating rim, paired spokes, cross braces and upright gondolas.
+  let ferrisWheel = null, ferrisCabins = [];
   {
-    const x=68,z=-58,cy=20,r=16;
-    const wheel=new THREE.Mesh(new THREE.TorusGeometry(r,0.42,8,64),outdoor.steel);wheel.position.set(x,cy,z);scene.add(wheel);
-    const hub=outdoorCyl(x,cy,z,1.6,1.6,2.4,outdoor.yellow,16,Math.PI/2);
-    for(let i=0;i<12;i++){const a=i/12*Math.PI*2;outdoorBox(x,cy,z,0.22,0.22,0.22,outdoor.white);const spoke=outdoorBox(x+Math.cos(a)*r/2,cy+Math.sin(a)*r/2,z,0.28,r,0.32,outdoor.white,-a);spoke.rotation.z=a;}
-    for(let i=0;i<12;i++){const a=i/12*Math.PI*2;const gx=x+Math.cos(a)*r,gy=cy+Math.sin(a)*r;outdoorBox(gx,gy-1.1,z,2.0,1.8,1.8,[outdoor.red,outdoor.yellow,outdoor.blue,outdoor.pink][i%4]);outdoorBox(gx,gy-0.15,z,2.1,0.16,1.9,outdoor.white);}
-    for(const sx of [-7,7]){const leg=outdoorBox(x+sx,9,z,1.0,18,1.2,outdoor.white);leg.rotation.z=sx>0?-0.28:0.28;}
-    outdoorBox(x,1.2,z,22,1.2,9,outdoor.dark);
-    addUse(mkGroup(x,z),0,0,8,"FERRIS WHEEL","You enjoyed a panoramic ride above Pleasure Park.");
-    flatPath(x,z+15,26,5);
+    const x=68,z=-58,cy=22,r=17;
+    const support = new THREE.Group(); support.position.set(x,0,z); scene.add(support);
+    for (const sx of [-8,8]) {
+      const leg=outdoorBox(x+sx,10,z,1.15,20,1.5,outdoor.white); leg.rotation.z=sx>0?-0.31:0.31;
+      outdoorBox(x+sx*0.62,1.0,z,3.0,1.0,4.2,outdoor.dark);
+    }
+    // A-frame cross ties and rear stabilisers.
+    const brace1=outdoorBox(x,12,z-0.9,1.0,18,0.8,outdoor.steel); brace1.rotation.z=Math.PI/2;
+    outdoorBox(x,4,z-2.0,20,0.65,1.0,outdoor.steel);
+    ferrisWheel = new THREE.Group(); ferrisWheel.position.set(x,cy,z); scene.add(ferrisWheel);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(r,0.62,12,96),outdoor.steel); ferrisWheel.add(rim);
+    const innerRim = new THREE.Mesh(new THREE.TorusGeometry(r-1.1,0.2,8,96),outdoor.yellow); ferrisWheel.add(innerRim);
+    for(let i=0;i<16;i++){
+      const a=i/16*Math.PI*2;
+      const spoke=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.2,r-1,8),outdoor.white);
+      spoke.position.set(Math.cos(a)*(r-1)/2,Math.sin(a)*(r-1)/2,0); spoke.rotation.z=-a+Math.PI/2; ferrisWheel.add(spoke);
+      const tie=new THREE.Mesh(new THREE.BoxGeometry(0.18,2.0,0.22),outdoor.yellow);
+      tie.position.set(Math.cos(a)*(r-1),Math.sin(a)*(r-1),0); tie.rotation.z=a; ferrisWheel.add(tie);
+    }
+    const axle=new THREE.Mesh(new THREE.CylinderGeometry(1.45,1.45,3.2,24),outdoor.yellow); axle.rotation.x=Math.PI/2; ferrisWheel.add(axle);
+    const hubCap=new THREE.Mesh(new THREE.SphereGeometry(1.65,20,16),outdoor.red); hubCap.position.z=1.75; ferrisWheel.add(hubCap);
+    const cabinMats=[outdoor.red,outdoor.yellow,outdoor.blue,outdoor.pink,outdoor.purple,outdoor.white];
+    for(let i=0;i<12;i++){
+      const a=i/12*Math.PI*2, px=Math.cos(a)*r, py=Math.sin(a)*r;
+      const pivot=new THREE.Group(); pivot.position.set(px,py,0); ferrisWheel.add(pivot);
+      const cabin=new THREE.Group(); cabin.position.y=-1.35; pivot.add(cabin);
+      const shell=new THREE.Mesh(new THREE.BoxGeometry(2.3,1.9,2.4),cabinMats[i%cabinMats.length]); shell.position.y=0.95; cabin.add(shell);
+      const floor=new THREE.Mesh(new THREE.BoxGeometry(2.45,0.2,2.5),outdoor.dark); floor.position.y=0.05; cabin.add(floor);
+      const roof=new THREE.Mesh(new THREE.BoxGeometry(2.55,0.22,2.6),outdoor.white); roof.position.y=2.0; cabin.add(roof);
+      for(const side of [-1,1]){
+        const rail=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.85,2.25),outdoor.yellow); rail.position.set(side*1.12,1.05,0); cabin.add(rail);
+      }
+      for(const zz of [-0.72,0.72]){
+        const seat=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.18,0.5),outdoor.dark); seat.position.set(0,0.72,zz); cabin.add(seat);
+      }
+      const hanger=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,1.2,8),outdoor.steel); hanger.position.y=1.8; pivot.add(hanger);
+      ferrisCabins.push({pivot,cabin});
+    }
+    outdoorBox(x,1.0,z,26,1.0,12,outdoor.dark);
+    outdoorBox(x,1.65,z+6.2,18,0.3,4.0,outdoor.yellow);
+    for(let i=0;i<6;i++) outdoorBox(x-7.5+i*3,z*0+2.0,z+8.5,0.22,2.0,0.22,outdoor.steel);
+    flatPath(x,z+17,30,6);
+    world.uses.push({x:x,z:z+12,y:0,level:0,r:8,label:"BOARD FERRIS WHEEL",onUse:()=>startRide("ferris",{x:x+15,z:z+13})});
   }
 
-  // Roller coaster with a colourful elevated track, supports and station.
+  // Roller coaster: twin steel rails, cross sleepers, dense supports and a moving train.
+  let coasterCurve = null, coasterTrain = null;
   {
-    const pts=[new THREE.Vector3(-88,8,-60),new THREE.Vector3(-76,18,-72),new THREE.Vector3(-55,23,-66),new THREE.Vector3(-42,8,-50),new THREE.Vector3(-56,5,-32),new THREE.Vector3(-78,12,-25),new THREE.Vector3(-92,5,-42)];
-    const curve=new THREE.CatmullRomCurve3(pts);const track=new THREE.Mesh(new THREE.TubeGeometry(curve,100,0.58,8,false),outdoor.red);scene.add(track);
-    for(let i=0;i<=24;i++){const p=curve.getPoint(i/24);outdoorCyl(p.x,p.y/2,p.z,0.22,0.22,p.y,outdoor.steel,8);}
-    outdoorBox(-88,1.3,-60,16,2.6,12,outdoor.blue);
-    outdoorBox(-88,2.8,-60,18,0.35,14,outdoor.yellow);
-    const q=mkGroup(-88,-60);addCollider(q,0,0,8,6);addUse(q,0,8,8,"ROLLER COASTER","You boarded the colourful roller coaster.");
+    const pts=[new THREE.Vector3(-88,8,-60),new THREE.Vector3(-76,18,-72),new THREE.Vector3(-55,23,-66),new THREE.Vector3(-42,8,-50),new THREE.Vector3(-56,5,-32),new THREE.Vector3(-78,12,-25),new THREE.Vector3(-92,5,-42),new THREE.Vector3(-88,8,-60)];
+    coasterCurve=new THREE.CatmullRomCurve3(pts,true,"catmullrom",0.25);
+    const railOffset=0.95;
+    for(const side of [-1,1]){
+      const railPts=coasterCurve.getPoints(180).map((p,i,arr)=>{const tangent=coasterCurve.getTangent(i/180);const sideVec=new THREE.Vector3(-tangent.z,0,tangent.x).normalize();return p.addScaledVector(sideVec,side*railOffset);});
+      scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(railPts),220,0.22,8,true),side<0?outdoor.red:outdoor.yellow));
+    }
+    for(let i=0;i<100;i++){
+      const t=i/100,p=coasterCurve.getPoint(t),tan=coasterCurve.getTangent(t),cross=new THREE.Vector3(-tan.z,0,tan.x).normalize();
+      const sleeper=outdoorBox(p.x,p.y-0.38,p.z,2.8,0.22,0.42,outdoor.dark,Math.atan2(cross.x,cross.z));
+      if(i%3===0){outdoorCyl(p.x,p.y/2,p.z,0.18,0.22,p.y,outdoor.steel,8);}
+    }
+    outdoorBox(-88,1.3,-60,18,2.6,14,outdoor.blue);
+    outdoorBox(-88,2.8,-60,20,0.35,16,outdoor.yellow);
+    // Multi-car train with visible seats and safety bars.
+    coasterTrain=new THREE.Group(); scene.add(coasterTrain);
+    for(let car=0;car<3;car++){
+      const unit=new THREE.Group(); unit.position.z=car*2.8; coasterTrain.add(unit);
+      const body=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.75,2.65),[outdoor.red,outdoor.red,outdoor.yellow,outdoor.yellow,outdoor.red,outdoor.red]); body.position.y=0.65; unit.add(body);
+      for(let seat=0;seat<2;seat++){
+        const s=new THREE.Mesh(new THREE.BoxGeometry(0.78,0.45,0.75),outdoor.dark); s.position.set(seat?0.5:-0.5,1.15,0); unit.add(s);
+        const bar=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.12,0.18),outdoor.steel); bar.position.set(seat?0.5:-0.5,1.55,0.1); unit.add(bar);
+      }
+      for(const side of [-1,1]) for(const zz of [-0.8,0.8]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.18,10),outdoor.dark);wheel.rotation.z=Math.PI/2;wheel.position.set(side*1.05,0.35,zz);unit.add(wheel);}
+    }
+    const q=mkGroup(-88,-60);addCollider(q,0,0,10,8);
+    world.uses.push({x:-88,z:-48,y:0,level:0,r:9,label:"BOARD ROLLER COASTER",onUse:()=>startRide("coaster",{x:-72,z:-48})});
   }
 
   // Outdoor carousel with striped canopy and horses.
@@ -1075,9 +1153,38 @@ export async function buildPleasurePark(router) {
     subtitle: "EXPLORE",
     hint: "",
     update: (dt) => {
-      ctrl.update(dt);
+      const now = performance.now();
+      if (ferrisWheel) {
+        ferrisWheel.rotation.z = now * 0.00012;
+        for (const item of ferrisCabins) item.pivot.rotation.z = -ferrisWheel.rotation.z;
+      }
+      if (coasterTrain && coasterCurve) {
+        const t = (now * 0.000035) % 1;
+        const p = coasterCurve.getPointAt(t), tangent = coasterCurve.getTangentAt(t);
+        coasterTrain.position.copy(p); coasterTrain.position.y += 0.5;
+        coasterTrain.rotation.y = Math.atan2(tangent.x, tangent.z);
+        coasterTrain.rotation.x = -Math.atan2(tangent.y, Math.hypot(tangent.x,tangent.z));
+      }
+      if (rideState) {
+        const elapsed = (now - rideState.started) / 1000;
+        const t = Math.min(1, elapsed / (rideState.duration / 1000));
+        if (rideState.type === "ferris") {
+          const a = (now - rideState.started) * 0.00012 - Math.PI/2;
+          const x = 68 + Math.cos(a) * 17, y = 22 + Math.sin(a) * 17;
+          camera.position.set(x, y + 0.65, -58 + 0.2);
+          camera.lookAt(x + Math.cos(a)*5, y + Math.sin(a)*5, -58 - 12);
+        } else {
+          const u = t;
+          const p = coasterCurve.getPointAt(u), tangent = coasterCurve.getTangentAt(u);
+          camera.position.set(p.x, p.y + 2.6, p.z);
+          camera.lookAt(p.x + tangent.x*8, p.y + tangent.y*8, p.z + tangent.z*8);
+        }
+        if (elapsed >= rideState.duration / 1000) finishRide();
+      } else {
+        ctrl.update(dt);
+      }
       try {
-        NPCs.tick(dt, ctrl.pos.x, ctrl.pos.z);
+        if (!rideState) NPCs.tick(dt, ctrl.pos.x, ctrl.pos.z);
         for (const item of parkNpcUses) {
           if (item.npc && item.npc.ctl && item.npc.ctl.pos) {
             item.marker.x = item.npc.ctl.pos.x; item.marker.z = item.npc.ctl.pos.z;

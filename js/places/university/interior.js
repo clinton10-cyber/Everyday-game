@@ -201,6 +201,7 @@ export async function buildInterior(router) {
   /* ---------- COLLISION WORLD (game format) ---------- */
   const LEVEL_H = 4.6;
   const colliders = [];
+  const seats = [];
   const stairs = [];
   function addCollider(minX, maxX, minZ, maxZ, minY, maxY) {
     colliders.push({ minX, maxX, minZ, maxZ, y0: minY, y1: maxY, level: minY >= 4 ? 1 : 0 });
@@ -349,6 +350,9 @@ export async function buildInterior(router) {
     };
   }
   function fChair(F, lx, lz) {
+    const seatPoint = F.pt(lx, 0, lz);
+    seats.push({ type: "sit", label: "SIT", x: seatPoint[0], z: seatPoint[2], yaw: F.ry || 0,
+      h: seatPoint[1] + 0.485, level: Math.max(0, Math.round(seatPoint[1] / LEVEL_H)), taken: false });
     F.box(B.detail, MAT.woodDark, lx, 0.45, lz, 0.46, 0.07, 0.46);
     F.box(B.detail, MAT.woodDark, lx, 0.70, lz + 0.2, 0.46, 0.45, 0.06);
     for (const [dx, dz] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]]) {
@@ -968,7 +972,7 @@ export async function buildInterior(router) {
   /* ---------- GAME GLUE ---------- */
   const world = {
     colliders,
-    seats: [],
+    seats,
     uses: [],
     stairs,
     platforms: [],
@@ -1001,6 +1005,7 @@ export async function buildInterior(router) {
   try {
     NPCs.despawn();
     NPCs.setScene(scene);
+    NPCs.setSeats(seats.filter(seat => seat.level === 0));
     NPCs.setAABBs(colliders
       .filter(c => c && Number.isFinite(c.minX) && Number.isFinite(c.maxX))
       .map(c => ({ x: (c.minX + c.maxX) / 2, z: (c.minZ + c.maxZ) / 2,
@@ -1075,6 +1080,6 @@ export async function buildInterior(router) {
         }
       } catch (e) {}
     },
-    dispose: () => { if (!router.cinematic) { try { NPCs.despawn(); } catch (e) {} drv?.dispose(); } ctl.dispose(); },
+    dispose: () => { if (!router.cinematic) { try { NPCs.despawn(); NPCs.setSeats([]); } catch (e) {} drv?.dispose(); } ctl.dispose(); },
   };
 }

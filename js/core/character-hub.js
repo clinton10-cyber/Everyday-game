@@ -24,7 +24,8 @@ import { Quality } from "./quality.js";
 import { Wardrobe, WARDROBE_TABS, COSTUME_INFO, resolveColor } from "./wardrobe.js";
 import { buildCharacter, liveApplyConfig } from "../characters/lowpoly.js";
 import { EMOTES, setHand, HAND } from "../characters/animator.js";
-import { isEmoteUnlocked, openStyleAbilityShop } from "./style-ability-shop.js";
+import { isEmoteUnlocked, openStyleAbilityShop, getStyleItems, getEquippedWing, setEquippedWing, purchaseStyleItem, attachCosmeticWings, updateCosmeticWings, BODY_TYPES, BODY_STYLES, getBodyOwnership, ownsBodyItem, purchaseBodyItem, getBodySelection, setBodySelection } from "./style-ability-shop.js";
+import { Economy } from "./economy.js";
 import { State } from "./state.js";
 import { buildGWagon3D } from "../vehicles/gwagon3d.js";
 import { buildCybertruck3D } from "../vehicles/cybertruck3d.js";
@@ -144,6 +145,15 @@ function injectCSS() {
       transition: background 0.15s ease, color 0.15s ease;
     }
     .tb-close { padding: 10px 16px; }
+    .tb-wings { padding:10px 14px; border:1.5px solid #9a7940; color:#6f5426; background:linear-gradient(135deg,#f8edcf,#e4c98d); font:700 10px var(--mono); letter-spacing:.16em; text-transform:uppercase; cursor:pointer; }
+    .tb-wings:hover { background:#e7d3a5; }
+    .tb-wing-card { padding:13px; margin:0 0 12px; border:1px solid #c9b98f; background:linear-gradient(145deg,#f5efdf,#e7dcc4); }
+    .tb-wing-card h3 { margin:0 0 5px; font:italic 19px var(--serif); }
+    .tb-wing-card p { margin:0 0 10px; color:#625b4e; font-size:11px; line-height:1.45; }
+    .tb-wing-meta { display:flex; align-items:center; justify-content:space-between; gap:8px; font:11px var(--mono); }
+    .tb-wing-action { border:1px solid #7e6335; background:#30291d; color:#f7edda; padding:9px 12px; font:700 10px var(--mono); letter-spacing:.1em; cursor:pointer; }
+    .tb-wing-action:disabled { opacity:.5; cursor:default; }
+    .tb-wing-equipped { color:#47705c; font-weight:800; }
     .tb-help {
       width: 42px; height: 42px; padding: 0;
       font-family: var(--serif);
@@ -950,6 +960,8 @@ export class CharacterHub {
         </div>
         <div class="tb-mast-right">
           <button class="tb-help" id="tb-help" aria-label="Help">?</button>
+          <button class="tb-wings" id="tb-body">Body</button>
+          <button class="tb-wings" id="tb-wings">✦ Wings</button>
           <button class="tb-close" id="tb-close">Close</button>
         </div>
       </div>
@@ -1032,6 +1044,8 @@ export class CharacterHub {
     root.querySelector("#tb-rack-close").onclick = () => this._toggleCategory(this._activeCategory);
     root.querySelector("#tb-close").onclick = () => this.close();
     root.querySelector("#tb-help").onclick = () => this._showWelcome();
+    root.querySelector("#tb-wings").onclick = () => this._toggleWingsPanel();
+    root.querySelector("#tb-body").onclick = () => this._toggleBodyPanel();
     root.querySelector("#tb-welcome-ok").onclick = () => this._hideWelcome();
 
     const nameInput = root.querySelector("#tb-name");
@@ -1157,6 +1171,57 @@ export class CharacterHub {
     rack.classList.add("on");
     root.classList.add("tb-rack-open");
     this._layout();
+  }
+
+  _toggleBodyPanel() {
+    const root=this._dom.root, rack=this._dom.rack;
+    this._hideDragHint(); this._activeCategory="__body";
+    root.querySelectorAll(".tb-tab").forEach(b=>b.classList.remove("on"));
+    root.querySelector("#tb-rack-title").textContent="Body Types & Styles";
+    root.querySelector("#tb-rack-count").textContent="CUSTOM FIT";
+    const body=root.querySelector("#tb-rack-body"), selected=getBodySelection();
+    const typeCards=[{id:"faceted",name:"Faceted",price:0,desc:"Default faceted character body."},...BODY_TYPES].map(x=>{
+      const active=selected.type===x.id, owned=x.id==="faceted"||ownsBodyItem("types",x.id);
+      return `<article class="tb-wing-card"><div class="tb-group-label"><em>◈</em> BODY TYPE</div><h3>${x.name}</h3><p>${x.desc}</p><div class="tb-wing-meta"><span>${active?'<b class="tb-wing-equipped">SELECTED</b>':owned?"OWNED":Economy.format(x.price)}</span><button class="tb-wing-action" data-body-type="${x.id}">${active?"SELECTED":owned?"USE":"PURCHASE"}</button></div></article>`;
+    }).join("");
+    const styleCards=[{id:"faceted",name:"Faceted Default",price:0,desc:"The game's signature faceted finish."},...BODY_STYLES].map(x=>{
+      const active=selected.style===x.id, owned=x.id==="faceted"||ownsBodyItem("styles",x.id);
+      return `<article class="tb-wing-card"><div class="tb-group-label"><em>✧</em> BODY STYLE</div><h3>${x.name}</h3><p>${x.desc}</p><div class="tb-wing-meta"><span>${active?'<b class="tb-wing-equipped">SELECTED</b>':owned?"OWNED":Economy.format(x.price)}</span><button class="tb-wing-action" data-body-style="${x.id}">${active?"SELECTED":owned?"USE":"PURCHASE"}</button></div></article>`;
+    }).join("");
+    body.innerHTML=`<div class="tb-note">Five additional body proportions and six purchasable body finishes. Faceted remains the free default.</div><h3 class="tb-group-label">BODY TYPE</h3>${typeCards}<h3 class="tb-group-label">BODY STYLE</h3>${styleCards}`;
+    const apply=()=>{Wardrobe.config.look=selected.style==="faceted"?"faceted":(BODY_STYLES.find(x=>x.id===selected.style)?.look||"faceted");Wardrobe.config.bodyStyle=selected.style;const t=BODY_TYPES.find(x=>x.id===selected.type);Wardrobe.config.build=t?t.build:0;Wardrobe.config.bodyHeight=t?t.height:1;Wardrobe.save();this._rebuildAvatar();this._toggleBodyPanel();};
+    body.querySelectorAll("[data-body-type]").forEach(btn=>btn.onclick=()=>{const id=btn.dataset.bodyType;if(id!=="faceted"&&!ownsBodyItem("types",id)){const r=purchaseBodyItem("types",id);if(!r.ok){btn.textContent=r.reason==="funds"?"NOT ENOUGH FUNDS":"UNAVAILABLE";return;}}selected.type=id;setBodySelection("type",id);apply();});
+    body.querySelectorAll("[data-body-style]").forEach(btn=>btn.onclick=()=>{const id=btn.dataset.bodyStyle;if(id!=="faceted"&&!ownsBodyItem("styles",id)){const r=purchaseBodyItem("styles",id);if(!r.ok){btn.textContent=r.reason==="funds"?"NOT ENOUGH FUNDS":"UNAVAILABLE";return;}}selected.style=id;setBodySelection("style",id);apply();});
+    rack.classList.add("on");root.classList.add("tb-rack-open");this._layout();
+  }
+
+  _toggleWingsPanel() {
+    const root=this._dom.root, rack=this._dom.rack;
+    this._hideDragHint();
+    this._activeCategory="__wings";
+    root.querySelectorAll(".tb-tab").forEach(b=>b.classList.remove("on"));
+    this._dom.root.querySelector("#tb-rack-title").textContent="Wings & Regalia";
+    this._dom.root.querySelector("#tb-rack-count").textContent="03 · DESIGNS";
+    const body=this._dom.root.querySelector("#tb-rack-body");
+    const wings=getStyleItems().filter(x=>x.category==="Wings");
+    const equipped=getEquippedWing();
+    body.innerHTML=wings.map(w=>{
+      const active=equipped===w.id;
+      const owned=w.owned;
+      const tone=w.id==="angel_wings"?"PEARL · GOLD":w.id==="shadow_wings"?"OBSIDIAN · AMETHYST":"SAPPHIRE · NEON";
+      return `<article class="tb-wing-card"><div class="tb-group-label"><em>✦</em>${tone}</div><h3>${w.name}</h3><p>${w.desc}</p><div class="tb-wing-meta"><span>${active?'<span class="tb-wing-equipped">EQUIPPED</span>':owned?'OWNED':Economy.format(w.price)}</span><button class="tb-wing-action" data-wing="${w.id}" ${!owned&&Economy.balance<w.price?'':' '}>${active?'UNEQUIP':owned?'EQUIP':'PURCHASE'}</button></div></article>`;
+    }).join("")+`<div class="tb-note">One pair can be worn at a time. Your selection is saved on this device and appears on your character in the world.</div>`;
+    body.querySelectorAll("[data-wing]").forEach(btn=>btn.onclick=()=>{
+      const id=btn.dataset.wing;
+      if(getEquippedWing()===id){setEquippedWing(null);}
+      else if(getStyleItems().find(x=>x.id===id)?.owned){setEquippedWing(id);}
+      else {const result=purchaseStyleItem(id); if(!result.ok){btn.textContent=result.reason==="funds"?"NOT ENOUGH FUNDS":"UNAVAILABLE";return;} setEquippedWing(id);}
+      this._rebuildAvatar();
+      try { const player=window.__ph3d_walkCtrl; if(player?.avatar) attachCosmeticWings(player.avatar); } catch {}
+      this._toggleWingsPanel();
+      try { window.__ph3d_phone?._toast(getEquippedWing()?"Wings equipped":"Wings put away"); } catch {}
+    });
+    rack.classList.add("on"); root.classList.add("tb-rack-open"); this._layout();
   }
 
   _renderRack(catId, title) {
@@ -1339,8 +1404,11 @@ export class CharacterHub {
     /* fast path: recolour or rebuild the existing avatar in place */
     if (this.charRoot && this.charRig && this.charRig.mats) {
       try {
-        if (liveApplyConfig(this.charRoot, this.charRig, Wardrobe.config)) this._resetIdlePose();
-        return;
+        if (liveApplyConfig(this.charRoot, this.charRig, Wardrobe.config)) {
+          this._resetIdlePose();
+          attachCosmeticWings(this.charRoot);
+          return;
+        }
       } catch (e) { console.warn("[hub] live wardrobe", e); }
     }
     if (this.charRoot) {
@@ -1355,6 +1423,7 @@ export class CharacterHub {
     this.charRoot.position.set(0, 0, 0);
     this.charRoot.rotation.y = 0;
     this._charAnchor.add(this.charRoot);
+    try { attachCosmeticWings(this.charRoot); } catch (e) { console.warn("[hub] wing preview",e); }
     this._applyFit();
     this._resetIdlePose();
   }
@@ -1640,6 +1709,7 @@ export class CharacterHub {
       if (this.charRoot) {
         const sway = Math.sin(t * 0.0005) * 0.03;
         this.charRoot.rotation.y = sway;
+        try { updateCosmeticWings(this.charRoot,t/1000,{state:"standing",flip:false}); } catch {}
       }
 
       this._tickEmote(dt);

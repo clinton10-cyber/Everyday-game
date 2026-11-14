@@ -7,6 +7,7 @@ import { buildHair, buildBeard } from "./lp-hair.js";
 import { buildHat, buildGlasses, buildAccessories } from "./lp-extras.js";
 import { buildCostume, COSTUMES } from "./lp-costumes.js";
 import { buildFacetedInto } from "./faceted.js";
+import { applyBodySelection } from "../core/style-ability-shop.js";
 
 export { HIP_HEIGHT, COSTUMES };
 
@@ -38,8 +39,9 @@ export function makeBlob() {
 
 /* ── Main builder ─────────────────────────────────────── */
 export function buildCharacter(config) {
-  config = Wardrobe.effective(config || Wardrobe.config);
+  config = Wardrobe.effective(applyBodySelection({ ...(config || Wardrobe.config) }));
   const root = new THREE.Group();
+  root.scale.y = Number(config.bodyHeight) || 1;
   const rig = {};
   const mats = Wardrobe.makeMaterials(config);
   mats.top.side = mats.bottom.side = THREE.DoubleSide;
@@ -68,10 +70,11 @@ export function applyConfig(root, rig, config) {
    Returns true when the parts were rebuilt (caller should re-attach phone / reset animator cache). */
 export function liveApplyConfig(root, rig, config) {
   if (!root || !rig || !rig.mats) return false;
-  const eff = Wardrobe.effective(config || Wardrobe.config);
+  const eff = Wardrobe.effective(applyBodySelection({ ...(config || Wardrobe.config) }));
   let sig = null; try { sig = Wardrobe.structSig(config || Wardrobe.config); } catch (e) {}
   if (sig && rig._sig === sig) { Wardrobe.updateMaterials(rig.mats, eff); return false; }
-  applyConfig(root, rig, config || Wardrobe.config);
+  applyConfig(root, rig, eff);
+  root.scale.y = Number(eff.bodyHeight) || 1;
   rig._sig = sig;
   return true;
 }

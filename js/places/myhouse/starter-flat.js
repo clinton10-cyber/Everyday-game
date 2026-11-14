@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { Quality } from "../../core/quality.js";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
+import { handleFurnitureUse } from "../../core/furniture-interactions.js";
 import { NPCs } from "../../core/npcs.js";
 import { NpcTalk } from "../../core/npc-talk.js";
 import { spawnInteriorNPCs, despawnInteriorNPCs } from "../../core/interior-npcs.js";
@@ -391,7 +392,7 @@ export async function buildStarterFlat(router) {
   };
   const ctl = new ThirdPersonControls(camera, renderer.domElement, world, {
     scene, x: 8.2 * K, z: 5.55 * K, yaw: -Math.PI / 2, level: 0,
-    onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
+    onUse: (use) => { handleFurnitureUse(use, window.__ph3d_walkCtrl || window.__ph3d_player); },
   });
 
   try {

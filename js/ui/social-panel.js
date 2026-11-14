@@ -18,7 +18,11 @@ const read = () => { try { const v=JSON.parse(localStorage.getItem(KEY)||"{}"); 
 const state = read();
 /* Remove legacy NPC posts that used stock portrait URLs. New NPC posts are
    captured directly from the current 3D character models. */
-state.posts = state.posts.filter(p => p.kind !== "npc" || p.authorId === "official_gcc" || (String(p.avatar || "").startsWith("data:image/") && String(p.image || "").startsWith("data:image/")));
+state.posts = state.posts.filter(p => p && typeof p === "object" && (p.kind !== "npc" || p.authorId === "official_gcc" || (String(p.avatar || "").startsWith("data:image/") && String(p.image || "").startsWith("data:image/"))));
+state.following = state.following.filter(x => typeof x === "string");
+state.followers = state.followers.filter(x => typeof x === "string");
+state.liked = state.liked.filter(x => typeof x === "string");
+state.posts.forEach(p => { if (!Array.isArray(p.comments)) p.comments = []; });
 if (!state.posts.some(p => p.kind === "npc" && p.authorId !== "official_gcc")) state.lastNpcPost = 0;
 const save = () => { try { localStorage.setItem(KEY,JSON.stringify(state)); } catch (_) {} };
 const compactImage = url => new Promise(resolve => { if(!url)return resolve(""); try { const im=new Image(); im.onload=()=>{try{const c=document.createElement("canvas"),scale=Math.min(1,360/Math.max(im.width,im.height)),w=Math.max(1,Math.round(im.width*scale)),h=Math.max(1,Math.round(im.height*scale));c.width=w;c.height=h;const ctx=c.getContext("2d");ctx.drawImage(im,0,0,w,h);resolve(c.toDataURL("image/jpeg",.48));}catch(_){resolve("");}};im.onerror=()=>resolve("");im.src=url;}catch(_){resolve("");} });
@@ -106,7 +110,7 @@ export const SocialPanel = {
  async render(){
   this.ensure(); const root=document.getElementById(ROOT); if(!root)return;
   try{await Photos.load();}catch(_){}
-  await this._ensureNpcPosts();
+  try { await this._ensureNpcPosts(); } catch (e) { console.warn("[social NPC feed]", e); }
   if(!this._npcTimer)this._npcTimer=setInterval(async()=>{if(window.__ph3d_phone?.app!=="social"||!window.__ph3d_phone?.visible)return;const before=state.posts.length;await this._ensureNpcPosts();if(state.posts.length!==before)this.render();},30000);
   if(!state.posts.some(p=>p.authorId==="official_gcc"))state.posts.push({id:"official_gcc_welcome",author:"Garden City Updates",authorId:"official_gcc",verified:true,kind:"npc",text:"Welcome to Garden City Connect — your neighbourhood feed for Port Harcourt news, city moments and community updates.",time:Date.now()-5000,image:"",avatar:"",location:"Port Harcourt",likes:18,comments:[]}});
   save();
@@ -115,7 +119,7 @@ export const SocialPanel = {
   const selected=myPhotos.find(p=>p.id===this._photoId);
   const following=state.following.length; const followers=state.followers.length;
   root.innerHTML=`<div class="hero"><small>GARDEN CITY CONNECT · PORT HARCOURT</small><h2>Discover your city.</h2><div class="row"><small>${s.dataMb} MB data · ${following} following · ${followers} followers</small><small>${posts.length} updates</small></div><div class="muted" style="margin-top:7px">Real moments, local creators and conversations from around the Garden City.</div></div>
-  <section class="card" style="padding:10px"><div class="account-cover" style="background:linear-gradient(120deg,#173c56,#287e78)"></div><div class="account-row">${myPhotos[0]?`<img class="account-avatar" src="${esc(myPhotos[0].url)}" alt="Your latest in-game photo">`:`<div class="account-avatar" style="display:grid;place-items:center;font-weight:900;color:#17445a">YOU</div>`}<div><div class="account-name">Your Everyday Account</div><small>@everyday_player · Player account</small></div></div><div class="account-stats"><span><b>${posts.filter(p=>p.authorId==="player").length}</b> posts</span><span><b>${following}</b> following</span><span><b>${followers.length}</b> followers</span></div></section>
+  <section class="card" style="padding:10px"><div class="account-cover" style="background:linear-gradient(120deg,#173c56,#287e78)"></div><div class="account-row">${myPhotos[0]?`<img class="account-avatar" src="${esc(myPhotos[0].url)}" alt="Your latest in-game photo">`:`<div class="account-avatar" style="display:grid;place-items:center;font-weight:900;color:#17445a">YOU</div>`}<div><div class="account-name">Your Everyday Account</div><small>@everyday_player · Player account</small></div></div><div class="account-stats"><span><b>${posts.filter(p=>p.authorId==="player").length}</b> posts</span><span><b>${following}</b> following</span><span><b>${followers}</b> followers</span></div></section>
   <div class="tabs"><button data-tab="feed" class="${this._tab==="feed"?"on":""}">For You</button><button data-tab="following" class="${this._tab==="following"?"on":""}">Following</button><button data-tab="people" class="${this._tab==="people"?"on":""}">People</button></div>
   <div class="compose"><b style="font-size:12px">Create a post</b><textarea id="sc-text" maxlength="240" placeholder="What's happening in Port Harcourt?"></textarea><div class="row"><select id="sc-photo" style="max-width:65%;background:#0d1728;color:#dceaff;border:1px solid #405675;border-radius:8px;padding:8px"><option value="">No photo attached</option>${myPhotos.map(p=>`<option value="${esc(p.id)}" ${p.id===this._photoId?"selected":""}>${esc(p.caption||"Gallery photo")}</option>`).join("")}</select><button id="sc-post">POST · 5 MB</button></div><small>Photos are selected from your in-game Gallery.</small></div>
   <div id="sc-feed">${this._tab==="people"?this._peopleMarkup():posts.filter(p=>this._tab!=="following"||state.following.includes(p.authorId)).map(p=>this._postMarkup(p)).join("")||'<div class="card muted">No posts here yet. Follow some city residents to build your feed.</div>'}</div>`;
