@@ -21,6 +21,15 @@ export const STYLE_PROPORTIONS = {
   refined:      { spine: [0.97, 1.01, 0.96], head: 0.98, arm: 0.94, leg: 0.95 },
 };
 
+/* BODY TYPES (Athletic, Muscular, Slim, Heavyset, Tall & Broad) multiply on top of the style */
+export const TYPE_PROPORTIONS = {
+  athletic:   { spine: [1.06, 1.00, 1.00], head: 0.99, arm: 1.06, leg: 1.05 },
+  muscular:   { spine: [1.20, 1.02, 1.14], head: 0.95, arm: 1.28, leg: 1.18 },
+  slim:       { spine: [0.90, 1.02, 0.86], head: 1.00, arm: 0.84, leg: 0.84 },
+  heavyset:   { spine: [1.14, 0.98, 1.28], head: 1.04, arm: 1.22, leg: 1.20 },
+  tall_broad: { spine: [1.24, 1.06, 1.12], head: 0.96, arm: 1.22, leg: 1.12 },
+};
+
 const matCache = new Map();
 function M(color, emissive = 0x000000, ei = 0) {
   const key = color + ":" + emissive + ":" + ei;
@@ -134,7 +143,90 @@ const BUILDERS = {
   },
 };
 
+const TYPE_BUILDERS = {
+  /* sporty: defined deltoids, pecs, thighs */
+  athletic(rig, mats) {
+    const sk = mats.skin || M(0xc68a5e), top = mats.top || sk, bot = mats.bottom || sk;
+    for (const s of [-1, 1]) {
+      const arm = s > 0 ? rig.armL : rig.armR, leg = s > 0 ? rig.legL : rig.legR;
+      add(arm.shoulder, G.sph(0.056, 8, 6), sk, 0.006 * s, -0.01, 0.0, 0, 0, 0, 1, 1.15, 1);
+      add(rig.spine, G.sph(0.062, 8, 6), top, 0.062 * s, 0.285, 0.105, 0, 0, 0, 1.15, 0.9, 0.6);
+      add(leg.hip, G.sph(0.060, 8, 6), bot, 0.008 * s, -0.17, 0.012, 0, 0, 0, 0.95, 1.7, 1.0);
+    }
+  },
+  /* very big: huge delts, pecs, biceps, traps, quads and calves */
+  muscular(rig, mats) {
+    const sk = mats.skin || M(0xc68a5e), top = mats.top || sk, bot = mats.bottom || sk;
+    for (const s of [-1, 1]) {
+      const arm = s > 0 ? rig.armL : rig.armR, leg = s > 0 ? rig.legL : rig.legR;
+      add(arm.shoulder, G.sph(0.082, 9, 7), sk, 0.012 * s, -0.005, 0, 0, 0, 0, 1, 1.1, 1);
+      add(arm.shoulder, G.sph(0.058, 8, 6), sk, 0.0, -0.13, 0.022, 0, 0, 0, 1, 1.5, 1);          /* biceps */
+      add(arm.elbow, G.sph(0.050, 8, 6), sk, 0.0, -0.08, 0.0, 0, 0, 0, 1, 1.5, 1);                /* forearm */
+      add(rig.spine, G.sph(0.078, 9, 7), top, 0.074 * s, 0.280, 0.100, 0, 0, 0, 1.2, 0.95, 0.65);  /* pecs */
+      add(rig.spine, G.cone(0.075, 0.12, 6), top, 0.065 * s, 0.395, -0.01, 0, 0, -0.9 * s, 1, 1, 0.8); /* traps */
+      add(leg.hip, G.sph(0.082, 9, 7), bot, 0.010 * s, -0.18, 0.016, 0, 0, 0, 1, 1.8, 1.05);     /* quads */
+      add(leg.knee, G.sph(0.058, 8, 6), bot, 0, -0.17, -0.025, 0, 0, 0, 1, 1.7, 1);               /* calves */
+    }
+    add(rig.spine, G.box(0.17, 0.12, 0.05), top, 0, 0.145, 0.108);                                  /* abs block */
+  },
+  /* lean, a little hunched, narrow */
+  slim(rig, mats) {
+    /* long neck (head is counter-scaled so it keeps its shape) + visible collarbone line */
+    if (rig.neck) { rig.neck.scale.y *= 1.10; if (rig.head) rig.head.scale.y /= 1.10; }
+    const top = mats.top || M(0xdddddd);
+    add(rig.spine, G.box(0.17, 0.012, 0.03), top, 0, 0.378, 0.085, 0.15, 0, 0);
+  },
+  /* round belly, soft hips, full limbs */
+  heavyset(rig, mats) {
+    const sk = mats.skin || M(0xc68a5e), top = mats.top || sk, bot = mats.bottom || sk;
+    add(rig.spine, G.sph(0.19, 12, 9), top, 0, 0.115, 0.075, 0, 0, 0, 1.12, 0.82, 0.86);          /* belly */
+    add(rig.spine, G.sph(0.085, 9, 7), top, 0, 0.30, 0.095, 0, 0, 0, 2.0, 0.7, 0.8);                /* chest */
+    for (const s of [-1, 1]) {
+      const arm = s > 0 ? rig.armL : rig.armR, leg = s > 0 ? rig.legL : rig.legR;
+      add(arm.shoulder, G.sph(0.070, 9, 7), sk, 0.0, -0.12, 0.0, 0, 0, 0, 1, 1.5, 1);
+      add(leg.hip, G.sph(0.090, 9, 7), bot, 0.012 * s, -0.04, 0.0, 0, 0, 0, 1.15, 1.2, 1.1);       /* hips */
+      add(leg.hip, G.sph(0.082, 9, 7), bot, 0.0, -0.22, 0.008, 0, 0, 0, 1, 1.7, 1);
+    }
+  },
+  /* towering and wide: huge shoulders and traps, thick neck */
+  tall_broad(rig, mats) {
+    const sk = mats.skin || M(0xc68a5e), top = mats.top || sk;
+    for (const s of [-1, 1]) {
+      const arm = s > 0 ? rig.armL : rig.armR;
+      add(arm.shoulder, G.sph(0.074, 9, 7), top, 0.016 * s, 0.01, 0, 0, 0, 0, 1.2, 0.95, 1.05);
+      add(rig.spine, G.cone(0.080, 0.14, 6), top, 0.070 * s, 0.395, -0.012, 0, 0, -1.0 * s, 1, 1, 0.85);
+      add(arm.shoulder, G.sph(0.050, 8, 6), sk, 0.0, -0.12, 0.012, 0, 0, 0, 1, 1.4, 1);
+    }
+    add(rig.spine, G.sph(0.10, 9, 7), top, 0, 0.30, 0.105, 0, 0, 0, 2.1, 0.8, 0.6);
+  },
+};
+
 export function applyBodyStyle(rig, cfg, mats) {
+  const tid = cfg && cfg.bodyType;
+  const TP = TYPE_PROPORTIONS[tid];
+  if (TP && rig && rig.spine) {
+    const sp = STYLE_PROPORTIONS[cfg.bodyStyle];
+    const k = sp ? { spine: sp.spine.map((v, i) => v * TP.spine[i]), head: sp.head * TP.head, arm: sp.arm * TP.arm, leg: sp.leg * TP.leg } : TP;
+    k.spine = k.spine.map(v => Math.min(1.38, v));   /* keep extreme type+style combos sane */
+    _applyProportions(rig, k);
+    try { rig.armL && rig.legL && TYPE_BUILDERS[tid] && TYPE_BUILDERS[tid](rig, mats || {}); } catch (e) { console.warn("[bodytype]", tid, e); }
+    const id0 = cfg.bodyStyle;
+    try { BUILDERS[id0] && rig.armL && rig.legL && BUILDERS[id0](rig, mats || {}); } catch (e) { console.warn("[bodystyle]", id0, e); }
+    return;
+  }
+  _applyStyleOnly(rig, cfg, mats);
+}
+
+function _applyProportions(rig, P) {
+  const [sx, sy, sz] = P.spine;
+  rig.spine.scale.set(sx, sy, sz);
+  if (rig.neck) rig.neck.scale.set(1 / sx, 1 / sy, 1 / sz);
+  if (rig.head) rig.head.scale.multiplyScalar(P.head);
+  for (const arm of [rig.armL, rig.armR]) if (arm && arm.shoulder) arm.shoulder.scale.set(P.arm / sx, 1 / sy, P.arm / sz);
+  for (const leg of [rig.legL, rig.legR]) if (leg && leg.hip) leg.hip.scale.set(P.leg, 1, P.leg);
+}
+
+function _applyStyleOnly(rig, cfg, mats) {
   const id = cfg && cfg.bodyStyle;
   const P = STYLE_PROPORTIONS[id];
   if (!P || !rig || !rig.spine) return;               /* "faceted" default stays as-is */

@@ -5,11 +5,11 @@ const KEY = "ph3d.styleAbilityShop.v1";
 const EQUIPPED_KEY = "ph3d.equippedCosmeticWings.v1";
 const BODY_KEY = "ph3d.bodyCustomization.v1";
 export const BODY_TYPES = [
-  {id:"athletic",name:"Athletic",price:5000,build:0.28,height:1.00,desc:"Defined shoulders and a fit, balanced frame."},
-  {id:"muscular",name:"Muscular",price:8000,build:0.78,height:1.00,desc:"Broad chest, thick arms and powerful proportions."},
-  {id:"slim",name:"Slim",price:5000,build:-0.72,height:1.00,desc:"A lean, narrow silhouette with lighter limbs."},
-  {id:"heavyset",name:"Heavyset",price:6000,build:0.92,height:0.98,desc:"A fuller torso and broader overall build."},
-  {id:"tall_broad",name:"Tall & Broad",price:10000,build:0.48,height:1.12,desc:"Extra height with a wide, confident frame."}
+  {id:"athletic",name:"Athletic",price:5000,build:0.28,height:1.00,desc:"Defined deltoids, pecs and quads: a fit, sporty frame."},
+  {id:"muscular",name:"Muscular",price:8000,build:0.78,height:1.00,desc:"Huge chest, shoulders, biceps, traps and powerful legs."},
+  {id:"slim",name:"Slim",price:5000,build:-0.72,height:1.00,desc:"A lean, narrow, long-limbed frame with a slight lean."},
+  {id:"heavyset",name:"Heavyset",price:6000,build:0.92,height:0.98,desc:"A full round belly, soft hips and thick arms and legs."},
+  {id:"tall_broad",name:"Tall & Broad",price:10000,build:0.48,height:1.12,desc:"Towering and wide, with massive shoulders and traps."}
 ];
 export const BODY_STYLES = [
   {id:"classic",name:"Classic",price:6000,look:"classic",desc:"Soft, rounded build with puffed shoulders and a friendly belly."},
@@ -24,7 +24,7 @@ export function ownsBodyItem(kind,id){const s=getBodyOwnership();return (s[kind]
 export function purchaseBodyItem(kind,id){const list=kind==="types"?BODY_TYPES:BODY_STYLES,item=list.find(x=>x.id===id);if(!item)return {ok:false,reason:"unknown"};if(ownsBodyItem(kind,id))return {ok:false,reason:"owned"};if(!Economy.withdraw(item.price))return {ok:false,reason:"funds"};const s=getBodyOwnership();s[kind]=[...(s[kind]||[]),id];try{localStorage.setItem(BODY_KEY,JSON.stringify(s));}catch{}return {ok:true,item};}
 export function getBodySelection(){try{return JSON.parse(localStorage.getItem(BODY_KEY+".selected")||'{"type":"faceted","style":"faceted"}')}catch{return {type:"faceted",style:"faceted"};}}
 export function setBodySelection(kind,id){const s=getBodySelection();s[kind]=id;try{localStorage.setItem(BODY_KEY+".selected",JSON.stringify(s));return true;}catch{return false;}}
-export function applyBodySelection(config){const s=getBodySelection();const t=BODY_TYPES.find(x=>x.id===s.type);const st=BODY_STYLES.find(x=>x.id===s.style);config=config||{};config.build=t?t.build:0;config.bodyHeight=t?t.height:1;config.bodyStyle=s.style||"faceted";config.look=s.style==="faceted"?"faceted":(st?.look||"faceted");return config;}
+export function applyBodySelection(config){const s=getBodySelection();const t=BODY_TYPES.find(x=>x.id===s.type);const st=BODY_STYLES.find(x=>x.id===s.style);config=config||{};config.build=t?t.build:0;config.bodyHeight=t?t.height:1;config.bodyStyle=s.style||"faceted";config.bodyType=t?t.id:"faceted";config.look=s.style==="faceted"?"faceted":(st?.look||"faceted");return config;}
 const ITEMS = [
   { id:"jetpack", name:"Jetpack Access", category:"Mobility", price:25000, desc:"Unlock the existing jetpack flight controls and back-mounted rocket pack." },
   { id:"flip_pack", name:"Acrobat Flip Pack", category:"Emotes", price:12000, desc:"Unlock backflip, double flip, layout, pike, gainer and twist moves." },
