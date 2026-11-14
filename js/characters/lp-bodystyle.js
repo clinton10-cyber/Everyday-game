@@ -219,23 +219,25 @@ export function applyBodyStyle(rig, cfg, mats) {
 
 function _applyProportions(rig, P) {
   const [sx, sy, sz] = P.spine;
-  rig.spine.scale.set(sx, sy, sz);
+  /* Fit: the pelvis follows the chest part-way, so shirt hems, belts, skirts and trouser
+     waists always meet. hips carries (hx,hz); the spine carries the rest, so the chest's
+     net scale is still (sx,sy,sz). Legs/arms/neck compensate, so only the intended
+     thickness shows. */
+  const hx = 1 + (sx - 1) * 0.55, hz = 1 + (sz - 1) * 0.65;
+  if (rig.hips) rig.hips.scale.set(hx, 1, hz);
+  rig.spine.scale.set(rig.hips ? sx / hx : sx, sy, rig.hips ? sz / hz : sz);
   if (rig.neck) rig.neck.scale.set(1 / sx, 1 / sy, 1 / sz);
   if (rig.head) rig.head.scale.multiplyScalar(P.head);
   for (const arm of [rig.armL, rig.armR]) if (arm && arm.shoulder) arm.shoulder.scale.set(P.arm / sx, 1 / sy, P.arm / sz);
-  for (const leg of [rig.legL, rig.legR]) if (leg && leg.hip) leg.hip.scale.set(P.leg, 1, P.leg);
+  const lx = rig.hips ? hx : 1, lz = rig.hips ? hz : 1;
+  for (const leg of [rig.legL, rig.legR]) if (leg && leg.hip) leg.hip.scale.set(P.leg / lx, 1, P.leg / lz);
 }
 
 function _applyStyleOnly(rig, cfg, mats) {
   const id = cfg && cfg.bodyStyle;
   const P = STYLE_PROPORTIONS[id];
   if (!P || !rig || !rig.spine) return;               /* "faceted" default stays as-is */
-  const [sx, sy, sz] = P.spine;
-  rig.spine.scale.set(sx, sy, sz);
-  if (rig.neck) rig.neck.scale.set(1 / sx, 1 / sy, 1 / sz);      /* keep the neck/head undistorted */
-  if (rig.head) rig.head.scale.multiplyScalar(P.head);
-  for (const arm of [rig.armL, rig.armR]) if (arm && arm.shoulder) arm.shoulder.scale.set(P.arm / sx, 1 / sy, P.arm / sz);
-  for (const leg of [rig.legL, rig.legR]) if (leg && leg.hip) leg.hip.scale.set(P.leg, 1, P.leg);
+  _applyProportions(rig, P);
   try { BUILDERS[id] && rig.armL && rig.legL && BUILDERS[id](rig, mats || {}); }
   catch (e) { console.warn("[bodystyle]", id, e); }
 }

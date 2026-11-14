@@ -159,6 +159,7 @@
 "js/app-update.js",
 "js/characters/animator.js",
 "js/characters/cat.js",
+"js/characters/fabric.js",
 "js/characters/faceted.js",
 "js/characters/limp.js",
 "js/characters/lowpoly.js",

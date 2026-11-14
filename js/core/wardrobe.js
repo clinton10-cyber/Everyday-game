@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { enableClothFX, setClothParams, makeFabricTextures, topFabric, bottomFabric, topWind, bottomWind, sheenOf } from "../characters/fabric.js";
 
 /* ═══════════════════════════════════════════════════════════════
    wardrobe.js — the data layer for every look in the game.
@@ -226,7 +227,7 @@ const DEFAULT = {
 const STORE_KEY = "ph3d.wardrobe.v1";
 
 /* ── Pattern textures ──────────────────────────────────────── */
-function makePatternTex(base, accent, pattern) {
+function makePatternCanvas(base, accent, pattern) {
   const S = 128;
   const c = document.createElement("canvas");
   c.width = c.height = S;
@@ -300,21 +301,24 @@ function makePatternTex(base, accent, pattern) {
       for (let x = 0; x < 8; x++) if ((x + i) % 2 === 0) g.fillRect(x * 16, i * 16 + 8, 8, 6);
     }
   }
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 2;
-  return t;
+  return c;
 }
 
-function applyPattern(mat, base, accent, pattern) {
-  if (mat.map) { mat.map.dispose(); mat.map = null; }
-  if (pattern === "solid" || !pattern) {
+function applyPattern(mat, base, accent, pattern, kind) {
+  /* shared, cached fabric textures: never dispose them here */
+  kind = kind || "cotton";
+  const solid = pattern === "solid" || !pattern;
+  let tex;
+  if (solid) {
+    /* neutral weave tinted by the material colour: one texture per fabric, shared by the whole crowd */
+    tex = makeFabricTextures(makePatternCanvas("#f0f0f0", "#f0f0f0", "solid"), "solid|" + kind, kind);
     mat.color.set(new THREE.Color(base));
   } else {
-    mat.map = makePatternTex(base, accent, pattern);
+    tex = makeFabricTextures(makePatternCanvas(base, accent, pattern), [base, accent, pattern, kind].join("|"), kind);
     mat.color.set(0xffffff);
   }
+  mat.map = tex.map; mat.bumpMap = tex.bump;
+  mat.bumpScale = kind === "silk" || kind === "satin" ? 0.4 : kind === "denim" || kind === "knit" ? 1.6 : 1.0;
   mat.needsUpdate = true;
 }
 
@@ -447,10 +451,17 @@ export const Wardrobe = {
     mats.shoes.color.set(new THREE.Color(resolveColor(SHOE_COLORS, config.shoeColor)));
     mats.eyeD.color.set(new THREE.Color(resolveColor(EYE_COLORS, config.eyeColor)));
     mats.mouth.color.set(new THREE.Color(resolveColor(LIP_COLORS, config.lipColor)));
+    const tf = topFabric(config.topStyle), bf = bottomFabric(config.bottomStyle);
     applyPattern(mats.top,    resolveColor(SHIRT_COLORS, config.topColor),
-                              resolveColor(ACCENT_COLORS, config.topAccent), config.topPattern);
+                              resolveColor(ACCENT_COLORS, config.topAccent), config.topPattern, tf);
     applyPattern(mats.bottom, resolveColor(BOTTOM_COLORS, config.bottomColor),
-                              resolveColor(ACCENT_COLORS, config.bottomAccent), config.bottomPattern);
+                              resolveColor(ACCENT_COLORS, config.bottomAccent), config.bottomPattern, bf);
+    try {
+      enableClothFX(mats.top); enableClothFX(mats.bottom);
+      /* a one-piece dress hangs from the top slot: its skirt part must move like a skirt */
+      setClothParams(mats.top, topWind(config.topStyle), sheenOf(tf));
+      setClothParams(mats.bottom, bottomWind(config.bottomStyle), sheenOf(bf));
+    } catch (e) { console.warn("[fabric]", e); }
     if (config.hat) mats.hat.color.set(new THREE.Color(resolveColor(SHIRT_COLORS, config.hat.color || 0)));
     if (config.glasses) mats.glasses.color.set(new THREE.Color(resolveColor(GEAR_COLORS, config.glasses.color || 0)));
   },
