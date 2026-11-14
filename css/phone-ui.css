@@ -1,0 +1,264 @@
+/* phone-ui.css
+   Home screen, lock screen and display settings for the in-game phone.
+   Loaded after phone.css and hud-landscape.css so it wins where they overlap. */
+
+/* ── status bar sits on the same row as the camera cut-out ───────────── */
+.tphone .tnotch{
+  position:absolute!important;top:10px;left:50%!important;margin:0!important;
+  transform:translateX(-50%);z-index:3;pointer-events:none;
+}
+.tphone .tstat{position:relative;z-index:2;padding:15px 26px 6px;min-height:40px;box-sizing:border-box;font-size:14px}
+.tphone .tstat #t-data-text{display:none}
+.tphone[data-ui="android"] .tnotch{width:20px!important;height:20px!important;border-radius:50%!important;top:13px}
+.tphone[data-ui="android"] .tnotch::after{display:none}
+.tphone[data-ui="ios"] .tnotch{width:118px!important;height:32px!important;border-radius:20px!important;top:11px}
+
+/* header bar is only for app screens */
+.tphone[data-active-app="home"] .thdr{display:none}
+.tphone[data-ui="android"][data-active-app="home"] .thomebar{display:none}
+.thomebar::before{content:"";position:absolute;inset:-14px -30px}
+
+/* ── home container ──────────────────────────────────────────────────── */
+#app-home.on{
+  display:flex!important;flex-direction:column;padding:0!important;
+  overflow:hidden!important;height:calc(100% - 46px)!important;
+}
+.ph-home{position:relative;flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+#ph-pool{display:none}
+.ph-x{
+  position:absolute;top:2px;right:14px;z-index:4;width:28px;height:28px;border-radius:50%;
+  border:0;background:rgba(255,255,255,.16);color:#fff;font-size:12px;display:grid;place-items:center;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);cursor:pointer;
+}
+.ph-pages{
+  flex:1 1 auto;min-height:0;display:flex;overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior:contain;
+}
+.ph-pages::-webkit-scrollbar{display:none}
+.ph-page{flex:0 0 100%;scroll-snap-align:start;overflow-y:auto;scrollbar-width:none;padding:34px 18px 8px;box-sizing:border-box}
+.ph-page::-webkit-scrollbar{display:none}
+.ph-home[data-ui="android"] .ph-pages{overflow:hidden}
+.ph-home .tgrid{padding:6px 0 10px;gap:16px 8px}
+.ph-home .tapp-ic .tico{width:58px;height:58px;font-size:24px}
+.ph-home .tapp-ic .tnm{font-size:11px;max-width:72px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.ph-none{padding:26px 8px;text-align:center;color:rgba(255,255,255,.6);font-size:13px;grid-column:1/-1}
+
+/* ── widgets ─────────────────────────────────────────────────────────── */
+.ph-widgets{margin-bottom:18px}
+.ph-home[data-ui="ios"] .ph-widgets{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ph-w{
+  position:relative;height:138px;border-radius:24px;padding:14px 14px 28px;box-sizing:border-box;
+  display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.35);
+}
+.ph-w-name{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:10px;font-weight:500;opacity:.8}
+.ph-w-weather{background:linear-gradient(170deg,#3f7fc2,#27518c);color:#fff;cursor:pointer}
+.ph-w-city{font-size:13px;font-weight:600}
+.ph-w-big{font-size:42px;font-weight:300;line-height:1.05;margin-top:2px}
+.ph-w-cond{margin-top:auto;font-size:12px;font-weight:500}
+.ph-w-date{background:#f4f4f6;color:#111}
+.ph-w-dow{font-size:12px;font-weight:700;color:#e0342c}
+.ph-w-day{font-size:40px;font-weight:300;line-height:1.1;color:#111}
+.ph-w-line{margin-top:auto;display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#222}
+.ph-w-bar{width:3px;height:26px;border-radius:2px;background:#2fa66a;flex:0 0 auto}
+.ph-wa{
+  padding:16px 18px;border-radius:28px;background:rgba(255,255,255,.13);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:1px solid rgba(255,255,255,.14);color:#fff;
+}
+.ph-wa-row{display:flex;justify-content:space-between;align-items:baseline;font-size:20px}
+.ph-wa-row b{font-weight:600}.ph-wa-row span{font-size:16px;opacity:.9}
+.ph-wa-line{font-size:14px;margin-top:3px}.ph-wa-line.dim{opacity:.75;font-size:13px;margin-top:6px}
+
+/* ── dock, search, nav ───────────────────────────────────────────────── */
+.ph-dock{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:0 0 auto;
+  margin:0 12px 6px;padding:12px 10px;border-radius:30px;
+  background:rgba(255,255,255,.17);
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+}
+.ph-dock .tnm{display:none}
+.ph-home[data-ui="ios"] .ph-dock{margin-bottom:24px}
+.ph-home[data-ui="android"] .ph-dock{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;padding:4px 10px;margin-bottom:2px}
+.ph-home[data-ui="android"] .tapp-ic .tico{border-radius:50%!important}
+.ph-dots{flex:0 0 auto;display:flex;justify-content:center;gap:8px;padding:6px 0}
+.ph-dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.35);cursor:pointer}
+.ph-dots i.on{background:#fff}
+.ph-pillsearch{
+  flex:0 0 auto;align-self:center;margin:2px 0 10px;padding:7px 18px;border-radius:999px;border:0;
+  background:rgba(255,255,255,.2);color:#fff;font-family:inherit;font-weight:500;font-size:12px;cursor:pointer;display:flex;gap:6px;align-items:center;
+}
+.ph-gsearch{
+  flex:0 0 auto;display:flex;align-items:center;gap:12px;margin:2px 14px 12px;padding:13px 18px;
+  border-radius:999px;border:0;background:rgba(255,255,255,.15);color:#e6edf8;font-family:inherit;font-weight:500;font-size:14px;text-align:left;cursor:pointer;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+.ph-gsearch span{flex:1}
+.ph-gsearch .fa-microphone{color:var(--device-accent,#8ab4f8)}
+.ph-nav{flex:0 0 auto;display:flex;justify-content:space-around;padding:2px 30px 12px}
+.ph-nav button{width:56px;height:30px;border:0;background:transparent;color:rgba(255,255,255,.85);font-size:15px;display:grid;place-items:center;cursor:pointer}
+
+/* ── App Library (iPhone) ────────────────────────────────────────────── */
+.ph-search{
+  display:flex;align-items:center;gap:9px;margin:0 2px 16px;padding:11px 14px;border-radius:14px;
+  background:rgba(255,255,255,.17);color:rgba(255,255,255,.75);
+}
+.ph-search input,.ph-dsearch input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;font-family:inherit;font-weight:500;font-size:15px}
+.ph-folders{display:grid;grid-template-columns:1fr 1fr;gap:16px 18px}
+.ph-folder-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.ph-folder-tile{
+  width:100%;aspect-ratio:1;border:0;border-radius:26px;padding:12px;box-sizing:border-box;
+  background:rgba(255,255,255,.16);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;cursor:pointer;
+}
+.ph-mini{pointer-events:none}
+.ph-mini .tico{width:100%!important;height:auto!important;aspect-ratio:1;font-size:15px!important;border-radius:12px!important;box-shadow:none!important}
+.ph-folder-name{font-size:11px;font-weight:500;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.ph-results[hidden],.ph-folders[hidden]{display:none}
+
+/* ── sheet (folder contents, recent apps) ────────────────────────────── */
+.ph-sheet{
+  position:absolute;inset:0;z-index:7;display:none;align-items:center;justify-content:center;padding:22px;
+  background:rgba(5,8,14,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+}
+.ph-sheet.on{display:flex}
+.ph-sheet-card{width:100%;max-height:100%;overflow-y:auto;padding:18px 14px 14px;border-radius:30px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.14)}
+.ph-sheet-title{text-align:center;font-size:15px;font-weight:600;margin-bottom:14px}
+.ph-sheet-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px 6px}
+
+/* ── all-apps drawer (Android) ───────────────────────────────────────── */
+.ph-drawer{
+  position:absolute;inset:0;z-index:8;display:flex;flex-direction:column;padding:10px 14px 10px;
+  background:#0c111b;border-radius:28px 28px 0 0;
+  transform:translateY(104%);visibility:hidden;transition:transform .3s cubic-bezier(.2,.8,.2,1),visibility .3s;
+}
+.ph-drawer.on{transform:none;visibility:visible}
+.ph-handle{align-self:center;width:38px;height:4px;border-radius:2px;background:rgba(255,255,255,.3);margin:2px 0 12px;flex:0 0 auto}
+.ph-dsearch{
+  flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:999px;
+  background:rgba(255,255,255,.12);color:rgba(255,255,255,.7);margin-bottom:14px;
+}
+.ph-dwrap{position:relative;flex:1 1 auto;min-height:0;display:flex}
+.ph-dgrid{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(4,1fr);gap:18px 4px;align-content:start;overflow-y:auto;padding:2px 22px 8px 0;scrollbar-width:none}
+.ph-dgrid::-webkit-scrollbar{display:none}
+.ph-index{position:absolute;right:0;top:0;bottom:0;width:18px;display:flex;flex-direction:column;justify-content:center;gap:5px;font-size:10px;color:rgba(255,255,255,.55);text-align:center}
+.ph-index span{cursor:pointer;padding:1px 0}
+
+/* ── lock screen ─────────────────────────────────────────────────────── */
+.phone-lockscreen{padding:clamp(54px,9vh,84px) 20px 22px;align-items:stretch}
+.phone-lockscreen::before,.phone-lockscreen::after{display:none}
+.phone-lockscreen .lock-date,.phone-lockscreen .lock-time{text-align:center;margin-left:auto;margin-right:auto}
+.lock-time{letter-spacing:-3px}
+.lock-padlock,.lock-sub{display:none}
+.lock-widgets{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 4px 0}
+.lw{
+  aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600;color:#fff;
+  background:rgba(255,255,255,.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:relative;text-align:center;
+}
+.lw span{position:relative;z-index:1;padding:0 4px}
+.lw-ring{background:conic-gradient(#35d070 calc(var(--p) * 1%),rgba(255,255,255,.2) 0)}
+.lw-ring::before{content:"";position:absolute;inset:5px;border-radius:50%;background:rgba(18,24,38,.88)}
+.lock-notes{margin-top:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.lock-note{
+  padding:12px 15px;border-radius:20px;background:rgba(255,255,255,.17);border:1px solid rgba(255,255,255,.14);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 10px 28px rgba(0,0,0,.22);
+}
+.lock-note-top{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.75)}
+.lock-note-top b{font-weight:600;color:#fff}
+.lock-note-title{font-size:14px;font-weight:600;margin-top:5px}
+.lock-note-text{font-size:12px;color:rgba(255,255,255,.78);margin-top:2px}
+.lock-bottom{display:flex;align-items:flex-end;justify-content:space-between;width:100%}
+.lock-round{
+  width:48px;height:48px;border-radius:50%;border:0;background:rgba(255,255,255,.2);color:#fff;font-size:17px;
+  display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);flex:0 0 auto;
+}
+.lock-round.on{background:#fff;color:#111}
+.lock-swipe{
+  background:transparent;border:0;color:rgba(255,255,255,.88);font-family:inherit;font-weight:500;font-size:12px;display:flex;flex-direction:column;
+  align-items:center;gap:6px;padding:0 6px;cursor:pointer;letter-spacing:0;
+}
+.lock-swipe b{display:none}
+.lock-swipe .fa-fingerprint{font-size:26px}
+.lock-bar{align-self:center;width:128px;height:5px;border-radius:3px;background:rgba(255,255,255,.7);margin-top:14px}
+.phone-lockscreen.torch::before{
+  display:block;content:"";position:absolute;left:0;right:0;top:0;height:46%;width:auto;border:0;border-radius:0;transform:none;
+  background:radial-gradient(ellipse at 50% 0,rgba(255,244,214,.55),transparent 70%);pointer-events:none;
+}
+
+/* iPhone lock */
+.tphone[data-ui="ios"] .lock-date{font-size:16px;font-weight:600;letter-spacing:.5px;margin-top:6px}
+.tphone[data-ui="ios"] .lock-time{
+  font:700 clamp(78px,24vw,100px)/1 "Playfair Display",Georgia,"Times New Roman",serif;
+  letter-spacing:-2px;margin-top:2px;
+}
+.tphone[data-ui="ios"] .lock-swipe .fa-fingerprint{display:none}
+.tphone[data-ui="ios"] .lock-swipe{opacity:.75;font-size:11px}
+.tphone[data-ui="ios"] .lock-bottom{align-items:center}
+
+/* Android lock */
+.tphone[data-ui="android"] .lock-padlock{display:block;text-align:center;font-size:15px;color:rgba(255,255,255,.8);margin-bottom:6px}
+.tphone[data-ui="android"] .lock-date{display:none}
+.tphone[data-ui="android"] .lock-time{
+  font-size:clamp(84px,26vw,108px);font-weight:700;letter-spacing:-4px;
+  color:color-mix(in srgb,var(--device-accent,#8ab4f8) 72%,#fff);
+}
+.tphone[data-ui="android"] .lock-sub{display:flex;justify-content:space-around;margin-top:8px;text-align:left;font-size:13px;color:#fff}
+.tphone[data-ui="android"] .lock-sub div{display:flex;flex-direction:column;gap:2px}
+.tphone[data-ui="android"] .lock-sub b{font-size:16px;font-weight:500}
+.tphone[data-ui="android"] .lock-sub span{opacity:.8}
+.tphone[data-ui="android"] .lock-widgets{display:none}
+.tphone[data-ui="android"] .lock-note{border-radius:24px;background:rgba(255,255,255,.2)}
+.tphone[data-ui="android"] .lock-bar{width:110px;margin-top:10px}
+
+/* ── display settings ────────────────────────────────────────────────── */
+.ph-set-h{font-size:12px;margin:18px 0 8px}
+.ph-set{background:#222a36;border:1px solid #384556;border-radius:15px;padding:4px 14px}
+.ph-set-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;cursor:pointer}
+.ph-set-row+.ph-set-row{border-top:1px solid #384556}
+.ph-set-row.stack{flex-direction:column;align-items:stretch;cursor:default}
+.ph-set-row b{display:block;font-size:13px;font-weight:600}
+.ph-set-row small{display:block;font-size:11px;color:#9fb0c6;line-height:1.45;margin-top:3px}
+.ph-set-row input[type=checkbox]{
+  appearance:none;-webkit-appearance:none;flex:0 0 auto;width:46px;height:28px;border-radius:999px;background:#4a566a;
+  position:relative;transition:background .2s;cursor:pointer;margin:0;
+}
+.ph-set-row input[type=checkbox]::after{
+  content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s;
+}
+.ph-set-row input[type=checkbox]:checked{background:var(--device-accent,#34c759)}
+.ph-set-row input[type=checkbox]:checked::after{transform:translateX(18px)}
+.ph-seg{display:flex;gap:6px;margin-top:10px}
+.ph-seg button{flex:1;padding:9px 6px;border-radius:10px;border:1px solid #435066;background:#2b3444;color:#d7e0ee;font-family:inherit;font-weight:600;font-size:12px;cursor:pointer}
+.ph-seg button.on{background:var(--device-accent,#34c759);border-color:transparent;color:#06121a}
+
+/* ── full screen phone on mobile ─────────────────────────────────────── */
+@media (max-width:820px),(pointer:coarse){
+  html body .tphone.phone-full,
+  html body .tphone.phone-full.app-immersive{
+    position:fixed!important;left:0!important;right:0!important;top:0!important;bottom:0!important;
+    width:100%!important;max-width:none!important;height:100vh!important;height:100dvh!important;max-height:none!important;
+    border-radius:0!important;border:0!important;box-shadow:none!important;
+    transform:translateY(105%)!important;
+  }
+  html body .tphone.phone-full.on,
+  html body .tphone.phone-full.app-immersive.on{transform:none!important}
+  .tphone.phone-full .tnotch{top:calc(env(safe-area-inset-top,0px) + 10px)}
+  .tphone.phone-full .tstat{padding-top:calc(env(safe-area-inset-top,0px) + 14px)}
+  .tphone.phone-full #app-home.on{height:calc(100% - 46px - env(safe-area-inset-top,0px))!important}
+  .tphone.phone-full.app-immersive .tapp{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .tphone.phone-full .phone-lockscreen{padding-top:calc(env(safe-area-inset-top,0px) + 54px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 16px)}
+  .tphone.phone-full .lock-close{top:calc(env(safe-area-inset-top,0px) + 12px)}
+  .tphone.phone-full .ph-nav{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}
+  .tphone.phone-full .ph-home[data-ui="ios"] .ph-dock{margin-bottom:calc(env(safe-area-inset-bottom,0px) + 22px)}
+}
+
+/* short landscape phones: keep the home usable */
+@media (max-height:520px){
+  .ph-widgets{display:none}
+  .ph-page{padding-top:30px}
+  .lock-widgets{display:none}
+}
+
+@media (prefers-reduced-motion:reduce){.ph-drawer{transition:none}}
+
+/* camera: keep the shutter clear of the home indicator */
+#app-camera.on{padding-bottom:max(28px,env(safe-area-inset-bottom))!important}

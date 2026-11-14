@@ -8,6 +8,7 @@ import { Sfx } from "./sfx.js";
 import { Engagement } from "./engagement.js";
 import { PHONE_BY_ID, PHONE_MODELS } from "../data/phone-models.js";
 import { PhoneLife } from "./phone-life.js";
+import { PhoneHome } from "./phone-home.js";
 
 const SHOP_FOODS = ["puffpuff","plantain","palmwine","coffee","pounded","beer",
                      "chapman","jollof","suya","cake"];
@@ -393,17 +394,20 @@ export class Phone{
         </div>
 
         <div class="phone-lockscreen" id="phone-lockscreen" aria-label="Phone lock screen">
-          <button class="lock-close" id="phone-lock-close" type="button" aria-label="Close phone">×</button>
+          <button class="lock-close" id="phone-lock-close" type="button" aria-label="Close phone">&times;</button>
           <div class="lock-wallpaper-glow"></div>
-          <div class="lock-date" id="phone-lock-date">FRIDAY, NOVEMBER 13</div>
+          <div class="lock-padlock"><i class="fa-solid fa-lock"></i></div>
+          <div class="lock-date" id="phone-lock-date"></div>
           <div class="lock-time" id="phone-lock-time">19:09</div>
-          <div class="lock-notification">
-            <div class="lock-notification-top"><b>EVERYDAY</b><span>NOW</span></div>
-            <div class="lock-notification-title">Welcome back</div>
-            <div class="lock-notification-text">Your day in Port Harcourt is waiting.</div>
+          <div class="lock-sub" id="phone-lock-sub"></div>
+          <div class="lock-widgets" id="phone-lock-widgets"></div>
+          <div class="lock-notes" id="phone-lock-notes"></div>
+          <div class="lock-bottom">
+            <button class="lock-round" id="phone-lock-torch" type="button" aria-label="Torch"><i class="fa-solid fa-lightbulb"></i></button>
+            <button class="lock-swipe" id="phone-unlock-btn" type="button"><i class="fa-solid fa-fingerprint"></i><span id="phone-unlock-hint">Swipe up to unlock</span></button>
+            <button class="lock-round" id="phone-lock-cam" type="button" aria-label="Camera"><i class="fa-solid fa-camera"></i></button>
           </div>
-          <div class="lock-bottom"><span><i class="fa-solid fa-camera"></i></span><span class="lock-swipe" id="phone-unlock-hint">Swipe up to unlock <b>↑</b></span><span><i class="fa-solid fa-bolt"></i></span></div>
-          <button class="lock-unlock-btn" id="phone-unlock-btn" type="button">UNLOCK PHONE</button>
+          <div class="lock-bar"></div>
         </div>
         <div class="phone-dead" id="phone-dead" aria-label="Phone battery dead">
           <button class="lock-close" id="phone-dead-close" type="button" aria-label="Close phone">×</button>
@@ -534,6 +538,7 @@ export class Phone{
 
     this._tick();
     this._applyDeviceSkin();
+    PhoneHome.init(this);
     setInterval(() => this._tick(), 30000);
     this._renderMP();
     this._renderInv();
@@ -597,6 +602,7 @@ export class Phone{
     else if (model?.brand === "Xiaomi") skin = "skin-hyperos";
     shell.classList.add(skin);
     shell.dataset.phoneModel = id || "starter";
+    try { PhoneHome.apply(); } catch (e) { console.warn("[phone home]", e); }
     const deviceThemes = {
       itel_a18:       ["#36c6a0", "#092b2a", "14px", "#102f31"],
       tecno_spark:    ["#21c7b1", "#073b3a", "18px", "#0b3034"],
@@ -628,8 +634,9 @@ export class Phone{
     const data = snap.dataMb >= 1024 ? (snap.dataMb/1024).toFixed(2)+" GB" : snap.dataMb+" MB";
     root.innerHTML = `<div class="tbal"><div class="tlbl">DEVICE</div><div class="tamt" style="font-size:21px">${current ? current.brand+" "+current.name : "No phone selected"}</div><div class="tlbl" style="margin-top:7px">${current ? current.specs.storage+" storage · "+current.specs.battery+" battery" : "Visit the Phone Shop to buy a device."}</div></div>
       <div class="tstat-panel"><div class="tstat-row"><span class="k">Battery charge</span><span class="v">${snap.battery}%</span></div><div class="tbar"><i style="width:${snap.battery}%;background:${snap.battery<=15?'#ff5b65':'#30d158'}"></i></div><div class="tstat-row" style="margin-top:12px"><span class="k">Mobile data</span><span class="v">${data}</span></div><div class="tstat-row"><span class="k">Airtime</span><span class="v">₦${snap.airtime.toLocaleString()}</span></div></div>
-      <h3 style="font-size:12px;margin:18px 0 8px">CHARGE YOUR PHONE</h3><div class="tacts"><button data-charge="small">+25% · ₦300</button><button data-charge="full">FULL CHARGE · ₦900</button></div><p style="font-size:10px;color:#9fb0c6;line-height:1.5">Battery drains gradually as real time passes. Charging is simulated in-game.</p><h3 style="font-size:12px;margin:18px 0 8px">MY DEVICES</h3><div id="owned-phone-list"></div>`;
+      ${PhoneHome.settingsHtml()}<h3 style="font-size:12px;margin:18px 0 8px">CHARGE YOUR PHONE</h3><div class="tacts"><button data-charge="small">+25% · ₦300</button><button data-charge="full">FULL CHARGE · ₦900</button></div><p style="font-size:10px;color:#9fb0c6;line-height:1.5">Battery drains gradually as real time passes. Charging is simulated in-game.</p><h3 style="font-size:12px;margin:18px 0 8px">MY DEVICES</h3><div id="owned-phone-list"></div>`;
     root.querySelectorAll("[data-charge]").forEach(b=>b.onclick=()=>{const r=PhoneLife.charge(b.dataset.charge);const msg={funds:"Not enough money to charge.",no_phone:"Buy a phone first.",full:"Battery is already full."};this._toast(r.ok?`Phone charged to ${r.battery}%.`:msg[r.reason]||"Unable to charge.");this._renderPhoneSettings();this._renderBatteryStatus();});
+    PhoneHome.bindSettings(root);
     const list=root.querySelector("#owned-phone-list");
     if (!Engagement.state.phones.owned.length) list.innerHTML='<div class="tempty">No phones owned yet. Visit the Phone Shop.</div>';
     else list.innerHTML=Engagement.state.phones.owned.map(id=>{const m=PHONE_BY_ID[id];return m?`<div class="ttx"><div><div class="who">${m.brand} ${m.name}</div><div class="when">${m.specs.ram} · ${m.specs.storage}</div></div><button class="buy" data-select-phone="${id}">${id===active?"ACTIVE":"USE PHONE"}</button></div>`:"";}).join("");
@@ -691,6 +698,7 @@ export class Phone{
     this.showApp("home");
     this._bal();
     this._renderDead();
+    try { PhoneHome.refresh(); } catch (e) {}
   }
 
   unlock(){
@@ -704,9 +712,8 @@ export class Phone{
   _updateLockScreen(){
     const now = new Date();
     const time = document.getElementById("phone-lock-time");
-    const date = document.getElementById("phone-lock-date");
     if (time) time.textContent = String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
-    if (date) date.textContent = now.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"}).toUpperCase();
+    try { PhoneHome.refreshLock(); } catch (e) {}
   }
 
   hide(){
@@ -754,6 +761,7 @@ export class Phone{
       shell.dataset.activeApp = n;
     }
     this.app = n;
+    try { PhoneHome.onApp(n); } catch (e) {}
 
     if (n === "bank") { this._bmini(); import("../ui/banking-panel.js").then(m => m.BankingPanel.render()).catch(e => console.warn("[banking panel]",e)); }
     if (n === "health")  this._stats();
