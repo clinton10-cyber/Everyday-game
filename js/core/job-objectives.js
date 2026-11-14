@@ -57,9 +57,9 @@ const REPAIR_SECS = 4;
 function _playerPos() {
   try {
     const p = window.__ph3d_drive && window.__ph3d_drive.getPos();
-    if (p) return p;
+    if (p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.z))) return p;
   } catch (e) {}
-  return { x: 0, z: 0 };
+  return _lastPos || { x: 0, z: 0 };
 }
 
 /* Pick a POI at least minDist from (x,z), as far as the map allows */
@@ -277,6 +277,13 @@ export const JobObjectives = {
   tick(dt, px, pz, mode) {
     if (Number.isFinite(px) && Number.isFinite(pz)) _lastPos = { x: px, z: pz };
     if (!_job) return;
+    if (!Number.isFinite(px) || !Number.isFinite(pz)) return;
+    if (!Number.isFinite(dt) || dt < 0) dt = 0;
+    dt = Math.min(dt, 0.25);                         /* a long frame must not eat the timer */
+    /* repair job numbers so the phone / HUD can never show NaN */
+    if (!Number.isFinite(_job.timer))  _job.timer  = 120;
+    if (!Number.isFinite(_job.reward)) _job.reward = 5000;
+    if (!Number.isFinite(_job.hold))   _job.hold   = 0;
 
     _job.timer -= dt;
     if (_job.timer <= 0) { this._fail("out of time"); return; }

@@ -2,6 +2,7 @@ import * as THREE from "three";
 /* Functional household interactions shared by house interiors. */
 import { Pocket } from "./pocket.js";
 import { Sanity } from "./sanity.js";
+import { TV } from "./tv-player.js";
 
 const toast = (message) => { try { window.__ph3d_phone?._toast(message); } catch (_) {} };
 let panel = null;
@@ -96,11 +97,7 @@ export function handleFurnitureUse(use, ctrl) {
     case "shower": case "bath":
       if (useEmote(ctrl,"shower_wash",12)) { Sanity.add(-8); toast("You stepped into the shower and began washing."); } return true;
     case "watch":
-      showPanel("TELEVISION", "Choose a channel. Your selection starts a small home activity.", [
-        { label: "NEWS", run: () => toast("Watching the evening news.") },
-        { label: "MOVIE", run: () => toast("Movie night started.") },
-        { label: "MUSIC CHANNEL", run: () => toast("Music channel playing.") },
-      ]); return true;
+      TV.open(); return true;      /* real story channels (story-01 … story-05 + guide) */
     case "work":
       showPanel("WORK DESK", "Settle in and choose what to do at your desk.", [
         { label: "STUDY FOR 30 MINUTES", run: () => { if (useEmote(ctrl,"read_book",18)) { Sanity.add(-2); toast("You are studying at the desk."); } } },
@@ -176,11 +173,7 @@ export function handleFurnitureUse(use, ctrl) {
     case "painting":
       toast("You stopped to inspect the painting and its details."); return true;
     case "big_screen":
-      showPanel("BIG SCREEN", "Choose entertainment for the room.", [
-        { label: "WATCH A FILM", run: () => toast("The big-screen film is now playing.") },
-        { label: "WATCH SPORTS", run: () => toast("Live sports are playing on the big screen.") },
-        { label: "PLAY MUSIC VIDEO", run: () => toast("A music video is now playing.") },
-      ]); return true;
+      TV.open(); return true;      /* the big screen plays the same story channels */
     case "pool":
       if (!ctrl || !ctrl.rig || ctrl.state !== "standing") { toast("Stand beside the pool before entering."); return true; }
       if (ctrl._emoteTimer > 0) { toast("Finish your current activity first."); return true; }

@@ -156,7 +156,7 @@ export const ObjectiveHUD = {
     _card.classList.add("on");
 
     const dx = guide.x - px, dz = guide.z - pz;
-    const dist = Math.hypot(dx, dz);
+    const dist = Number.isFinite(Math.hypot(dx, dz)) ? Math.hypot(dx, dz) : 0;
 
     /* Facing convention in this game: forward = (sin yaw, cos yaw).
        Looking down +z puts +x on the LEFT, so screen rotation is the
@@ -171,7 +171,7 @@ export const ObjectiveHUD = {
     _set(_els.arrow, "arrow", "rotate(" + deg + "deg)", "style");
     _set(_els.dist, "dist", dist >= 1000 ? (dist / 1000).toFixed(1) + " km" : Math.round(dist) + " m");
 
-    const secs = Math.max(0, job.timer);
+    const secs = Number.isFinite(job.timer) ? Math.max(0, job.timer) : 0;
     const m = Math.floor(secs / 60), s = Math.floor(secs % 60);
     _set(_els.timer, "timer", m + ":" + String(s).padStart(2, "0"));
 

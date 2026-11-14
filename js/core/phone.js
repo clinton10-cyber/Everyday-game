@@ -405,6 +405,16 @@ export class Phone{
           <div class="lock-bottom"><span><i class="fa-solid fa-camera"></i></span><span class="lock-swipe" id="phone-unlock-hint">Swipe up to unlock <b>↑</b></span><span><i class="fa-solid fa-bolt"></i></span></div>
           <button class="lock-unlock-btn" id="phone-unlock-btn" type="button">UNLOCK PHONE</button>
         </div>
+        <div class="phone-dead" id="phone-dead" aria-label="Phone battery dead">
+          <button class="lock-close" id="phone-dead-close" type="button" aria-label="Close phone">×</button>
+          <div class="pd-batt"><i class="fa-solid fa-battery-empty"></i></div>
+          <div class="pd-title">PHONE DEAD</div>
+          <div class="pd-sub">The battery hit 0% and your phone switched off. Pay for a charge to turn it back on.</div>
+          <div class="pd-bal" id="phone-dead-bal"></div>
+          <button class="pd-btn" data-pd="emergency" type="button">QUICK CHARGE +30% <b>₦500</b></button>
+          <button class="pd-btn full" data-pd="full" type="button">FULL CHARGE <b>₦900</b></button>
+          <div class="pd-msg" id="phone-dead-msg"></div>
+        </div>
         <div class="thomebar"></div>
       </div>
     `);
@@ -414,6 +424,11 @@ export class Phone{
     const unlockPhone = () => this.unlock();
     const lockClose = document.getElementById("phone-lock-close");
     if (lockClose) lockClose.onclick = () => this.hide();
+    const deadClose = document.getElementById("phone-dead-close");
+    if (deadClose) deadClose.onclick = () => this.hide();
+    document.querySelectorAll("[data-pd]").forEach(b => b.onclick = () => this._payCharge(b.dataset.pd));
+    window.addEventListener("ph3d:phone-dead", () => this._renderDead());
+    window.addEventListener("ph3d:phone-revived", () => this._renderDead());
     const unlockBtn = document.getElementById("phone-unlock-btn");
     if (unlockBtn) unlockBtn.onclick = unlockPhone;
     const lockScreen = document.getElementById("phone-lockscreen");
@@ -532,7 +547,32 @@ export class Phone{
     const clock = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
     if (e) e.textContent = clock;
     if (this.visible && this.locked) this._updateLockScreen();
-    PhoneLife.tick(); this._renderBatteryStatus();
+    PhoneLife.tick();
+    if (this.visible && !this.locked && !PhoneLife.isDead()) PhoneLife.drain(0.5);   /* ~1% per minute with the screen on */
+    this._renderBatteryStatus(); this._renderDead();
+  }
+
+  _renderDead(){
+    const el = document.getElementById("phone-dead"); if (!el) return;
+    const dead = PhoneLife.isDead();
+    el.classList.toggle("on", dead && this.visible);
+    if (!dead) return;
+    const bal = document.getElementById("phone-dead-bal");
+    try { if (bal) bal.textContent = "Wallet ₦" + Math.floor(Number(Economy.balance) || 0).toLocaleString(); } catch (_) {}
+  }
+
+  _payCharge(pack){
+    const msg = document.getElementById("phone-dead-msg");
+    const r = PhoneLife.charge(pack);
+    if (r.ok) {
+      if (msg) msg.textContent = "";
+      this._toast("\uD83D\uDD0B Charged to " + r.battery + "% \u00b7 phone back on");
+      this._renderBatteryStatus(); this._renderDead(); this._bal();
+      return;
+    }
+    const why = { funds: "Not enough money. Charging isn't free \u2014 earn some cash (jobs, deliveries) and come back.", no_phone: "No active phone.", full: "Battery is already full." };
+    if (msg) msg.textContent = why[r.reason] || "Charge failed.";
+    this._renderDead();
   }
 
   _renderBatteryStatus(){
@@ -650,6 +690,7 @@ export class Phone{
     document.getElementById("tscrim").classList.add("on");
     this.showApp("home");
     this._bal();
+    this._renderDead();
   }
 
   unlock(){
@@ -689,6 +730,8 @@ export class Phone{
 
   /* ── app router ─────────────────────────────────────── */
   showApp(n){
+    if (PhoneLife.isDead()) { this._renderDead(); n = "home"; }
+    else if (n !== "home") PhoneLife.drain({ games: 0.4, camera: 0.25, music: 0.2, social: 0.2, map: 0.15 }[n] || 0.1);
     if (n !== "camera") this._clearSelfieState();
     if (n !== "games") { try { PhoneGames.stop(); } catch (e) {} }
     document.querySelectorAll(".tapp").forEach(a => a.classList.remove("on"));
@@ -1298,11 +1341,13 @@ export class Phone{
     if (j && t) {
       let d = 0;
       try { const p = window.__ph3d_drive && window.__ph3d_drive.getPos(); if (p) d = Math.hypot(t.x - p.x, t.z - p.z); } catch (e) {}
-      const sec = Math.max(0, Math.ceil(j.timer));
+      if (!Number.isFinite(d)) d = 0;
+      const sec = Number.isFinite(j.timer) ? Math.max(0, Math.ceil(j.timer)) : 0;
+      const pay = Number.isFinite(Number(j.reward)) ? Math.round(Number(j.reward)) : 0;
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
       set("jobs-dist", d >= 1000 ? (d / 1000).toFixed(1) + " km" : Math.round(d) + " m");
       set("jobs-time", Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0"));
-      set("jobs-pay", "\u20A6" + j.reward.toLocaleString());
+      set("jobs-pay", "\u20A6" + pay.toLocaleString());
     }
     for (const id of ["job-delivery", "job-taxi", "job-mechanic"]) {
       const b = document.getElementById(id);

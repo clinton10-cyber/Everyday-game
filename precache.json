@@ -285,6 +285,7 @@
 "js/core/style-ability-shop.js",
 "js/core/surfaces.js",
 "js/core/thirdperson.js",
+"js/core/tv-player.js",
 "js/core/ui.js",
 "js/core/voice-ui.js",
 "js/core/voice.js",

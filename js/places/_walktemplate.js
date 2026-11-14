@@ -244,6 +244,10 @@ export async function buildWalkInterior(router, RAW_ROOMS, opts) {
     interactables: opts.interactables || [],
     speedMult: 1.2,
     onUse: (use) => {
+      if (use && String(use.kind).toLowerCase() === "watch") {
+        import("../core/tv-player.js").then(m => m.TV.open()).catch(() => {});
+        return;
+      }
       if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE");
     },
   });

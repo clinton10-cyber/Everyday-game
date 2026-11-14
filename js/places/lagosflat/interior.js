@@ -220,7 +220,7 @@ export async function buildInterior(router) {
   sph(.48,3.6,.92,11.5,mat(0x2e6a2e));
   sph(.36,3.3,1.2,11.3,mat(0x3e7a3e));
 
-  uses.push({ kind:"use", label:"WATCH TV", x:-9, z:8, y:0, level:0, r:3.0 });
+  uses.push({ kind:"watch", label:"WATCH TV", x:-9, z:8, y:0, level:0, r:3.0 });
 
   /* ceiling fan (animated) */
   const fanGroup=new THREE.Group();
