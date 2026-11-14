@@ -28,6 +28,7 @@ let _markerGroup = null;
 let _markerMesh = null;
 let _pois = [];
 let _roads = [];
+let _lastPos = null;   /* last known open-city position, used when a job is accepted from anywhere else */
 let _route = [];
 let _routeLine = null;
 const _toast = (m) => { try { window.__ph3d_phone && window.__ph3d_phone._toast(m); } catch (e) {} };
@@ -145,10 +146,12 @@ function _destroyMarker() {
 
 /* ── job factory ───────────────────────────────────────────── */
 function _begin(def) {
-  if (!_scene) return { ok: false, reason: "not_in_world" };
+  /* Jobs can be accepted from anywhere (interiors, parks, campus, other scenes).
+     Outside the open city the job is created from the last known city position and its
+     marker/route appear as soon as the player is back on the street. */
   if (_job) return { ok: false, reason: "already_active" };
 
-  const me = _playerPos();
+  const me = _scene ? _playerPos() : (_lastPos || { x: 0, z: 0 });
   const from = _pickPoi(me.x, me.z, def.minLeg);
   const to = def.oneStop ? from : _pickPoi(from.x, from.z, 120);
   // A malformed landmark must never turn the job reward/timer into NaN.
@@ -178,8 +181,10 @@ function _begin(def) {
   _buildRoadRoute(me, from);
   let _sl = "";
   try { _sl = Sfx.voiceText("job_start"); } catch (_) {}
-  _toast((_sl ? "\u201C" + _sl + "\u201D \u00b7 " : "") + def.startToast(from));
-  return { ok: true, jobId: _job.id };
+  _toast(_scene
+    ? (_sl ? "\u201C" + _sl + "\u201D \u00b7 " : "") + def.startToast(from)
+    : "Job accepted \u00b7 head out to the street to begin: " + def.startToast(from));
+  return { ok: true, jobId: _job.id, deferred: !_scene };
 }
 
 export const JobObjectives = {
@@ -191,6 +196,11 @@ export const JobObjectives = {
         && Number.isFinite(Number(l.x))
         && Number.isFinite(Number(l.z)))
       .map(l => ({ x: Number(l.x), z: Number(l.z), name: l.name || l.id }));
+    /* a job accepted while away from the street (or kept from before) is drawn now */
+    if (_job) {
+      const t = this.target();
+      if (t) { _moveMarker(t.x, t.z); _buildRoadRoute(_playerPos(), t); _toast("Job active \u00b7 " + _job.name + " \u2192 " + t.name); }
+    }
   },
 
   active() { return _job; },
@@ -265,6 +275,7 @@ export const JobObjectives = {
   },
 
   tick(dt, px, pz, mode) {
+    if (Number.isFinite(px) && Number.isFinite(pz)) _lastPos = { x: px, z: pz };
     if (!_job) return;
 
     _job.timer -= dt;
@@ -298,10 +309,10 @@ export const JobObjectives = {
   },
 
   despawn() {
-    _job = null;
+    /* leaving the street no longer throws the job away: it pauses (the timer only runs
+       on the street) and resumes when the city scene is built again */
     _destroyMarker();
     _scene = null;
-    _pois = [];
     _roads = [];
     _clearRoute();
   },

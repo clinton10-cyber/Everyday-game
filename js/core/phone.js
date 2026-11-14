@@ -447,7 +447,7 @@ export class Phone{
               : kind === "taxi"     ? JobObjectives.startTaxi()
               :                       JobObjectives.startMechanic();
       if (!r.ok) {
-        this._toast(r.reason === "not_in_world" ? "Jobs only work in the open city"
+        this._toast(r.reason === "invalid_destination" ? "No valid job address found, try again"
                   : "You're already on a job");
         this._renderJobs();
         return;
