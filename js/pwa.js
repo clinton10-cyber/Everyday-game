@@ -225,3 +225,5 @@ function _standalone() {
 })();
 /* if the install event already fired before this module ran, it was missed — nothing to do; if it fires later we catch it */
 window.__ph3d_pwa = PWA;
+/* APK only: look for a newer GitHub Release and prompt the player to update */
+import("./app-update.js").catch((e) => console.warn("[app-update]", e));

@@ -45,6 +45,14 @@ jobs:
                 --exclude 'tools' --exclude 'branding' --exclude 'android' --exclude 'node_modules' \
                 --exclude 'assets/audio/voice/SCRIPT.md' ./ www/
 
+      - name: Stamp build info (lets the app know when a newer release exists)
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          TAG="build-${GITHUB_RUN_NUMBER}"
+          [ "$GITHUB_REF_TYPE" = "tag" ] && TAG="$GITHUB_REF_NAME"
+          printf '{"appVersion":"%s","runNumber":%s,"tag":"%s","builtAt":"%s"}\n' "$PKG" "$GITHUB_RUN_NUMBER" "$TAG" "$(date -u +%FT%TZ)" > www/app-version.json
+          cat www/app-version.json
+
       - name: Install Capacitor and create the Android project
         run: |
           npm install --no-save @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
