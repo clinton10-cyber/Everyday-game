@@ -162,6 +162,7 @@
 "js/characters/faceted.js",
 "js/characters/limp.js",
 "js/characters/lowpoly.js",
+"js/characters/lp-bodystyle.js",
 "js/characters/lp-bottoms.js",
 "js/characters/lp-costumes.js",
 "js/characters/lp-extras.js",

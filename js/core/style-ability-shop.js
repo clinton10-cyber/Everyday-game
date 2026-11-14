@@ -12,12 +12,12 @@ export const BODY_TYPES = [
   {id:"tall_broad",name:"Tall & Broad",price:10000,build:0.48,height:1.12,desc:"Extra height with a wide, confident frame."}
 ];
 export const BODY_STYLES = [
-  {id:"classic",name:"Classic",price:6000,look:"classic",desc:"Rounded classic character proportions."},
-  {id:"faceted_plus",name:"Faceted Elite",price:7000,look:"faceted",desc:"Crisp low-poly planes with refined proportions."},
-  {id:"heroic",name:"Heroic",price:9000,look:"faceted",desc:"Sculpted heroic silhouette and stronger shoulders."},
-  {id:"sleek",name:"Sleek",price:6500,look:"classic",desc:"A streamlined, narrow silhouette."},
-  {id:"angular",name:"Angular",price:8500,look:"faceted",desc:"Sharper, more pronounced geometric forms."},
-  {id:"refined",name:"Refined",price:11000,look:"classic",desc:"Balanced proportions with a premium finish."}
+  {id:"classic",name:"Classic",price:6000,look:"classic",desc:"Soft, rounded build with puffed shoulders and a friendly belly."},
+  {id:"faceted_plus",name:"Faceted Elite",price:7000,look:"faceted",desc:"Glowing crystal chest gem, shoulder shards and a back fin."},
+  {id:"heroic",name:"Heroic",price:9000,look:"faceted",desc:"Wide V-shaped hero frame with gold pauldrons, emblem, belt and bracers."},
+  {id:"sleek",name:"Sleek",price:6500,look:"classic",desc:"Slim, narrow frame with glowing neon racing stripes."},
+  {id:"angular",name:"Angular",price:8500,look:"faceted",desc:"Shoulder spikes, chest ridge, forearm fins and knee wedges."},
+  {id:"refined",name:"Refined",price:11000,look:"classic",desc:"Elegant frame with a gold collar, belt, cuffs, ankle rings and brooch."}
 ];
 export function getBodyOwnership(){try{return JSON.parse(localStorage.getItem(BODY_KEY)||'{"types":[],"styles":[]}')}catch{return {types:[],styles:[]};}}
 export function ownsBodyItem(kind,id){const s=getBodyOwnership();return (s[kind]||[]).includes(id);}

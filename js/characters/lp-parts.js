@@ -149,7 +149,7 @@ export function measures(cfg) {
   const male   = cfg.gender === "masculine";
   const b = clamp(+cfg.build || 0, -1, 1);
   const style = cfg.bodyStyle || "faceted";
-  const styleShape = ({heroic:[1.10,1.08,1.04],sleek:[0.91,0.94,0.90],angular:[1.04,1.02,1.03],refined:[0.98,0.98,0.96],classic:[1,1,1],faceted:[1,1,1],faceted_plus:[1.02,1.01,1.01]})[style] || [1,1,1];
+  const styleShape = [1,1,1];   /* body-style silhouettes now live in lp-bodystyle.js (unique per style) */
   const sxT = (female ? 0.93 : male ? 1.06 : 1.00) * (1 + 0.16 * b) * styleShape[0];   /* torso width  */
   const szT = (female ? 0.68 : male ? 0.72 : 0.70) * (1 + 0.14 * b) * styleShape[1];   /* torso depth  */
   const sxP = (female ? 1.08 : male ? 0.98 : 1.00) * (1 + 0.13 * b);   /* pelvis width */

@@ -7,6 +7,7 @@ import { buildHair, buildBeard } from "./lp-hair.js";
 import { buildHat, buildGlasses, buildAccessories } from "./lp-extras.js";
 import { buildCostume, COSTUMES } from "./lp-costumes.js";
 import { buildFacetedInto } from "./faceted.js";
+import { applyBodyStyle } from "./lp-bodystyle.js";
 import { applyBodySelection } from "../core/style-ability-shop.js";
 
 export { HIP_HEIGHT, COSTUMES };
@@ -104,6 +105,12 @@ function disposeTree(node) {
 }
 
 function buildInto(root, rig, config, mats) {
+  buildBase(root, rig, config, mats);
+  /* each purchasable body style adds its own proportions + signature parts (both looks) */
+  try { applyBodyStyle(rig, config, mats); } catch (e) { console.warn("[bodystyle]", e); }
+}
+
+function buildBase(root, rig, config, mats) {
   /* optional faceted look (Body tab › Look). Classic stays the default. */
   if (config.look === "faceted") {
     buildFacetedInto(root, rig, config, mats);
