@@ -1208,7 +1208,7 @@ export class CharacterHub {
     body.innerHTML=wings.map(w=>{
       const active=equipped===w.id;
       const owned=w.owned;
-      const tone=w.id==="angel_wings"?"PEARL · GOLD":w.id==="shadow_wings"?"OBSIDIAN · AMETHYST":"SAPPHIRE · NEON";
+      const tone=w.id==="angel_wings"?"PAPER · IVORY":w.id==="shadow_wings"?"OBSIDIAN · AMETHYST":"CHROME · NEON";
       return `<article class="tb-wing-card"><div class="tb-group-label"><em>✦</em>${tone}</div><h3>${w.name}</h3><p>${w.desc}</p><div class="tb-wing-meta"><span>${active?'<span class="tb-wing-equipped">EQUIPPED</span>':owned?'OWNED':Economy.format(w.price)}</span><button class="tb-wing-action" data-wing="${w.id}" ${!owned&&Economy.balance<w.price?'':' '}>${active?'UNEQUIP':owned?'EQUIP':'PURCHASE'}</button></div></article>`;
     }).join("")+`<div class="tb-note">One pair can be worn at a time. Your selection is saved on this device and appears on your character in the world.</div>`;
     body.querySelectorAll("[data-wing]").forEach(btn=>btn.onclick=()=>{

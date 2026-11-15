@@ -1,4 +1,5 @@
 import { createJetpack } from "./jetpack.js";
+import { createSpeedFx } from "./speed-fx.js";
 import * as THREE from "three";
 import { Wardrobe } from "./wardrobe.js";
 import { WardrobeUI } from "./wardrobeui.js";
@@ -14,7 +15,7 @@ import { HUD } from "../ui/hud.js";
 import { Sanity } from "./sanity.js";
 import { InteriorPoses } from "./interior-poses.js";
 import { WorldObjects } from "./world-objects.js";
-import { openStyleAbilityShop, isEmoteUnlocked, ownsStyleItem, attachCosmeticWings, updateCosmeticWings } from "./style-ability-shop.js";
+import { openStyleAbilityShop, isEmoteUnlocked, ownsStyleItem, attachCosmeticWings, updateCosmeticWings, hasWingFlight, WING_FLIGHT } from "./style-ability-shop.js";
 import { disposeObject3D } from "./disposer.js";
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -136,6 +137,7 @@ export class ThirdPersonControls {
     this.weapons = new Weapons(this);
     this.jet = { on: false, thrust: false, fuel: 1, tilt: 0 };
     this._jetVis = createJetpack();
+    this._speedFx = createSpeedFx(camera, camera && camera.fov || 62);
     try { this._jetVis.attach(this.avatar); } catch (e) {}
     try { attachCosmeticWings(this.avatar); } catch (e) {}
     this._rc = new THREE.Raycaster(); this._rcFrame = 0; this._jetCeilY = Infinity; this._jetFloorY = -Infinity;
@@ -704,10 +706,11 @@ export class ThirdPersonControls {
   }
   toggleJet() {
     if (this.state !== "standing" && this.state !== "crouching") return;
-    if (!ownsStyleItem("jetpack")) { openStyleAbilityShop(); try { window.__ph3d_phone?._toast("Unlock Jetpack Access in Emotes & Gear Shop"); } catch {} return; }
+    const _wf = hasWingFlight();
+    if (!_wf && !ownsStyleItem("jetpack")) { openStyleAbilityShop(); try { window.__ph3d_phone?._toast("Unlock Jetpack Access in Emotes & Gear Shop"); } catch {} return; }
     this.jet.on = !this.jet.on; this.jet.thrust = false;
-    if (this._flyBtn) { this._flyBtn.classList.toggle("is-on", this.jet.on); this._flyBtn.textContent = this.jet.on ? "JETPACK ON" : "JETPACK"; }
-    try { window.__ph3d_phone && window.__ph3d_phone._toast(this.jet.on ? "Jetpack on. Hold JUMP to fly" : "Jetpack off"); } catch (e) {}
+    if (this._flyBtn) { this._flyBtn.classList.toggle("is-on", this.jet.on); this._flyBtn.textContent = this.jet.on ? (_wf ? "WINGS ON" : "JETPACK ON") : (_wf ? "WINGS" : "JETPACK"); }
+    try { window.__ph3d_phone && window.__ph3d_phone._toast(this.jet.on ? (_wf ? "Wings on. Hold JUMP to soar" : "Jetpack on. Hold JUMP to fly") : (_wf ? "Wings off" : "Jetpack off")); } catch (e) {}
   }
   /* Raycast the scene's solid meshes (walls, ceilings, roofs). Used only while the jetpack is on. */
   _meshRay(ox, oy, oz, dx, dy, dz, far) {
@@ -1110,7 +1113,7 @@ this.moving = this._movingTimer > 0;
       let speed = baseWalk * speedMult * (swimming ? (this._lifeJacketOn ? 0.50 : 0.38) : 1);
       if (this.state === "crouching") speed = CROUCH_SP * (swimming ? 0.7 : 1);
       else if (this.running && !swimming) speed = baseRun * speedMult;
-      if (this.jet && this.jet.on && !this.onGround) speed *= 2.8;   /* jetpack flight is much faster than walking */
+      if (this.jet && this.jet.on && !this.onGround) speed *= (hasWingFlight() ? WING_FLIGHT.speedMul : 2.8);   /* jetpack flight is much faster than walking; wings are faster still */
       const gunOut = this.weapons &&
         (this.weapons.current === "pistol" || this.weapons.current === "sniper" || this.weapons.current === "bazooka");
       const camF = gunOut ? (this.yaw + Math.PI) : this.camYaw;
@@ -1140,17 +1143,18 @@ this.moving = this._movingTimer > 0;
       }
       this.level = gi.level;
       const _jt = this.jet;
-      const _want = _jt.on && (_jt.thrust || this.keys.Space) && _jt.fuel > 0;
+      const _wings = hasWingFlight();
+      const _want = _jt.on && (_jt.thrust || this.keys.Space) && (_wings || _jt.fuel > 0);
       if (_jt.on && (_want || !this.onGround)) {
         if (_want) {
           if (this.onGround) { this.onGround = false; this.floorY += 0.05; this.vel.y = Math.max(this.vel.y, 2); }
-          this.vel.y = Math.min(12, this.vel.y + 46 * dt);
-          _jt.fuel = Math.max(0, _jt.fuel - dt * 0.2);
+          this.vel.y = _wings ? Math.min(WING_FLIGHT.climb, this.vel.y + WING_FLIGHT.accel * dt) : Math.min(12, this.vel.y + 46 * dt);
+          if (!_wings) _jt.fuel = Math.max(0, _jt.fuel - dt * 0.2);
         } else {
           this.vel.y = Math.max(-7, this.vel.y - 14 * dt);
           _jt.fuel = Math.min(1, _jt.fuel + dt * 0.04);
         }
-        if (this._flyBtn) this._flyBtn.textContent = "JETPACK " + Math.round(_jt.fuel * 100) + "%";
+        if (this._flyBtn) this._flyBtn.textContent = _wings ? "WINGS" : "JETPACK " + Math.round(_jt.fuel * 100) + "%";
       } else {
         this.vel.y -= (this.driveFeel ? DRIVE_GRAVITY : GRAVITY) * dt;
         if (_jt.on) _jt.fuel = Math.min(1, _jt.fuel + dt * 0.5);
@@ -1220,8 +1224,10 @@ this._lastVy = vyBeforeSnap;
 
     this._animate(animDt);
     try { window.__ph3d_playerActions?.tick?.(this, dt, this.camera); } catch (e) {}
-    this._jetVis.update(dt, this.jet.on, this.jet.on && (this.jet.thrust || this.keys.Space) && this.jet.fuel > 0);
-    try { const flipping=!!(this._emoteTimer>0 && Animator.FLIP_EMOTES && Animator.FLIP_EMOTES[this._emoteName]); const falling=!this.onGround && (this.vel?.y||0)<-0.8; updateCosmeticWings(this.avatar, performance.now()/1000,{state:this.state,flip:flipping,falling}); } catch (e) {}
+    const _wingFly = hasWingFlight();
+    try { this._speedFx.update(dt, this.jet.on && !this.onGround ? (_wingFly ? 0.9 : 0.35) : 0); } catch (e) {}
+    this._jetVis.update(dt, this.jet.on && !_wingFly, this.jet.on && !_wingFly && (this.jet.thrust || this.keys.Space) && this.jet.fuel > 0);
+    try { const flipping=!!(this._emoteTimer>0 && Animator.FLIP_EMOTES && Animator.FLIP_EMOTES[this._emoteName]); const falling=!this.onGround && (this.vel?.y||0)<-0.8; updateCosmeticWings(this.avatar, performance.now()/1000,{state:this.state,flip:flipping,falling:falling&&!(this.jet.on&&_wingFly),flying:!!(this.jet.on&&_wingFly&&!this.onGround)}); } catch (e) {}
     {
       const flying = this.jet.on && !this.onGround;
       const hs = Math.hypot(this.vel.x || 0, this.vel.z || 0);
@@ -1457,6 +1463,7 @@ _updateCamera(dt, snap) {
 }
 
   dispose() {
+    try { this._speedFx && this._speedFx.dispose(); } catch (e) {}
     this._releaseSeat();
     this._disposed = true;
     const wasActiveWalkCtrl = window.__ph3d_walkCtrl === this;

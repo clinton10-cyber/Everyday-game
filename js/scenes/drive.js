@@ -21,6 +21,8 @@ import { Wardrobe } from "../core/wardrobe.js";
 import { Combat } from "../core/combat.js";
 import { Weapons } from "../core/guns.js";
 import { createJetpack } from "../core/jetpack.js";
+import { hasWingFlight, WING_FLIGHT } from "../core/style-ability-shop.js";
+import { createSpeedFx } from "../core/speed-fx.js";
 import * as Animator from "../characters/animator.js";
 import { Limp } from "../characters/limp.js";
 import { LocationMarkers } from "../core/location-markers.js";
@@ -629,6 +631,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   };
   const jet = { on: false, thrust: false, fuel: 1, tilt: 0 };
   const jetVis = createJetpack();
+  const speedFx = createSpeedFx(camera, 62);   /* speed blur: vehicles and wing flight, anywhere in the world */
   const walkerWeapons = new Weapons(weaponCtl);
   walker.weapons = walkerWeapons;
   window.__ph3d_weapons = walkerWeapons;
@@ -1366,6 +1369,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       window.__ph3d_world_aabbs = null;
       window.removeEventListener("keydown", onKD);
       window.removeEventListener("keydown", _onKeyFly); try { walkFlyBtn.remove(); jetVis.dispose(); } catch (e) {}
+      try { speedFx.dispose(); } catch (e) {}
       window.removeEventListener("keyup", onKU);
       window.removeEventListener("keydown", onKeyE);
       window.removeEventListener("keyup", onKeyE);
@@ -1422,6 +1426,13 @@ try {
     },
     update: function (dt, t) {
       try { Weather.tick(dt); } catch (e) {}
+      try {
+        /* speed blur: cars start to blur at ~35% of top speed; wing flight always blurs, jetpack lightly */
+        let _fx = 0;
+        if (mode === "drive") _fx = (Math.abs(speed) / 55 - 0.3) / 0.7;
+        else if (mode === "walk" && jet.on && !walker.onGround && !walker.ragdoll) _fx = hasWingFlight() ? 0.9 : 0.35;
+        speedFx.update(dt, _fx);
+      } catch (e) {}
       const driveUIEl = document.getElementById("drive-ui");
       if (driveUIEl) driveUIEl.style.display = mode === "drive" ? "block" : "none";
 
@@ -1679,7 +1690,7 @@ try {
 
           const run = walkRunHold || !!(keys.ShiftLeft || keys.ShiftRight);
           const _jetFly = jet.on && !walker.onGround;
-          const sp = (_jetFly ? WALK_SPEED * (run ? 7.5 : 5) : (run ? WALK_SPEED * 1.7 : WALK_SPEED)) * (window.__ph3d_moveSpeed || 1) * 1 * (walker._carryMul || 1) * (Weather.walkMul || 1);
+          const sp = (_jetFly ? WALK_SPEED * (hasWingFlight() ? (run ? WING_FLIGHT.driveRun : WING_FLIGHT.driveWalk) : (run ? 7.5 : 5)) : (run ? WALK_SPEED * 1.7 : WALK_SPEED)) * (window.__ph3d_moveSpeed || 1) * 1 * (walker._carryMul || 1) * (Weather.walkMul || 1);
 
           const camFx = Math.sin(walkCameraYaw), camFz = Math.cos(walkCameraYaw);
           const camRx = Math.cos(walkCameraYaw), camRz = -Math.sin(walkCameraYaw);
@@ -1764,18 +1775,20 @@ try {
 
           if (!walker.ragdoll) {
             if (jet.on) {
-              const want = (jet.thrust || keys.Space) && jet.fuel > 0;
+              const _wings = hasWingFlight();
+              const want = (jet.thrust || keys.Space) && (_wings || jet.fuel > 0);
               if (want) {
                 if (walker.onGround) { walker.onGround = false; walker.y += 0.05; walker.vy = Math.max(walker.vy, 2); }
-                walker.vy = Math.min(14, walker.vy + 50 * dt);
-                jet.fuel = Math.max(0, jet.fuel - dt * 0.2);
+                walker.vy = _wings ? Math.min(WING_FLIGHT.climb, walker.vy + WING_FLIGHT.accel * dt) : Math.min(14, walker.vy + 50 * dt);
+                if (!_wings) jet.fuel = Math.max(0, jet.fuel - dt * 0.2);
               } else if (!walker.onGround) {
                 walker.vy = Math.max(-7, walker.vy - 14 * dt);
               }
               if (walker.onGround || !want) jet.fuel = Math.min(1, jet.fuel + dt * (walker.onGround ? 0.5 : 0.04));
-              walkFlyBtn.textContent = "JETPACK " + Math.round(jet.fuel * 100) + "%";
+              walkFlyBtn.textContent = hasWingFlight() ? "WINGS" : "JETPACK " + Math.round(jet.fuel * 100) + "%";
             }
-            jetVis.update(dt, jet.on, jet.on && (jet.thrust || keys.Space) && jet.fuel > 0);
+            const _wf2 = hasWingFlight();
+            jetVis.update(dt, jet.on && !_wf2, jet.on && !_wf2 && (jet.thrust || keys.Space) && jet.fuel > 0);
             if (!walker.onGround) {
               walker.vy -= (jet.on ? 0 : 20) * dt;
               walker.y += walker.vy * dt;

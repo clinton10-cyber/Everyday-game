@@ -1,5 +1,6 @@
 import { Economy } from "./economy.js";
 import * as THREE from "three";
+import { buildOrigamiWings } from "../characters/origami-wings.js";
 
 const KEY = "ph3d.styleAbilityShop.v1";
 const EQUIPPED_KEY = "ph3d.equippedCosmeticWings.v1";
@@ -30,9 +31,9 @@ const ITEMS = [
   { id:"flip_pack", name:"Acrobat Flip Pack", category:"Emotes", price:12000, desc:"Unlock backflip, double flip, layout, pike, gainer and twist moves." },
   { id:"dance_pack", name:"Street Dance Pack", category:"Emotes", price:8000, desc:"Unlock the core street dance collection." },
   { id:"naija_dance_pack", name:"Naija Trend Dance Pack", category:"Emotes", price:18000, desc:"Unlock Azonto, Shaku, Zanku, Buga, Amapiano and three original Steppers routines: Glide, Cross-Step and Heel-Toe." },
-  { id:"angel_wings", name:"Celestial Angel Wings", category:"Wings", price:18000, desc:"Large pearl-white feather wings with a soft gold glow." },
-  { id:"shadow_wings", name:"Shadow Raven Wings", category:"Wings", price:22000, desc:"Dark layered wings with a violet edge glow." },
-  { id:"neon_wings", name:"Neon Pulse Wings", category:"Wings", price:26000, desc:"Futuristic cyan-purple energy wings." },
+  { id:"angel_wings", name:"Origami Angel Wings", category:"Wings", price:18000, desc:"Hand-folded paper wings: ivory feathers in four layered tiers with fine ink creases and a warm glowing core." },
+  { id:"shadow_wings", name:"Shadow Raven Wings", category:"Wings", price:22000, desc:"Obsidian raven plumage in six feather tiers with violet and teal iridescent edges." },
+  { id:"neon_wings", name:"Cyber Origami Wings", category:"Wings", price:26000, desc:"Dark chrome folded wings with magenta-to-cyan neon edges, an energy conduit and a spinning core." },
 ];
 const FLIPS = new Set(["backflip","doubleBackflip","tripleBackflip","layoutFlip","pikeFlip","gainer","arabian","halfTwist","fullTwist","corkscrew","doubleFullTwist","backFullDouble","splitLegFlip","xOut","straddle","kickTheMoon","oneArmFlip","crouchEntry","sprintDouble","tripleCompact"]);
 const read = () => { try { const v=JSON.parse(localStorage.getItem(KEY)||"{}"); return { ...v, owned:Array.isArray(v.owned)?v.owned.filter(x=>typeof x==="string"):[] }; } catch { return { owned:[] }; } };
@@ -70,59 +71,19 @@ export function isEmoteUnlocked(id) {
 export function attachCosmeticWings(root) {
   if (!root) return null;
   const old = root.getObjectByName("everyday-cosmetic-wings");
-  if (old?.parent) old.parent.remove(old);
+  if (old?.parent) old.parent.remove(old);          /* geometry + materials are shared/cached: nothing to dispose */
   const equipped = getEquippedWing();
   if (!equipped) return null;
-
+  /* outer group = placement + hide/show scale; inner group = the origami wing set (own fixed scale) */
   const group = new THREE.Group(); group.name = "everyday-cosmetic-wings";
   group.position.set(0, 1.25, -0.245);
   group.renderOrder = 2;
-  const palettes = {
-    angel_wings: { base:0xf8f5ec, mid:0xd9c7a0, glow:0xffdf91, metal:0xc6a45b },
-    shadow_wings: { base:0x171522, mid:0x39264e, glow:0xa86cff, metal:0x8d72ad },
-    neon_wings: { base:0x092638, mid:0x087f9b, glow:0x19dfff, metal:0x8e67ff }
-  };
-  const pal=palettes[equipped];
-  const baseMat=new THREE.MeshStandardMaterial({color:pal.base,roughness:0.62,metalness:0.18,side:THREE.DoubleSide});
-  const midMat=new THREE.MeshStandardMaterial({color:pal.mid,roughness:0.42,metalness:0.28,side:THREE.DoubleSide});
-  const glowMat=new THREE.MeshStandardMaterial({color:pal.glow,roughness:0.28,metalness:0.5,emissive:pal.glow,emissiveIntensity:equipped==="angel_wings"?0.18:0.55,side:THREE.DoubleSide});
-  const goldMat=new THREE.MeshStandardMaterial({color:pal.metal,metalness:0.82,roughness:0.24});
-  const featherGeo=new THREE.CapsuleGeometry(0.052,0.34,3,7);
-  for (const side of [-1,1]) {
-    const wing=new THREE.Group(); wing.name=side<0?"left-wing":"right-wing";
-    wing.position.set(side*0.12,0,0); wing.rotation.y=side*0.12; wing.userData.baseZ=side*0.055;
-    // Broad, swept silhouette formed from three overlapping feather tiers.
-    const fan=new THREE.Mesh(new THREE.SphereGeometry(0.43,16,12),baseMat);
-    fan.scale.set(1.52,1.12,0.16); fan.position.set(side*0.34,0.12,-0.015); fan.rotation.z=side*-0.28; wing.add(fan);
-    for(let row=0;row<3;row++){
-      const count=row===0?8:7;
-      for(let i=0;i<count;i++){
-        const u=i/(count-1);
-        const feather=new THREE.Mesh(featherGeo,(i+row)%5===0?glowMat:(row===0?baseMat:midMat));
-        const spread=0.18+u*0.64;
-        feather.position.set(side*(0.12+spread),0.22-row*0.19+Math.sin(u*Math.PI)*0.12,-0.035-row*0.018);
-        feather.rotation.z=side*(-0.62+u*0.92);
-        feather.scale.set(0.78+u*0.20,1.02+row*0.12,0.48);
-        wing.add(feather);
-      }
-    }
-    // Raised shoulder mantle and fine metallic quill accents.
-    for(let i=0;i<4;i++){
-      const covert=new THREE.Mesh(new THREE.CapsuleGeometry(0.065,0.20,3,8),i%2?midMat:baseMat);
-      covert.position.set(side*(0.10+i*0.075),0.30-i*0.045,0.045);
-      covert.rotation.z=side*(-0.85+i*0.19); covert.scale.set(1.05,1.18,0.55); wing.add(covert);
-    }
-    const pin=new THREE.Mesh(new THREE.SphereGeometry(0.105,14,12),goldMat);
-    pin.position.set(side*0.13,0.31,0.075); pin.scale.set(1,1.2,0.34); wing.add(pin);
-    const jewel=new THREE.Mesh(new THREE.OctahedronGeometry(0.065,1),glowMat);
-    jewel.position.set(side*0.13,0.31,0.12); jewel.rotation.z=Math.PI/4; wing.add(jewel);
-    group.add(wing);
-  }
-  // A discreet centre clasp makes the pair read as a fitted back-piece.
-  const clasp=new THREE.Mesh(new THREE.OctahedronGeometry(0.105,1),goldMat);
-  clasp.position.set(0,0.31,0.10); clasp.scale.set(0.78,1.3,0.55); group.add(clasp);
+  group.add(buildOrigamiWings(equipped));
   root.add(group); return group;
 }
+/* Equipped wings give true flight: no jetpack or fuel needed, and far faster than the jetpack (jetpack = x2.8 / drive x5). */
+export const WING_FLIGHT = { speedMul: 7.5, driveWalk: 9, driveRun: 14, climb: 22, accel: 80 };
+export function hasWingFlight() { try { return !!getEquippedWing(); } catch { return false; } }
 export function updateCosmeticWings(root, time, posture = {}) {
   const g = root?.getObjectByName("everyday-cosmetic-wings"); if (!g) return;
   const hidden = posture.state === "lying" || posture.state === "falling" || posture.flip === true || posture.falling === true;
@@ -131,8 +92,10 @@ export function updateCosmeticWings(root, time, posture = {}) {
   g.visible = g.userData.visibility > 0.015;
   g.scale.setScalar(Math.max(0.001,g.userData.visibility));
   if (hidden) return;
-  const flap = Math.sin(time * 2.8) * 0.075;
-  g.children.forEach((w,i)=>{ const sign=i===0?-1:1; w.rotation.z = w.userData.baseZ + sign*flap; });
+  const set = g.children[0]; if (!set) return;
+  const fl = posture.flying === true, hz = fl ? 5.2 : 1.9, beat = Math.sin(time * hz), flap = (fl ? 0.12 : 0.05) + beat * (fl ? 0.30 : 0.16);
+  set.children.forEach((w)=>{ const u=w.userData; if(!u?.isWing) return; w.rotation.y = u.base + u.side*flap; w.rotation.x = u.side*Math.sin(time*hz+0.9)*(fl?0.09:0.04); });
+  try { set.userData.tick?.(time); } catch {}
 }
 
 export function openStyleAbilityShop() {
