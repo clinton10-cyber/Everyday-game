@@ -124,6 +124,10 @@ export class Phone{
               <div class="tico"><i class="fa-solid fa-house-chimney"></i></div>
               <div class="tnm">Property</div>
             </div>
+            <div class="tapp-ic" data-a="garage">
+              <div class="tico"><i class="fa-solid fa-warehouse"></i></div>
+              <div class="tnm">Garage</div>
+            </div>
             <div class="tapp-ic" data-a="career">
               <div class="tico"><i class="fa-solid fa-briefcase"></i></div>
               <div class="tnm">Career</div>
@@ -722,6 +726,11 @@ export class Phone{
 
   /* ── app router ─────────────────────────────────────── */
   showApp(n){
+    if (n === "garage") {   /* opens the walk-in garage scene instead of an in-phone page */
+      try { this.hide(); } catch (e) {}
+      try { window.__ph3d_router.go("interior", { id: "garage" }); } catch (e) { console.warn("[garage] cannot open", e); }
+      return;
+    }
     if (PhoneLife.isDead()) { this._renderDead(); n = "home"; }
     else if (n !== "home") PhoneLife.drain({ games: 0.4, camera: 0.25, music: 0.2, social: 0.2, map: 0.15 }[n] || 0.1);
     if (n !== "camera") this._clearSelfieState();

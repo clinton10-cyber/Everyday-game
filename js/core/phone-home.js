@@ -28,7 +28,7 @@ const FOLDERS = [
   { id: "suggest", name: "Suggestions", apps: null },
   { id: "recent", name: "Recently Used", apps: null },
   { id: "money", name: "Money", apps: ["bank", "shop", "business", "property"] },
-  { id: "life", name: "Life and Work", apps: ["homeinfo", "inv", "jobs", "career", "education"] },
+  { id: "life", name: "Life and Work", apps: ["homeinfo", "garage", "inv", "jobs", "career", "education"] },
   { id: "social", name: "Social", apps: ["social", "camera", "gallery", "music"] },
   { id: "play", name: "Play", apps: ["games", "comics", "story"] },
   { id: "services", name: "Services", apps: ["police", "justice", "health", "mp"] },

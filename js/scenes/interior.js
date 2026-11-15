@@ -178,7 +178,7 @@ export async function interiorScene(params, router) {
     spawnInteriorNPCs(scene.three, id, {
       aabbs: sceneAABBs,
       seats: _seats,
-      targetCount: id === "statejail" ? 0 : undefined,
+      targetCount: (id === "statejail" || id === "garage") ? 0 : undefined,
       yOffset: floorY,
       fallback: { role: "walker", x: 2, z: 2 },
     });

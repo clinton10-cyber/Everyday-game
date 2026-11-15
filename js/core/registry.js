@@ -25,6 +25,11 @@ export const PLACES = {
     exterior: () => import("../places/vatican/exterior.js"),
     interior: () => import("../places/vatican/interior.js"),
   },
+  "garage": {
+    meta:     () => import("../places/garage/meta.js"),
+    exterior: () => import("../places/garage/exterior.js"),
+    interior: () => import("../places/garage/interior.js"),
+  },
   "courthouse": {
     meta: () => Promise.resolve({ default: { id: "courthouse", name: "RIVERS STATE HIGH COURT", sub: "COURTROOM · JUSTICE DISTRICT", entrance: "main" } }),
     exterior: () => import("../places/courthouse/exterior.js"),
