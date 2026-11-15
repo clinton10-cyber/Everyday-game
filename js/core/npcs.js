@@ -17,6 +17,8 @@ import {
   Wardrobe, withPlayerLook,
 } from "./wardrobe.js";
 import { buildCharacter } from "../characters/lowpoly.js";
+import { mergeStaticMeshes } from "../characters/merge-static.js";
+import { NpcLod } from "../characters/npc-lod.js";
 import * as Animator from "../characters/animator.js";
 import { Pursuit } from "./pursuit.js";
 import { WRESTLING_MOVES, VICTIM_MOVES, victimEmoteName, EMOTE_SPEED } from "../characters/wrestling.js";
@@ -721,6 +723,8 @@ export const NPCs = {
     const built = buildCharacter(cfg);
     const group = built.root;
     const rig = built.rig;
+    /* bake static parts that share a bone + material into one mesh each (fewer draw calls per person) */
+    try { mergeStaticMeshes(group); group.userData._mergedHips = rig.hips; } catch (e) { console.warn("[npcs] merge", e); }
     const yaw = Math.atan2(0, 1);
     group.position.set(x, 0, z);
     group.rotation.y = yaw;
@@ -762,6 +766,8 @@ export const NPCs = {
     if (!_scene || !cfg || !npc.group) return;
     withPlayerLook(cfg);
     const old = npc.group, built = buildCharacter(cfg), g = built.root;
+    try { mergeStaticMeshes(g); g.userData._mergedHips = built.rig.hips; } catch (e) { console.warn("[npcs] merge", e); }
+    NpcLod.reset(npc);
     g.position.copy(old.position); g.rotation.copy(old.rotation); g.visible = old.visible;
     _scene.add(g);
     if (old.parent) old.parent.remove(old);
@@ -1311,6 +1317,9 @@ export const NPCs = {
   },
 
   tick(dt, playerX, playerZ) {
+    NpcLod.beginFrame();
+    /* LOD distances scale with the device tier (visRange: 150 / 100 / 70) */
+    const _lod2 = Math.max(40, Math.min(62, (this.visRange || 150) * 0.6)), _lod1 = _lod2 * 0.5;
     this._tickStamp = performance.now();
     if (!this.list.length) return;
     try { Lives.tick(dt, playerX || 0, playerZ || 0); } catch (e) { console.warn('[lives]', e); }
@@ -1885,9 +1894,16 @@ export const NPCs = {
       if (isClose) npc.group.visible = true;
       else npc.group.visible = dP < (this.visRange || 220);   /* each person is ~70 draw calls: tighter range on weaker devices */
       if (npc.group.visible) {
+        /* the wardrobe rebuilt this character in place (family outfit change): bake it again */
+        if (npc.group.userData._mergedHips !== npc.rig.hips) {
+          NpcLod.reset(npc);
+          try { mergeStaticMeshes(npc.group); } catch (e) {}
+          npc.group.userData._mergedHips = npc.rig.hips;
+        }
+        const _live = NpcLod.update(npc, dP, _lod2, _lod1);   /* false = baked far pose, skeleton idle */
         const _animStep = isClose && dP < 40 ? 0.033 : dP < 90 ? 0.066 : 0.12;
         npc._animAcc = (npc._animAcc || 0) + dt;
-        if (npc._animAcc >= _animStep) {
+        if (_live && npc._animAcc >= _animStep) {
           try { Animator.animate(npc.ctl, npc._animAcc); } catch (e) {}
           npc._animAcc = 0;
         }

@@ -1414,41 +1414,65 @@ const PLACES = [
 /* ── 10. Public entry point ───────────────────────────────────── */
 
 /* Split a merged indexed geometry into vertical strips along X so the
-   renderer can frustum-cull each chunk instead of drawing the whole city. */
+   renderer can frustum-cull each chunk instead of drawing the whole city.
+   Two passes over typed arrays (count, then fill): no per-triangle array allocation. */
 function splitByX(geo, xMin, xMax, parts) {
   const pos = geo.attributes.position.array;
   const nor = geo.attributes.normal ? geo.attributes.normal.array : null;
   const col = geo.attributes.color ? geo.attributes.color.array : null;
   const idx = geo.index ? geo.index.array : null;
   const step = (xMax - xMin) / parts;
-  const B = Array.from({ length: parts }, () => ({ P: [], N: [], C: [], I: [], v: 0 }));
   const tris = idx ? idx.length / 3 : pos.length / 9;
+  const bucket = new Uint8Array(tris), count = new Uint32Array(parts);
   for (let t = 0; t < tris; t++) {
-    const ids = idx ? [idx[t*3], idx[t*3+1], idx[t*3+2]] : [t*3, t*3+1, t*3+2];
-    const cx = (pos[ids[0]*3] + pos[ids[1]*3] + pos[ids[2]*3]) / 3;
+    const i0 = idx ? idx[t*3] : t*3, i1 = idx ? idx[t*3+1] : t*3+1, i2 = idx ? idx[t*3+2] : t*3+2;
+    const cx = (pos[i0*3] + pos[i1*3] + pos[i2*3]) / 3;
     let b = Math.floor((cx - xMin) / step);
-    b = Math.max(0, Math.min(parts - 1, b));
-    const bk = B[b];
-    for (const ii of ids) {
-      bk.P.push(pos[ii*3], pos[ii*3+1], pos[ii*3+2]);
-      if (nor) bk.N.push(nor[ii*3], nor[ii*3+1], nor[ii*3+2]);
-      if (col) bk.C.push(col[ii*3], col[ii*3+1], col[ii*3+2]);
-    }
-    bk.I.push(bk.v, bk.v + 1, bk.v + 2);
-    bk.v += 3;
+    b = b < 0 ? 0 : b > parts - 1 ? parts - 1 : b;
+    bucket[t] = b; count[b]++;
   }
-  return B.filter(b => b.v > 0).map(b => {
+  const P = [], N = [], C = [], I = [], at = new Uint32Array(parts);
+  for (let k = 0; k < parts; k++) {
+    P.push(new Float32Array(count[k] * 9)); N.push(nor ? new Float32Array(count[k] * 9) : null); C.push(col ? new Float32Array(count[k] * 9) : null);
+    I.push(new Uint32Array(count[k] * 3)); for (let j = 0; j < count[k] * 3; j++) I[k][j] = j;
+  }
+  for (let t = 0; t < tris; t++) {
+    const k = bucket[t], o = at[k]++ * 9, Pk = P[k];
+    for (let c = 0; c < 3; c++) {
+      const ii = (idx ? idx[t*3 + c] : t*3 + c) * 3, d = o + c * 3;
+      Pk[d] = pos[ii]; Pk[d+1] = pos[ii+1]; Pk[d+2] = pos[ii+2];
+      if (nor) { const Nk = N[k]; Nk[d] = nor[ii]; Nk[d+1] = nor[ii+1]; Nk[d+2] = nor[ii+2]; }
+      if (col) { const Ck = C[k]; Ck[d] = col[ii]; Ck[d+1] = col[ii+1]; Ck[d+2] = col[ii+2]; }
+    }
+  }
+  const out = [];
+  for (let k = 0; k < parts; k++) {
+    if (!count[k]) continue;
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(b.P, 3));
-    if (nor) g.setAttribute("normal", new THREE.Float32BufferAttribute(b.N, 3));
-    if (col) g.setAttribute("color",  new THREE.Float32BufferAttribute(b.C, 3));
-    g.setIndex(b.I);
+    g.setAttribute("position", new THREE.BufferAttribute(P[k], 3));
+    if (nor) g.setAttribute("normal", new THREE.BufferAttribute(N[k], 3));
+    if (col) g.setAttribute("color",  new THREE.BufferAttribute(C[k], 3));
+    g.setIndex(new THREE.BufferAttribute(I[k], 1));
     g.computeBoundingSphere();
-    return g;
-  });
+    out.push(g);
+  }
+  return out;
+}
+
+/* The world is built from a fixed seed, so it is identical every time. Build it once and hand the same
+   geometries back on every later entry (city, drive/walk, story films). Leaving a scene only frees the GPU
+   copy (disposeScene); three.js re-uploads the same geometry on the next visit, so renderer.info.memory.geometries
+   stays flat no matter how often you re-enter. Callers must treat the result as read-only. */
+let _worldCache = null;
+export function clearPHWorldCache() {
+  if (!_worldCache) return;
+  const w = _worldCache;
+  [w.baseGeometry, w.detailGeometry, ...w.baseChunks, ...w.detailChunks].forEach((g) => { try { g.dispose(); } catch (e) {} });
+  _worldCache = null;
 }
 
 export function buildPHWorld(){
+  if (_worldCache) return Object.assign({}, _worldCache);     /* fresh wrapper, shared (read-only) data */
   _seed = 20240617;
   B = new GB();
   COLL.length = 0;
@@ -1487,5 +1511,6 @@ export function buildPHWorld(){
   const baseChunks   = splitByX(baseGeometry,   -700, 700, 6);
   const detailChunks = splitByX(detailGeometry, -700, 700, 8);
 
-  return { baseGeometry, detailGeometry, baseChunks, detailChunks, colliders, landmarks, roads, lampSpots, poles };
+  _worldCache = { baseGeometry, detailGeometry, baseChunks, detailChunks, colliders, landmarks, roads, lampSpots, poles };
+  return Object.assign({}, _worldCache);
 }

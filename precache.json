@@ -171,6 +171,8 @@
 "js/characters/lp-hair.js",
 "js/characters/lp-parts.js",
 "js/characters/lp-tops.js",
+"js/characters/merge-static.js",
+"js/characters/npc-lod.js",
 "js/characters/wrestling.js",
 "js/cinematics/stories-data.js",
 "js/cinematics/story-page.js",
