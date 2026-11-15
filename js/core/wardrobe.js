@@ -541,9 +541,43 @@ export const WARDROBE_TABS = [
   ]},
 ];
 
-/* NPCs wear whatever look (classic / faceted) the player has chosen, so the whole
-   world matches. Their own outfits, colours and accessories stay random. */
-export function withPlayerLook(cfg) {
-  if (cfg && typeof cfg === "object") cfg.look = (Wardrobe.config && Wardrobe.config.look) || "classic";
+/* NPCs wear whatever look (classic / faceted) the player is on, so the whole world matches, and each gets
+   its own random body build (the same body types the player can buy). Outfits, colours and accessories stay
+   random. The build is rolled once and stored on the config (flag _npcBuild), so re-skinning when the player
+   switches look keeps the same body. Pass a seed (e.g. a person id) for a stable build. */
+const NPC_BUILDS = [
+  { id: null,         build:  0.00, h: 1.00, w: 2.0 },   /* average */
+  { id: "athletic",   build:  0.28, h: 1.00, w: 2.0 },
+  { id: "muscular",   build:  0.78, h: 1.00, w: 1.4 },
+  { id: "slim",       build: -0.72, h: 1.00, w: 2.0 },
+  { id: "heavyset",   build:  0.92, h: 0.98, w: 1.4 },
+  { id: "tall_broad", build:  0.48, h: 1.12, w: 1.0 },
+];
+function _seeded(seed) {
+  if (seed === undefined || seed === null) return Math.random;
+  let h = 2166136261; const str = String(seed);
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  let a = h >>> 0;
+  return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+export function giveNpcBuild(cfg, seed) {
+  if (!cfg || typeof cfg !== "object" || cfg._npcBuild) return cfg;
+  const r = _seeded(seed);
+  const total = NPC_BUILDS.reduce((n, b) => n + b.w, 0);
+  let k = r() * total, pickd = NPC_BUILDS[0];
+  for (const b of NPC_BUILDS) { if ((k -= b.w) <= 0) { pickd = b; break; } }
+  cfg.bodyType = pickd.id || "faceted";                  /* "faceted" = no body-type parts (average build) */
+  cfg.bodyStyle = "faceted";                             /* neutral: premium styles (Heroic, Sleek...) stay the player's */
+  cfg.build = clampN(pickd.build + (r() - 0.5) * 0.24, -1, 1);
+  cfg.bodyHeight = clampN(pickd.h * (0.96 + r() * 0.08), 0.9, 1.15);
+  cfg._npcBuild = true;
+  return cfg;
+}
+const clampN = (v, a, b) => (v < a ? a : v > b ? b : v);
+export function withPlayerLook(cfg, seed) {
+  if (cfg && typeof cfg === "object") {
+    cfg.look = (Wardrobe.config && Wardrobe.config.look) || "classic";
+    giveNpcBuild(cfg, seed);
+  }
   return cfg;
 }

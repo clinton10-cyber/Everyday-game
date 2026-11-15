@@ -1328,39 +1328,49 @@ Object.assign(EMOTE_FN, {
     P.hL=HAND.open; P.hR=HAND.open;
   },
   swim_pool(t,P) {
-    /* Cycle three recognisable strokes during a long swim. Each keeps the
-       torso horizontal and animates arms and legs rather than using a walk. */
+    /* Head-first in the direction of travel. hips.x = +PI/2 pitches the body FORWARD (chest to the water);
+       the old -PI/2 was the "lying on your back" pose, so players swam feet-first, i.e. backwards.
+       Arm angle a (shoulder x) sweeps the arm round the body: -PI = overhead forward, -PI/2 = chest side
+       (underwater pull), 0 = trailing, +PI/2 = back side (recovery above the water).
+       Strokes: 0 front crawl, 1 backstroke (supine, still head-first), 2 breaststroke. */
     const style=Math.floor(t/18)%3, phase=t*(style===2?4.2:6.2), s=Math.sin(phase), c=Math.cos(phase);
-    P.hipsPos[1]=0.18+0.025*Math.sin(phase*2);
-    P.hips[0]=-Math.PI/2; P.hips[1]=0.035*Math.sin(phase*0.5); P.hips[2]=0.045*Math.sin(phase);
-    P.spine[0]=0.015*Math.sin(phase*0.5); P.head[0]=-0.10+0.035*Math.sin(phase*0.5); P.head[1]=0.035*Math.sin(phase*0.5);
+    const TAU=Math.PI*2, wrap=(v)=>((v%TAU)+TAU)%TAU;
+    P.hipsPos[1]=0.20+0.025*Math.sin(phase*2);
+    P.hips[0]=Math.PI/2; P.hips[2]=0.045*Math.sin(phase);
+    P.hips[1]=(style===1?Math.PI:0)+0.035*Math.sin(phase*0.5);      /* spin about the long axis: PI = on the back */
+    P.spine[0]=-0.08+0.015*Math.sin(phase*0.5);
     if (style===0) {
-      /* Front crawl: alternating recovery and underwater pulls. */
-      const pullL=Math.max(0,-s), pullR=Math.max(0,s);
-      P.aL.sh=[-0.72+0.72*s,0,0.34]; P.aR.sh=[-0.72-0.72*s,0,-0.34];
-      P.aL.el=[-0.30-0.72*pullL,0,0]; P.aR.el=[-0.30-0.72*pullR,0,0];
+      /* Front crawl: continuous alternating arm cycle, head up to see ahead, flutter kick. */
+      const aL=wrap(phase)-Math.PI, aR=wrap(phase+Math.PI)-Math.PI;
+      const bend=(a)=>a>0 ? 0.35+0.9*Math.sin(a) : 0.25+0.35*(-Math.sin(a));
+      P.head[0]=-0.75+0.05*Math.sin(phase*0.5); P.head[1]=0.04*Math.sin(phase*0.5);
+      P.aL.sh=[aL,0,0.14]; P.aR.sh=[aR,0,-0.14];
+      P.aL.el=[-bend(aL),0,0]; P.aR.el=[-bend(aR),0,0];
       P.aL.wr=[0,0.10*c,0]; P.aR.wr=[0,-0.10*c,0];
-      P.lL.hip[0]=0.18+0.22*s; P.lR.hip[0]=0.18-0.22*s;
-      P.lL.knee[0]=0.16+0.22*Math.max(0,c); P.lR.knee[0]=0.16+0.22*Math.max(0,-c);
+      P.lL.hip[0]=0.05+0.28*s; P.lR.hip[0]=0.05-0.28*s;
+      P.lL.knee[0]=0.10+0.25*Math.max(0,c); P.lR.knee[0]=0.10+0.25*Math.max(0,-c);
+      P.lL.ank[0]=-0.12; P.lR.ank[0]=-0.12;
     } else if (style===1) {
-      /* Backstroke: alternating straight-arm overhead circles, supine head. */
-      P.head[0]=-0.02; P.aL.sh=[-0.35+0.82*s,0,0.55]; P.aR.sh=[-0.35-0.82*s,0,-0.55];
+      /* Backstroke: straight-arm windmill over the water, face to the sky. */
+      const aL=-phase, aR=-(phase+Math.PI);
+      P.head[0]=0.05; P.head[1]=0.03*Math.sin(phase*0.5);
+      P.aL.sh=[aL,0,0.16]; P.aR.sh=[aR,0,-0.16];
       P.aL.el=[-0.18,0,0]; P.aR.el=[-0.18,0,0];
       P.aL.wr=[0,0.08*c,0]; P.aR.wr=[0,-0.08*c,0];
-      P.lL.hip[0]=0.16+0.20*s; P.lR.hip[0]=0.16-0.20*s;
-      P.lL.knee[0]=0.12+0.18*Math.max(0,c); P.lR.knee[0]=0.12+0.18*Math.max(0,-c);
+      P.lL.hip[0]=0.05+0.24*s; P.lR.hip[0]=0.05-0.24*s;
+      P.lL.knee[0]=0.10+0.20*Math.max(0,c); P.lR.knee[0]=0.10+0.20*Math.max(0,-c);
+      P.lL.ank[0]=-0.12; P.lR.ank[0]=-0.12;
     } else {
-      /* Breaststroke: symmetrical outward sweep, recovery and frog kick. */
-      const open=0.5+0.5*Math.sin(phase);
-      P.aL.sh=[-0.55-0.50*open,0,0.35+0.25*open]; P.aR.sh=[-0.55-0.50*open,0,-0.35-0.25*open];
-      P.aL.el=[-0.65-0.35*open,0,0]; P.aR.el=[-0.65-0.35*open,0,0];
+      /* Breaststroke: symmetrical sweep out and in, head lifts at the end of each pull, frog kick. */
+      const open=0.5+0.5*Math.sin(phase), tuck=Math.max(0,Math.cos(phase));
+      P.head[0]=-0.70-0.30*open;
+      P.aL.sh=[-3.0+1.15*open,0,0.22+0.75*open]; P.aR.sh=[-3.0+1.15*open,0,-0.22-0.75*open];
+      P.aL.el=[-(0.30+1.0*(1-open)),0,0]; P.aR.el=[-(0.30+1.0*(1-open)),0,0];
       P.aL.wr=[0,0.08*s,0]; P.aR.wr=[0,-0.08*s,0];
-      const tuck=Math.max(0,Math.cos(phase));
-      P.lL.hip[0]=0.10+0.30*tuck; P.lR.hip[0]=0.10+0.30*tuck;
-      P.lL.knee[0]=0.10+0.55*tuck; P.lR.knee[0]=0.10+0.55*tuck;
+      P.lL.hip[0]=0.12+0.45*tuck; P.lR.hip[0]=0.12+0.45*tuck;
+      P.lL.knee[0]=0.12+1.05*tuck; P.lR.knee[0]=0.12+1.05*tuck;
       P.lL.ank[0]=-0.20-0.25*tuck; P.lR.ank[0]=-0.20-0.25*tuck;
     }
-    if (style!==2) { P.lL.ank[0]=-0.08; P.lR.ank[0]=-0.08; }
     P.hL=HAND.open; P.hR=HAND.open;
   },
   shower_wash(t,P) {

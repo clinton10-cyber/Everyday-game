@@ -1088,7 +1088,11 @@ this.moving = this._movingTimer > 0;
         Math.abs(this.pos.z - _swimArea.z) <= _swimArea.halfD);
       const _worldWater = !!(this.world && typeof this.world.isSwimming === "function" && this.world.isSwimming(this.pos.x, this.pos.z));
       const _wasSwimming = !!this._swimming;
-      const swimming = _insidePool || _worldWater;
+      /* Flying with the jetpack over water is NOT swimming: only count as swimming when you are at the
+         surface. (Previously any x/z over the sea forced the swim state, slowing and posing a flying player.) */
+      const _surfY = (_insidePool && Number.isFinite(_swimArea.waterY)) ? _swimArea.waterY : -0.12;
+      const _flyingOver = !!(this.jet && this.jet.on && !this.onGround && this.floorY > _surfY + 0.5);
+      const swimming = (_insidePool || _worldWater) && !_flyingOver;
       this._swimming = swimming;
       if (this._swimTransition && performance.now() >= (this._swimTransitionUntil || 0)) this._swimTransition = null;
       if (swimming && !_wasSwimming && this._emoteName !== "swim_entry") {

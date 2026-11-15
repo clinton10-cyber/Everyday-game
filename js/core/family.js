@@ -205,7 +205,7 @@ const _V = new THREE.Vector3();
 function rootOf(o) { while (o && o.parent) o = o.parent; return o; }
 
 function makeAvatar(p, tp) {
-  const cfg = withPlayerLook(cfgOf(p));
+  const cfg = withPlayerLook(cfgOf(p), p.id);
   const built = buildCharacter(cfg);
   const group = built.root, rig = built.rig;
   const sc = p.age < 17 ? clamp(0.38 + p.age * 0.036, 0.38, 1) : 1;
