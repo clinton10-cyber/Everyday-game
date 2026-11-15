@@ -15,6 +15,7 @@ import { Sanity } from "./sanity.js";
 import { InteriorPoses } from "./interior-poses.js";
 import { WorldObjects } from "./world-objects.js";
 import { openStyleAbilityShop, isEmoteUnlocked, ownsStyleItem, attachCosmeticWings, updateCosmeticWings } from "./style-ability-shop.js";
+import { disposeObject3D } from "./disposer.js";
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -1480,6 +1481,7 @@ _updateCamera(dt, snap) {
     this._joyRingEl && this._joyRingEl.parentNode && this._joyRingEl.parentNode.removeChild(this._joyRingEl);
     this._s && this._s.parentNode && this._s.parentNode.removeChild(this._s);
     if (this.avatar && this.avatar.parent) this.avatar.parent.remove(this.avatar);
+    try { disposeObject3D(this.avatar); } catch (e) {}
     try { this.weapons && this.weapons.dispose(); } catch (e) {}
     if (window.__ph3d_tp === this) window.__ph3d_tp = null;
   }
@@ -1495,6 +1497,7 @@ export function openWardrobeFor(controls) {
         const cfg = Wardrobe.config;
         const built = buildCharacter(cfg);
         if (controls.avatar && controls.avatar.parent) controls.avatar.parent.remove(controls.avatar);
+        try { disposeObject3D(controls.avatar); } catch (e) {}
         controls.avatar = built.root;
         controls.rig = built.rig;
         if (controls._anim) controls._anim.rig = null;

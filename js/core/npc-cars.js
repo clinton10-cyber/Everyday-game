@@ -27,6 +27,7 @@ function safeMerge(geos) {
   return mergeGeometries(list, false);
 }
 import { Blood } from "./blood.js";
+import { disposeObject3D } from "./disposer.js";
 
 const CAR_TYPES = [
   { model: "taxi",       mass: 1200 },
@@ -525,13 +526,8 @@ export const NPC_Cars = {
   despawn() {
     for (const car of this.list) {
       if (car.mesh && car.mesh.parent) car.mesh.parent.remove(car.mesh);
-      car.mesh.traverse(o => {
-        if (o.geometry) o.geometry.dispose();
-        if (o.material) {
-          const ms = Array.isArray(o.material) ? o.material : [o.material];
-          ms.forEach(m => m && m.dispose && m.dispose());
-        }
-      });
+      /* frees geometry, materials AND their canvas textures (the plates/lights textures leaked before) */
+      try { disposeObject3D(car.mesh); } catch (e) {}
     }
     this.list.length = 0;
     _scene = null;

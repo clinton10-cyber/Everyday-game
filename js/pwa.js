@@ -193,7 +193,11 @@ function _showMandatoryUpdate() {
   gate.appendChild(card); document.body.appendChild(gate);
 }
 
-PWA.register();
+/* Register after the game has loaded and gone quiet: the service worker downloads the whole
+   offline pack (~14 MB incl. audio) on first install, and doing that during boot competes
+   with the game itself for bandwidth. */
+const _regLater = () => setTimeout(() => PWA.register(), 6000);
+if (document.readyState === "complete") _regLater(); else window.addEventListener("load", _regLater, { once: true });
 PWA.initInstallPrompt();
 
 

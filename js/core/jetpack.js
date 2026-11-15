@@ -1,6 +1,7 @@
 /* jetpack.js — visual jetpack worn on the character's back.
    Pure visuals: all control/physics lives in the game's own walk code (drive.js). */
 import * as THREE from "three";
+import { disposeObject3D } from "./disposer.js";
 
 const FLAME_VERT = `varying float vT; void main(){ vT = clamp(-position.y,0.0,1.0); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
 const FLAME_FRAG = `uniform float uTime; uniform float uThrottle; uniform vec3 uCore; uniform vec3 uMid; uniform vec3 uEdge; varying float vT;
@@ -58,6 +59,6 @@ export function createJetpack() {
         f.m.scale.set((0.85 + thr * 0.3) * f.w, (0.3 + thr * 1.4) * f.l, (0.85 + thr * 0.3) * f.w);
       }
     },
-    dispose() { if (group.parent) group.parent.remove(group); },
+    dispose() { if (group.parent) group.parent.remove(group); disposeObject3D(group); },
   };
 }

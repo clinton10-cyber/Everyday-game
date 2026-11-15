@@ -40,6 +40,7 @@ import { ObjectiveHUD } from "../ui/objective-hud.js";
 import { WalkActions } from "../core/walk-actions.js";
 import { askAndRoute } from "../core/landmark-routing.js";
 import { Kidnap } from "../core/kidnap.js";
+import { disposeObject3D } from "../core/disposer.js";
 
 /* ================================================================
    CONSTANTS
@@ -1254,6 +1255,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       aabbs: worldAABBs,
       roleSpots: compounds,
     });
+    NPCs.visRange = POTATO ? 70 : LOW ? 100 : 150;   /* people beyond this are hidden (they are tiny dots in the fog anyway) */
     console.log("[drive] pedestrian groups:", NPCs.list.length);
   } catch (e) { console.warn("[drive] NPCs failed:", e); }
 
@@ -1381,7 +1383,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       try { joyBaseEl.remove(); } catch (e) {}
       try { carSitBtn.remove(); } catch (e) {}
       try { aftermath.remove(); } catch (e) {}
-      try { if (character && character.parent) character.parent.remove(character); } catch (e) {}
+      try { if (character && character.parent) character.parent.remove(character); disposeObject3D(character); } catch (e) {}
       try { walkerWeapons.dispose(); } catch (e) {}
       try { WorldObjects.clear(); } catch (e) {}
       try { LocationMarkers.clear(); } catch (e) {}

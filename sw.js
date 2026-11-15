@@ -7,7 +7,7 @@
               cache-first with background refresh.
    Bump CACHE_VERSION on every release to discard old caches. */
 
-const CACHE_VERSION = "v152";
+const CACHE_VERSION = "v153";
 const SHELL_CACHE   = "ph3d-shell-"   + CACHE_VERSION;
 const RUNTIME_CACHE = "ph3d-runtime-" + CACHE_VERSION;
 
@@ -26,7 +26,7 @@ async function addAll(cache, urls, opts) {
       } catch (e) { /* offline or missing: skip, runtime cache will pick it up */ }
     }
   }
-  await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+  await Promise.all([worker(), worker(), worker()]);
 }
 
 self.addEventListener("install", (event) => {
@@ -38,7 +38,10 @@ self.addEventListener("install", (event) => {
       const r = await fetch("./precache.json", { cache: "reload" });
       if (r.ok) files = (await r.json()).files || [];
     } catch (e) {}
-    await addAll(cache, files.map((f) => "./" + f), { cache: "reload" });
+    /* code, fonts and images first; the big audio files last so they never delay the game files */
+    const isAudio = (f) => /\.(wav|mp3|ogg)$/i.test(f);
+    const sorted = files.filter((f) => !isAudio(f)).concat(files.filter(isAudio));
+    await addAll(cache, sorted.map((f) => "./" + f), { cache: "reload" });
     await addAll(cache, CDN_FILES, { mode: "cors" });
     // On updates, wait for the player's mandatory UPDATE NOW action.
     // First install still activates normally because there is no old worker.

@@ -21,6 +21,7 @@
 
 import * as THREE from "three";
 import { createMarketItemMesh } from "./market-item-models.js";
+import { disposeObject3D } from "./disposer.js";
 
 const TAU  = Math.PI * 2;
 let _scene = null;
@@ -541,6 +542,7 @@ export const WorldObjects = {
   clear() {
     for (const item of _items) {
       if (item.mesh && item.mesh.parent) item.mesh.parent.remove(item.mesh);
+      try { disposeObject3D(item.mesh); } catch (e) {}
     }
     _items.length = 0;
     _hidePickupPrompt();

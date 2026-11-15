@@ -204,7 +204,7 @@ export class Router {
     this.ui.setHint(scene.hint || "", !!scene.hint);
 
     this.ui.fadeOut();
-    await new Promise(r => setTimeout(r, 60));
+    await new Promise(r => setTimeout(r, 16));
     this.locked = false;
     return scene;
   }

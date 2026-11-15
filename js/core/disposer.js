@@ -57,3 +57,23 @@ export function disposeScene(scene, renderer, controls) {
   }
 }
 
+/* disposeObject3D — frees the GPU resources of ONE object subtree (a character,
+   pickup, jetpack…) that is being removed from a scene on its own. Safe to call on
+   shared geometry/materials/textures: three.js simply re-uploads them if used again. */
+export function disposeObject3D(root) {
+  if (!root || !root.traverse) return;
+  const geos = new Set(), mats = new Set(), texs = new Set();
+  root.traverse(o => {
+    if (o.geometry) geos.add(o.geometry);
+    const list = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+    list.forEach(m => {
+      if (!m) return;
+      mats.add(m);
+      for (const k in m) { const v = m[k]; if (v && v.isTexture) texs.add(v); }
+    });
+    if (o.isSprite && o.material && o.material.map) texs.add(o.material.map);
+  });
+  texs.forEach(t => { try { t.dispose(); } catch (e) {} });
+  geos.forEach(g => { try { g.dispose(); } catch (e) {} });
+  mats.forEach(m => { try { m.dispose(); } catch (e) {} });
+}

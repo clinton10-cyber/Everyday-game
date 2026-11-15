@@ -1883,7 +1883,7 @@ export const NPCs = {
          in a stiff pose when farther than maxDist). Near = full rate, far = slower
          rate. The accumulated dt is passed so walk cycles stay in sync. */
       if (isClose) npc.group.visible = true;
-      else npc.group.visible = dP < 220;
+      else npc.group.visible = dP < (this.visRange || 220);   /* each person is ~70 draw calls: tighter range on weaker devices */
       if (npc.group.visible) {
         const _animStep = isClose && dP < 40 ? 0.033 : dP < 90 ? 0.066 : 0.12;
         npc._animAcc = (npc._animAcc || 0) + dt;
