@@ -55,8 +55,6 @@ import { State } from "./core/state.js";
 import { Surfaces } from "./core/surfaces.js";
 import { Cats } from "./core/cats.js";
 import { AudioSystem } from "./core/audio.js";
-import { Hunt } from "./core/hunt.js";
-import { HuntHUD } from "./ui/hunt-hud.js";
 import { Engagement } from "./core/engagement.js";
 import { RobberyUI } from "./ui/robbery-ui.js";
 import "./core/scenes.js";
@@ -115,7 +113,6 @@ window.__ph3d_mp             = Multiplayer;
   });
   if (Settings.get("voiceEnabled")) setTimeout(() => applyVoice(true), 1500);
 }
-window.__ph3d_hunt           = Hunt;
 /* life-sim: relationships, wedding, pregnancy, infant carry, 3D album, empty-home progression */
 import("./core/lifesim.js").catch((e) => console.warn("[lifesim] failed to load:", e));
 
@@ -259,13 +256,6 @@ function hideDriveUI() {
    by setting `allowMusic: true` on the returned object. */
 const __origGo = router.go.bind(router);
 router.go = async function (name, params, push) {
-  /* Hunt: leaving the open world forfeits the contract */
-  try {
-    if (Hunt.active && name !== "drive" && name !== "walk") {
-      Hunt._end("left_scene");
-      window.__ph3d_phone?._toast("❌ You left the arena. Prize forfeited.");
-    }
-  } catch (e) {}
   const scene = await __origGo(name, params, push);
   if (scene) { try { Engagement.track("scene_visited", { name }); } catch (e) {} }
   try {
@@ -376,21 +366,6 @@ safe("drive-ui wiring", function(){
 // ── INITIALIZE AUDIO ──
 AudioSystem.init();
 window.__ph3d_audio = AudioSystem;
-
-// ── HUNT ──
-/* hunt timer now lives inside the phone Hunt app */
-window.addEventListener("ph3d:player-dead", () => {
-  try { if (Hunt.active) Hunt.onPlayerDeath(); } catch (e) {}
-});
-setTimeout(() => {
-  try {
-    if (Hunt.active) return;
-    const res = Hunt.tryResume();
-    if (res.ok && !(window.__ph3d_drive && window.__ph3d_drive.getMode)) {
-      window.__ph3d_router?.go("walk");
-    }
-  } catch (e) {}
-}, 1500);
 
 /* Browsers require a user gesture before any audio can play.
    The first tap on the title screen starts the music. Once started,

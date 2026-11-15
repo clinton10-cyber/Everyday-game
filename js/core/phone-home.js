@@ -30,7 +30,7 @@ const FOLDERS = [
   { id: "money", name: "Money", apps: ["bank", "shop", "business", "property"] },
   { id: "life", name: "Life and Work", apps: ["homeinfo", "inv", "jobs", "career", "education"] },
   { id: "social", name: "Social", apps: ["social", "camera", "gallery", "music"] },
-  { id: "play", name: "Play", apps: ["games", "comics", "story", "hunt"] },
+  { id: "play", name: "Play", apps: ["games", "comics", "story"] },
   { id: "services", name: "Services", apps: ["police", "justice", "health", "mp"] },
   { id: "utils", name: "Utilities", apps: ["weather", "map", "settings", "about"] },
 ];

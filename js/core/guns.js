@@ -711,14 +711,6 @@ export class Weapons {
 
   select(name) {
     if (name === this.current) return;
-    /* Hunt rules: melee only while a contract is active */
-    try {
-      const H = window.__ph3d_hunt;
-      if (H && H.active && name !== "fists" && name !== "knife") {
-        window.__ph3d_phone?._toast("🔒 Hunt rules: melee only");
-        return;
-      }
-    } catch (e) {}
     this.knife.holster();
     this.pistol.holster();
     this.sniper.holster();

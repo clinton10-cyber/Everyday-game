@@ -137,13 +137,13 @@ export const AudioSystem = {
   _pickMood() {
     const name = this._scene, obj = this._sceneObj;
     const id = String((obj && obj.sceneId) || name || "");
-    const pol = window.__ph3d_police, hunt = window.__ph3d_hunt;
+    const pol = window.__ph3d_police;
     if (BATH_IDS.test(id)) return "bath";
     if (RANGE_IDS.test(id) || name === "range") return "range";
     if (PRISON_IDS.test(id)) return "prison";
     const open = OPEN_SCENES.has(name) || (obj && obj.allowMusic === true) || (obj && obj.isInterior === false);
     if (open) {
-      if ((pol && pol.dispatched) || (hunt && hunt.active)) return "chase";
+      if ((pol && pol.dispatched)) return "chase";
       return "open";
     }
     if (QUIET_IDS.test(id)) return "quiet";

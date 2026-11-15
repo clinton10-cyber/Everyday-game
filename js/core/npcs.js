@@ -1403,8 +1403,7 @@ export const NPCs = {
       }
 
       if (npc._isHunter) {
-        const H = window.__ph3d_hunt;
-        const pinged = !!(H && H.active && H.isPinged && H.isPinged());
+        const pinged = false;
         if (pinged) {
           // exposed: hunters know exactly where you are and close in
           npc.state = "investigate";

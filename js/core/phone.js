@@ -142,7 +142,6 @@ export class Phone{
             </div>
             <div class="tapp-ic" data-a="social"><div class="tico"><i class="fa-solid fa-comments"></i></div><div class="tnm">Social</div></div>
             <div class="tapp-ic" data-a="settings"><div class="tico"><i class="fa-solid fa-gear"></i></div><div class="tnm">Settings</div></div>
-            <div class="tapp-ic" data-a="hunt"><div class="tico"><i class="fa-solid fa-crosshairs"></i></div><div class="tnm">Hunt</div></div>
             <div class="tapp-ic" data-a="games"><div class="tico"><i class="fa-solid fa-gamepad"></i></div><div class="tnm">Games</div></div>
             <div class="tapp-ic" data-a="about">
               <div class="tico"><i class="fa-solid fa-circle-info"></i></div>
@@ -173,20 +172,6 @@ export class Phone{
           <div id="jobs-note" style="font-size:11px;color:#9db0a6;text-align:center;margin-top:14px;line-height:1.5">Follow the yellow beam. Delivery works on foot or by car, Taxi needs a car, and Repair needs you to stay nearby for a few seconds. Pay and time limit grow with distance.</div>
         </div>
 
-<div class="tapp" id="app-hunt">
-  <button class="tbk" data-back><i class="fa-solid fa-chevron-left"></i> Home</button>
-  <div class="hunt-hero"><div class="hunt-hero-title">The Hunt</div><div class="hunt-hero-sub">Survive the contract. Keep the prize.</div></div>
-  <div class="hunt-active" id="hunt-active" style="display:none">
-    <div class="hunt-active-label">ACTIVE CONTRACT</div>
-    <div class="hunt-active-name" id="hunt-active-name">—</div>
-    <div class="hunt-active-meta" id="hunt-active-meta">—</div>
-    <button class="hunt-btn hunt-btn-cashout" id="hunt-cashout">CASH OUT NOW</button>
-    <button class="hunt-btn hunt-btn-abandon" id="hunt-abandon">ABANDON (LOSE PRIZE)</button>
-  </div>
-  <div class="hunt-list" id="hunt-list"></div>
-  <div class="hunt-lb-wrap"><div class="hunt-lb-title">TOP PAYOUTS</div><div class="hunt-lb" id="hunt-lb"></div></div>
-  <div class="hunt-note">Restricted to melee weapons. Leaving the zone or dying forfeits the prize.</div>
-</div>
 
         <!-- ── BUSINESS / STORY CAMPAIGN ───────────────── -->
         <div class="tapp" id="app-business"></div>
@@ -747,7 +732,7 @@ export class Phone{
       mp: "app-mp", inv: "app-inv", homeinfo: "app-homeinfo",
       police: "app-police", justice: "app-justice", shop: "app-shop", camera: "app-camera",
       gallery: "app-gallery", map: "app-map", weather: "app-weather",
-      music: "app-music", jobs: "app-jobs", business: "app-business", property: "app-property", career: "app-career", story: "app-story", hunt: "app-hunt",
+      music: "app-music", jobs: "app-jobs", business: "app-business", property: "app-property", career: "app-career", story: "app-story",
       about: "app-about", games: "app-games", comics: "app-comics", education: "app-education", social: "app-social", settings: "app-settings",
     };
     const id = map[n];
@@ -787,7 +772,6 @@ export class Phone{
     if (n === "social") { import("../ui/social-panel.js").then(m => m.SocialPanel.render()).catch(e => console.warn("[social panel]",e)); }
     if (n === "settings") this._renderPhoneSettings();
     this._applyDeviceSkin();
-    if (n === "hunt")    this._renderHunt();
     this._stats();
   }
 
@@ -1367,93 +1351,6 @@ export class Phone{
     clearTimeout(this._jobsTimer);
     const app = document.getElementById("app-jobs");
     if (app && app.classList.contains("on")) this._jobsTimer = setTimeout(() => this._renderJobs(), 500);
-  }
-
-  async _renderHunt(){
-    const { Hunt } = await import("../core/hunt.js");
-    const { HUNT_TIERS, HUNT_TIER_ORDER } = await import("../core/hunt-contracts.js");
-    const { confirmHunt } = await import("../ui/hunt-confirm.js");
-    const { Rep } = await import("../core/rep.js");
-    const activeEl = document.getElementById("hunt-active");
-    const listEl = document.getElementById("hunt-list");
-    if (!activeEl || !listEl) return;
-    const icon = document.querySelector('.tapp-ic[data-a="hunt"]');
-    if (icon) icon.classList.toggle("is-active", !!Hunt.active);
-    if (Hunt.active) {
-      const s = Hunt.getState();
-      activeEl.style.display = "block";
-      document.getElementById("hunt-active-name").textContent = s.tier.name;
-      const tt = s.tier.reversed ? ` · ${s.targetsKilled}/${s.targetsRequired}` : "";
-      document.getElementById("hunt-active-meta").textContent = `Hour ${s.hour} / ${s.totalHours} · ₦${s.prize.toLocaleString()} accumulated${tt}`;
-      document.getElementById("hunt-cashout").style.display = s.tier.reversed ? "none" : "";
-      document.getElementById("hunt-cashout").onclick = async () => {
-        const { confirmDanger } = await import("../ui/settings.js");
-        const pen = s.tier.cashOutPenalty, payout = Math.floor(s.prize * (1 - pen));
-        if (await confirmDanger(`Cash out now and lose ${Math.round(pen*100)}%? You will receive ₦${payout.toLocaleString()}.`)) { Hunt.cashOut(); this._renderHunt(); }
-      };
-      document.getElementById("hunt-abandon").onclick = async () => {
-        const { confirmDanger } = await import("../ui/settings.js");
-        if (await confirmDanger("Abandon the contract? You lose the entire prize pool.")) { Hunt._end("abandon"); this._renderHunt(); }
-      };
-      listEl.style.display = "none";
-      this._renderHuntLB();
-      return;
-    }
-    activeEl.style.display = "none";
-    listEl.style.display = "block";
-    const rep = Rep.get();
-    let html = "";
-    for (const id of HUNT_TIER_ORDER) {
-      const t = HUNT_TIERS[id];
-      const locked = rep < t.requireReputation;
-      const total = t.finalBonus || t.prizePerHour.reduce((a, b) => a + b, 0);
-      html += `<div class="hunt-card ${locked ? "locked" : ""}">
-        <div class="hunt-card-name">${t.name}</div><div class="hunt-card-tag">${t.tag}</div>
-        <div class="hunt-card-desc">${t.desc}</div><div class="hunt-card-prize">₦${total.toLocaleString()}</div>
-        ${locked ? `<div class="hunt-card-lock">Needs ${t.requireReputation} rep</div>` : `<button class="hunt-btn hunt-btn-accept" data-tier="${id}">ACCEPT CONTRACT</button>`}
-      </div>`;
-    }
-    listEl.innerHTML = html;
-    listEl.querySelectorAll("button[data-tier]").forEach((b) => {
-      b.onclick = async () => {
-        if (!(await confirmHunt(b.dataset.tier))) return;
-        const res = Hunt.start(b.dataset.tier);
-        if (!res.ok) {
-          this._toast(res.reason === "not_in_world" ? "Start the hunt from the street" : res.reason === "low_rep" ? `Need ${res.need} reputation` : "Cannot start");
-          return;
-        }
-        this.hide(); this._renderHunt();
-      };
-    });
-    this._renderHuntLB();
-    this._renderHuntAchievements();
-  }
-
-  async _renderHuntLB(){
-    const el = document.getElementById("hunt-lb"); if (!el) return;
-    try {
-      const { HuntLeaderboard } = await import("../core/hunt-leaderboard.js");
-      const top = HuntLeaderboard.top(5);
-      if (!top.length) { el.innerHTML = '<div class="hunt-lb-empty">No hunts completed yet.</div>'; return; }
-      el.innerHTML = top.map((e, i) => `<div class="hunt-lb-row"><span class="hunt-lb-rank">#${i+1}</span><span class="hunt-lb-name">${String(e.name).replace(/[<>&]/g,"")}</span><span class="hunt-lb-prize">₦${e.payout.toLocaleString()}</span></div>`).join("");
-    } catch (e) { el.innerHTML = ""; }
-  }
-
-  async _renderHuntAchievements(){
-    let el = document.getElementById("hunt-achievements");
-    if (!el) {
-      const wrap = document.querySelector(".hunt-lb-wrap"); if (!wrap) return;
-      el = document.createElement("div"); el.id = "hunt-achievements"; el.className = "hunt-lb-wrap";
-      wrap.parentNode.insertBefore(el, wrap.nextSibling);
-    }
-    try {
-      const { HuntAchievements } = await import("../core/hunt-achievements.js");
-      const un = new Set(HuntAchievements.unlocked());
-      el.innerHTML = '<div class="hunt-lb-title">ACHIEVEMENTS</div>' + HuntAchievements.all().map((d) => {
-        const on = un.has(d.id);
-        return `<div class="hunt-lb-row ${on ? "ach-on" : "ach-off"}"><span class="hunt-lb-rank">${on ? "✓" : "·"}</span><span class="hunt-lb-name"><b>${d.label}</b><br><span style="font-size:10px;opacity:.7">${d.desc}</span></span></div>`;
-      }).join("");
-    } catch (e) { el.innerHTML = ""; }
   }
 
   /* ── toast ──────────────────────────────────────────── */

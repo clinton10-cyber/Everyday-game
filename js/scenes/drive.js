@@ -1643,10 +1643,6 @@ try {
           const _k = (keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD || keys.ArrowUp || keys.ArrowDown || keys.ArrowLeft || keys.ArrowRight);
           if (Math.hypot(_jx, _jy) > 0.35 || _k) walker.sitting = null;
         }
-        try {
-          const H = window.__ph3d_hunt;
-          if (H && H.active && walkerWeapons.current !== "fists" && walkerWeapons.current !== "knife") walkerWeapons.select("knife");
-        } catch (e) {}
 
         if (walker.sitting) {
           const dx = Math.abs(walker.x - walker.sitting.x);
@@ -1849,15 +1845,6 @@ try {
         camera.lookAt(walker.x, targetY, walker.z);
 
         if (hudEl) hudEl.textContent = Math.round(horizSpeed * 3.6) + " km/h";
-
-        /* Hunt: out-of-bounds forfeits the prize */
-        try {
-          const H = window.__ph3d_hunt;
-          if (H && H.active && (Math.abs(walker.x) > 800 || Math.abs(walker.z) > 800)) {
-            H._end("out_of_bounds");
-            window.__ph3d_phone?._toast("❌ You left the zone. Prize forfeited.");
-          }
-        } catch (e) {}
       }
 
       let planeBest = null;

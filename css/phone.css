@@ -664,40 +664,6 @@
   .dr-btn{width:50px;height:50px}
   .dr-btn svg{width:20px;height:20px}
 }
-.tapp-ic[data-a="hunt"] .tico{background:linear-gradient(165deg,#ff453a,#c70000)}
-.tapp-ic[data-a="hunt"].is-active .tico{animation:huntPulse 1.4s ease-in-out infinite}
-@keyframes huntPulse{0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.45),0 0 0 0 rgba(255,69,58,.6)}60%{box-shadow:0 4px 14px rgba(0,0,0,.45),0 0 0 10px rgba(255,69,58,0)}}
-.hunt-hero{padding:20px 0 18px;text-align:center}
-.hunt-hero-title{font-family:'Iowan Old Style','Hoefler Text',Georgia,serif;font-style:italic;font-size:30px;font-weight:600;background:linear-gradient(90deg,#ff453a,#ff9f0a);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-.4px}
-.hunt-hero-sub{font-size:11px;margin-top:6px;color:rgba(235,235,245,.55);letter-spacing:.04em}
-.hunt-list{display:flex;flex-direction:column;gap:10px;padding:6px 0 12px}
-.hunt-card{padding:16px 16px 14px;border-radius:18px;background:linear-gradient(165deg,rgba(40,20,20,.6),rgba(20,10,10,.6));border:1px solid rgba(255,69,58,.3)}
-.hunt-card.locked{opacity:.5}
-.hunt-card-name{font-size:15px;font-weight:900;letter-spacing:.06em;color:#fff}
-.hunt-card-tag{font-size:9px;letter-spacing:.22em;color:#ff9f0a;font-weight:800;margin-top:3px}
-.hunt-card-desc{font-size:11px;line-height:1.5;color:rgba(235,235,245,.6);margin-top:8px}
-.hunt-card-prize{font-size:20px;font-weight:900;color:#30d158;margin-top:10px;font-variant-numeric:tabular-nums}
-.hunt-card-lock{font-size:10px;color:#ff453a;font-weight:800;letter-spacing:.18em;margin-top:10px;text-align:center}
-.hunt-active{padding:16px 14px;margin-bottom:16px;border-radius:18px;background:linear-gradient(165deg,rgba(80,10,10,.9),rgba(30,5,5,.9));border:1px solid rgba(255,69,58,.5);text-align:center}
-.hunt-active-label{font-size:9px;letter-spacing:.28em;color:#ff9f0a;font-weight:900;margin-bottom:6px}
-.hunt-active-name{font-size:20px;font-weight:900;color:#fff}
-.hunt-active-meta{font-size:11px;color:rgba(235,235,245,.7);margin-top:8px;line-height:1.5;font-variant-numeric:tabular-nums}
-.hunt-btn{display:block;width:100%;margin-top:12px;padding:14px 16px;border-radius:14px;border:none;font-family:inherit;font-size:11px;font-weight:900;letter-spacing:.14em;cursor:pointer}
-.hunt-btn-accept{background:linear-gradient(135deg,#ff453a,#ff9f0a);color:#fff}
-.hunt-btn-cashout{background:linear-gradient(135deg,#30d158,#34c759);color:#031a0d}
-.hunt-btn-abandon{background:transparent;border:1px solid rgba(255,69,58,.4);color:rgba(255,69,58,.85)}
-.hunt-lb-wrap{margin:12px 0 4px;padding:14px 4px 6px;border-top:1px solid rgba(255,255,255,.08)}
-.hunt-lb-title{font-size:9px;letter-spacing:.28em;color:rgba(235,235,245,.55);font-weight:900;margin-bottom:8px}
-.hunt-lb{display:flex;flex-direction:column;gap:4px}
-.hunt-lb-row{display:flex;align-items:center;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);font-size:11px;margin-bottom:4px}
-.hunt-lb-rank{width:26px;color:#ff9f0a;font-weight:900;font-variant-numeric:tabular-nums}
-.hunt-lb-name{flex:1;min-width:0;color:rgba(235,235,245,.85);overflow:hidden;text-overflow:ellipsis}
-.hunt-lb-prize{color:#30d158;font-weight:900;font-variant-numeric:tabular-nums}
-.hunt-lb-empty{padding:12px 0;text-align:center;color:rgba(235,235,245,.4);font-size:11px}
-.hunt-note{font-size:10px;line-height:1.55;color:rgba(235,235,245,.4);text-align:center;padding:12px 4px}
-.hunt-lb-row.ach-on{background:rgba(48,209,88,.10);border:1px solid rgba(48,209,88,.25)}
-.hunt-lb-row.ach-off{opacity:.45}
-.hunt-lb-row.ach-on .hunt-lb-rank,.hunt-lb-row.ach-on .hunt-lb-name b{color:#30d158}
 
 /* ── Games app + Weather screen ─────────────────────────── */
 .gm-sec{font-size:11px;letter-spacing:.14em;opacity:.55;margin:14px 2px 8px;font-weight:700}
@@ -849,7 +815,6 @@
 .tphone.app-immersive #app-homeinfo{background:linear-gradient(150deg,#183b35,#265d4e 52%,#10251f);color:#f0fff7}
 .tphone.app-immersive #app-settings{background:#171b24;color:#f4f6fa}
 .tphone.app-immersive #app-about{background:linear-gradient(150deg,#171e30,#202d47 55%,#0c1422);color:#eff5ff}
-.tphone.app-immersive #app-hunt{background:linear-gradient(160deg,#211c16,#392b1b 55%,#15110d);color:#fff2d9}
 .tphone.app-immersive #app-business{background:linear-gradient(155deg,#102b22,#1b4634 52%,#0b1b15);color:#edfff4}
 .tphone.app-immersive #app-property{background:linear-gradient(155deg,#1c2736,#34465c 52%,#111a27);color:#f1f6ff}
 .tphone.app-immersive #app-career{background:linear-gradient(155deg,#1d2636,#293c57 52%,#101725);color:#f1f6ff}
@@ -962,12 +927,6 @@
 #app-mp .people-copy small{font-size:9px;color:#a9bad1;margin-top:3px}
 #app-mp .people-presence{font-size:8px;color:#8ce0b1;font-weight:900;letter-spacing:.08em}
 #app-mp .people-footnote{font-size:9px;line-height:1.5;color:#8fa3bf;padding:16px 4px}
-#app-hunt .hunt-hero{padding:23px 15px 20px;margin:0 -16px 12px;background:radial-gradient(ellipse at 50% 0%,#9b482b55,transparent 70%);border-bottom:1px solid #ffffff15}
-#app-hunt .hunt-hero-title{font-size:34px;letter-spacing:.04em;text-transform:uppercase;font-style:normal;font-family:Impact,'Arial Narrow',sans-serif}
-#app-hunt .hunt-card{position:relative;overflow:hidden;border-radius:8px;padding:17px;background:linear-gradient(110deg,#32251c,#1b1714);border:1px solid #755033;box-shadow:inset 4px 0 #a64b2c}
-#app-hunt .hunt-card:after{content:'CONTRACT';position:absolute;right:-17px;top:12px;transform:rotate(35deg);font-size:8px;letter-spacing:.18em;color:#d9a66a66;font-weight:900}
-#app-hunt .hunt-card-prize{font-family:ui-monospace,monospace;color:#e9bd72}
-#app-hunt .hunt-btn-accept{background:#9d472b;border:1px solid #e18b56;color:#fff;border-radius:5px;font-weight:900;letter-spacing:.1em}
 #app-settings{background:#171b24!important}
 #app-settings .tbal,#app-settings .tstat-panel{background:#222a36;border:1px solid #384556;border-radius:15px}
 #app-about h2{font-size:25px!important;letter-spacing:-.04em}
@@ -986,7 +945,6 @@
 .tapp-ic[data-a="police"] .tico{background:linear-gradient(145deg,#6f9bc9,#1d3e68)}
 .tapp-ic[data-a="health"] .tico{background:linear-gradient(145deg,#70d4ae,#176d60)}
 .tapp-ic[data-a="mp"] .tico{background:linear-gradient(145deg,#80b5ed,#344e85)}
-.tapp-ic[data-a="hunt"] .tico{background:linear-gradient(145deg,#c87c4b,#512b20)}
 .tapp-ic[data-a="settings"] .tico{background:linear-gradient(145deg,#8995a7,#404958)}
 
 

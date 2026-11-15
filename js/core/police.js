@@ -22,18 +22,6 @@ export const Police={
     try { const P0=window.__ph3d_prison; if (P0 && P0.inJail) { this.target=null; return; } } catch(e){}
     const ui=window.__ph3d_phone;
     const name=this.target||"You";
-    try {
-      const isMe = !this.target || this.target === "you" || this.target === "You";
-      const H = window.__ph3d_hunt, Cr = window.__ph3d_crime;
-      if (isMe && H && !H.active && Cr && Cr.alert >= 70 && Math.random() < 0.4) {
-        ui && ui._toast("🕶 A broker makes you an offer…");
-        setTimeout(() => { try { ui?.showApp("hunt"); } catch (e) {} }, 900);
-        try { Cr.reset(); } catch(e){}
-        try { window.__ph3d_combat && window.__ph3d_combat.reset(); } catch(e){}
-        this.target = null;
-        return;
-      }
-    } catch (e) {}
     try { if (!this.target || this.target === "you" || this.target === "You") window.__ph3d_justice?.onArrest(name); } catch (e) {}
     ui&&ui._toast("Police arrested "+name);
     ui&&ui.notify("ARRESTED",name+" has been taken into custody.");

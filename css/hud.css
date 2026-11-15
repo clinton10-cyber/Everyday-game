@@ -458,8 +458,6 @@
 /* TAKE — near a pickup */
 #ph3d-act-btn[data-state="take"]   { background:var(--h-glass)!important; color:var(--h-paper)!important; border-color:var(--h-line-hi)!important; }
 
-#ph3d-hunt-hud{position:fixed;top:var(--ph3d-obj-top,calc(env(safe-area-inset-top,0px) + 66px));left:50%;transform:translateX(-50%);z-index:27;display:none;min-width:220px;padding:12px 20px 14px;border-radius:18px;background:rgba(20,8,8,.95);border:1px solid rgba(255,69,58,.5);color:#fff;font-family:var(--h-font,"Archivo",system-ui,sans-serif);text-align:center;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.6);pointer-events:auto}
-#ph3d-hunt-hud.on{display:block}
 .hh-head{display:flex;align-items:center;justify-content:center;gap:8px;font-size:9px;letter-spacing:.28em;color:#ff9f0a;font-weight:900;text-transform:uppercase;margin-bottom:6px}
 .hh-dot{width:8px;height:8px;border-radius:50%;background:#ff453a;animation:hhPulse 1s ease-in-out infinite}
 @keyframes hhPulse{0%,100%{opacity:1}50%{opacity:.35}}
