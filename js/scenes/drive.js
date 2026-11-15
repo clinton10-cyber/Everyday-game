@@ -629,6 +629,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       };
     },
   };
+  const JET_SWIM_ANGLE = Math.PI / 2;   /* swimming pitches the body 90 degrees, head first; jetpack/wing flight uses the same angle */
   const jet = { on: false, thrust: false, fuel: 1, tilt: 0 };
   const jetVis = createJetpack();
   const speedFx = createSpeedFx(camera, 62);   /* speed blur: vehicles and wing flight, anywhere in the world */
@@ -1816,7 +1817,7 @@ try {
             /* jetpack flight pose: lean/lie forward into the air, pivoting about the hips */
             {
               const flying = jet.on && !walker.onGround;
-              const want = flying ? Math.min(1.3, 0.22 + Math.min(1, horizSpeed / 9) * 1.1) : 0;
+              const want = flying ? 0.22 + Math.min(1, horizSpeed / 4) * (JET_SWIM_ANGLE - 0.22) : 0;   /* same head-first angle as swimming */
               jet.tilt += (want - jet.tilt) * Math.min(1, dt * 6);
               if (jet.tilt < 0.002 && !flying) jet.tilt = 0;
               character.rotation.order = "YXZ";

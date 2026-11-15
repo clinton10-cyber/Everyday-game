@@ -1231,7 +1231,7 @@ this._lastVy = vyBeforeSnap;
     {
       const flying = this.jet.on && !this.onGround;
       const hs = Math.hypot(this.vel.x || 0, this.vel.z || 0);
-      const want = flying ? Math.min(1.3, 0.22 + (this.moving ? 0.6 : 0)) : 0;
+      const want = flying ? 0.22 + Math.min(1, hs / 4) * (Math.PI / 2 - 0.22) : 0;   /* same head-first 90-degree angle as swimming */
       this.jet.tilt += (want - this.jet.tilt) * Math.min(1, dt * 6);
       if (this.jet.tilt < 0.002 && !flying) this.jet.tilt = 0;
       this._tiltNow = this.jet.tilt;
