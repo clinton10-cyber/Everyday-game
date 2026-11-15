@@ -112,7 +112,7 @@ export const SocialPanel = {
   try{await Photos.load();}catch(_){}
   try { await this._ensureNpcPosts(); } catch (e) { console.warn("[social NPC feed]", e); }
   if(!this._npcTimer)this._npcTimer=setInterval(async()=>{if(window.__ph3d_phone?.app!=="social"||!window.__ph3d_phone?.visible)return;const before=state.posts.length;await this._ensureNpcPosts();if(state.posts.length!==before)this.render();},30000);
-  if(!state.posts.some(p=>p.authorId==="official_gcc"))state.posts.push({id:"official_gcc_welcome",author:"Garden City Updates",authorId:"official_gcc",verified:true,kind:"npc",text:"Welcome to Garden City Connect — your neighbourhood feed for Port Harcourt news, city moments and community updates.",time:Date.now()-5000,image:"",avatar:"",location:"Port Harcourt",likes:18,comments:[]}});
+  if(!state.posts.some(p=>p.authorId==="official_gcc"))state.posts.push({id:"official_gcc_welcome",author:"Garden City Updates",authorId:"official_gcc",verified:true,kind:"npc",text:"Welcome to Garden City Connect — your neighbourhood feed for Port Harcourt news, city moments and community updates.",time:Date.now()-5000,image:"",avatar:"",location:"Port Harcourt",likes:18,comments:[]});
   save();
   const s=PhoneLife.snapshot(); const posts=state.posts.slice().sort((a,b)=>b.time-a.time);
   const myPhotos=Photos.list||[];
