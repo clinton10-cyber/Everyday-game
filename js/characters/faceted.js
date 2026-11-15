@@ -64,10 +64,13 @@ function ringsFrom(y0, y1, n, cols, ease = 0) {
 export function loft(rings, o = {}) {
   if (rings[rings.length - 1].y < rings[0].y) rings = rings.slice().reverse();
   const seg = o.seg || 8, ph = o.phase !== undefined ? o.phase : Math.PI / seg;
-  const n = rings.length, pos = [], idx = [];
+  const n = rings.length, pos = [], uvs = [], idx = [];
+  const W = seg + 1;                      /* seg+1 verts per ring: the last duplicates the first so UVs wrap cleanly */
+  const UV_V = 2.2, UV_U = 2;             /* fabric repeat: patterns tile around + along every garment */
   for (let i = 0; i < n; i++) {
     const r = rings[i], cx = r.cx || 0, cz = r.cz || 0;
-    for (let k = 0; k < seg; k++) {
+    for (let kk = 0; kk <= seg; kk++) {
+      const k = kk % seg;
       const a = ph + (k / seg) * TAU;
       let x = cx + r.rx * Math.sin(a), z = cz + r.rz * Math.cos(a), y = r.y;
       if (o.shape) {
@@ -80,31 +83,32 @@ export function loft(rings, o = {}) {
         }
       }
       pos.push(x, y, z);
+      uvs.push((kk / seg) * UV_U, y * UV_V);
     }
   }
   for (let i = 0; i < n - 1; i++) {
     for (let k = 0; k < seg; k++) {
-      const k1 = (k + 1) % seg;
       if (o.skip && o.skip(rings[i], ph + ((k + 0.5) / seg) * TAU, rings[i + 1])) continue;
-      const a = i * seg + k, d = i * seg + k1, b = (i + 1) * seg + k, c = (i + 1) * seg + k1;
+      const a = i * W + k, d = i * W + k + 1, b = (i + 1) * W + k, c = (i + 1) * W + k + 1;
       idx.push(a, d, b, d, c, b);
     }
   }
   const caps = o.caps === undefined ? true : o.caps;
   const cap = (ri, up) => {
-    const r = rings[ri], base = ri * seg, ci = pos.length / 3;
+    const base = ri * W, ci = pos.length / 3;
     let ax = 0, ay = 0, az = 0;
     for (let k = 0; k < seg; k++) { ax += pos[(base + k) * 3]; ay += pos[(base + k) * 3 + 1]; az += pos[(base + k) * 3 + 2]; }
     pos.push(ax / seg, ay / seg, az / seg);
+    uvs.push(0.5 * UV_U, (ay / seg) * UV_V);
     for (let k = 0; k < seg; k++) {
-      const k1 = (k + 1) % seg;
-      if (up) idx.push(ci, base + k, base + k1); else idx.push(ci, base + k1, base + k);
+      if (up) idx.push(ci, base + k, base + k + 1); else idx.push(ci, base + k + 1, base + k);
     }
   };
   if (caps === true || caps === "top") cap(n - 1, true);
   if (caps === true || caps === "bottom") cap(0, false);
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   g.setIndex(idx);
   const ng = g.toNonIndexed();            /* flat shading: every face owns its vertices */
   ng.computeVertexNormals();
