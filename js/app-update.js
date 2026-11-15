@@ -2,7 +2,7 @@
    player to download/install it. Web/PWA keeps using the service-worker update gate (pwa.js).
 
    How it knows its own build: the APK workflow writes app-version.json into the app
-   ({appVersion, runNumber, tag}). Releases come in two kinds:
+   ({appVersion, runNumber, tag, sha}). Releases come in two kinds:
      - official  "v1.3.3"      → newer when its semver is higher than appVersion
      - automatic "build-123"   → newer when 123 is higher than this app's runNumber */
 const REPO = "clinton10-cyber/Everyday-game";
@@ -30,6 +30,10 @@ async function ownBuild() {
 
 function isNewer(rel, me) {
   const tag = String(rel.tag_name || "");
+  /* Same commit = same game. One commit can be built twice (branch push + version tag), and the
+     second build gets a higher number, so a number check alone would nag forever. */
+  const target = String(rel.target_commitish || "");
+  if (me.sha && /^[0-9a-f]{40}$/i.test(target) && target.toLowerCase() === String(me.sha).toLowerCase()) return false;
   const v = /^v(\d+\.\d+\.\d+)/.exec(tag);
   if (v) { const mine = semver(me.appVersion), theirs = semver(v[1]); return !!(mine && theirs && cmp(theirs, mine) > 0); }
   const b = /^build-(\d+)$/.exec(tag);

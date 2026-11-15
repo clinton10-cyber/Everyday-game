@@ -50,7 +50,7 @@ jobs:
           PKG=$(node -p "require('./package.json').version")
           TAG="build-${GITHUB_RUN_NUMBER}"
           [ "$GITHUB_REF_TYPE" = "tag" ] && TAG="$GITHUB_REF_NAME"
-          printf '{"appVersion":"%s","runNumber":%s,"tag":"%s","builtAt":"%s"}\n' "$PKG" "$GITHUB_RUN_NUMBER" "$TAG" "$(date -u +%FT%TZ)" > www/app-version.json
+          printf '{"appVersion":"%s","runNumber":%s,"tag":"%s","sha":"%s","builtAt":"%s"}\n' "$PKG" "$GITHUB_RUN_NUMBER" "$TAG" "$GITHUB_SHA" "$(date -u +%FT%TZ)" > www/app-version.json
           cat www/app-version.json
 
       - name: Install Capacitor and create the Android project
