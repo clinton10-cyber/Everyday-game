@@ -513,7 +513,7 @@ export async function buildInterior(router) {
       sph(0.12, x + ox*cs + (-1.35)*sn, 0.96 + yBase(), z - ox*sn + (-1.35)*cs, MAT.lamp);
     }
     addSeat(x, z, yaw, 0.82, "SLEEP", "lie");
-    addCol(x, z, 1.25, 1.35, yBase(), yBase() + 1.0);
+    addCol(x, z, 1.0, 1.1, yBase(), yBase() + 1.0);   /* seat reach is 1.6 m: keep the walk-up collider inside it */
   }
   function loungeChair(x, z, yaw = 0) {
     chair(x, z, yaw, MAT.velvet);
@@ -572,11 +572,11 @@ export async function buildInterior(router) {
 
   /* ── interior walls (ground) ── */
   wall(0, 12, 14, 12, [{ at: 6, width: 2.4 }], MAT.wall);        // concierge ↔ spa
-  wall(30, 12, 44, 12, [{ at: 34, width: 2.4 }], MAT.wall);      // reception ↔ gym
+  wall(30, 12, 44, 12, [{ at: 4, width: 2.4 }], MAT.wall);       // reception ↔ gym (door at x=34)
   wall(0, 28, 22, 28, [{ at: 10, width: 2.4 }, { at: 20, width: 2.4 }], MAT.wall); // spa/atrium ↔ restaurant
-  wall(22, 28, 44, 28, [{ at: 34, width: 2.4 }], MAT.wall);      // gym ↔ bar
+  wall(22, 28, 44, 28, [{ at: 12, width: 2.4 }], MAT.wall);      // gym ↔ bar (door at x=34)
   wall(0, 38, 22, 38, [{ at: 10, width: 2.4 }], MAT.glass);      // restaurant ↔ pool (glass)
-  wall(22, 38, 44, 38, [{ at: 34, width: 2.4 }], MAT.glass);     // bar ↔ pool (glass)
+  wall(22, 38, 44, 38, [{ at: 12, width: 2.4 }], MAT.glass);     // bar ↔ pool (glass, door at x=34)
   wall(14, 0, 14, 12, [{ at: 5, width: 2.4 }], MAT.wall);        // concierge ↔ lobby
   wall(30, 0, 30, 12, [{ at: 5, width: 2.4 }], MAT.wall);        // lobby ↔ reception
   wall(14, 12, 14, 28, [{ at: 6, width: 2.4 }], MAT.wall);       // spa ↔ atrium
@@ -1079,6 +1079,21 @@ export async function buildInterior(router) {
   balustrade(24, 28, 30, 28);   // north edge east
   balustrade(14, 14, 14, 28);   // west edge
   balustrade(30, 14, 30, 28);   // east edge
+  balustrade(20, 14, 24, 14);   // rail across the stair BOTTOM on this floor (was an open drop onto the stairs)
+
+  /* solid guards matching the railings (level 1). The north gap x 20-24 at z=28 stays open: it is the stair's top arrival. */
+  {
+    const gy0 = yBase(), gy1 = yBase() + 1.1, t = 0.12;
+    addCol(17, 14, 3.0, t, gy0, gy1);      // south edge, west of stairs
+    addCol(27, 14, 3.0, t, gy0, gy1);      // south edge, east of stairs
+    addCol(22, 14, 2.0, t, gy0, gy1);      // across the stair bottom
+    addCol(17, 28, 3.0, t, gy0, gy1);      // north edge, west of stairs
+    addCol(27, 28, 3.0, t, gy0, gy1);      // north edge, east of stairs
+    addCol(14, 21, t, 7.0, gy0, gy1);      // west edge
+    addCol(30, 21, t, 7.0, gy0, gy1);      // east edge
+    addCol(20, 21, t, 7.0, gy0, gy1);      // stair side (upper half) - no sideways step-off
+    addCol(24, 21, t, 7.0, gy0, gy1);
+  }
 
   /* ── south corridor wall art ── */
   for (const px of [2, 8, 36, 42]) {
