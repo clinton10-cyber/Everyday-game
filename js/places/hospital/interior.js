@@ -3,7 +3,16 @@
    Floor 1 : radiology (X-ray) · laboratory · doctors' offices · Ward A · Ward B (TV)
    Floor 2 : operating theatre (surgeon) · ICU · director's office · maternity · lounge (TV)
    Stairs  : switchback core on the east side (flight A: G→1, flight B: 1→2).
-   Entrance is on the NORTH wall; the building runs south from there. */
+   Entrance is on the NORTH wall; the building runs south from there.
+
+   Polish pass:
+   • Sealed the level-1 strip east of the landing (x 15.8–17, z 11–13) — was a
+     walkable dead-end.
+   • Added backing panels behind the two floor-direction signs on floor 1 so
+     they read as wall-mounted, not floating.
+   • Moved `sink()` above its call site for clarity (was relying on hoisting).
+   • Flight-B stair `y0 > y1` is intentional (bottom of flight B is at z=11,
+     top at z=3). Kept as-is. */
 import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
 import { Economy } from "../../core/economy.js";
@@ -213,6 +222,12 @@ export async function buildInterior(router) {
     seat("sit", "SIT", x, z, ry, .5);
   }
 
+  /* Hoisted above first() so the first-floor ward can call it. */
+  function sink(x, z) {
+    box(.6, .1, 1.6, x, 1.0, z, mat(0xe6ebee), { solid: true }); box(.5, .55, 1.4, x, .72, z, mat(0xd6dde1));
+    box(.34, .16, 1.0, x, 1.03, z, mat(0xaeb9c0)); cyl(.04, .34, x - .1, 1.2, z, metal);
+  }
+
   /* ================= SHELL (per floor) ================= */
   function shell(lv, entrance) {
     L = lv;
@@ -334,6 +349,11 @@ export async function buildInterior(router) {
     wallZ(8.2, 3, Z1, [[12.0, 1.4]], wallM);                           /* west wall, door to landing */
     wallZ(12.2, 3, 11, [], wallM);                                     /* divider between flights */
     wallZ(15.8, 3, 11, [], wallM);                                     /* east side of flight A hole */
+    /* NEW: seal the dead-end east strip (x 15.8–17, z 11–13) at floor 1. */
+    wallZ(15.8, 11, 13, [], wallM);
+    /* NEW: back the two floor-direction signs with panels so they read as mounted. */
+    box(3.6, .7, .05, 10.2, 3.2, 11.05, mat(0x24323f));
+    box(3.4, .55, .05, 14.0, 3.2, 11.05, mat(0x24323f));
     sign("◄ WARDS · LAB", 8.32, 2.9, 12.0, 1.3, .5, Math.PI / 2, "#2d7192");
     sign("▲ FLOOR 2 · THEATRE · ICU", 10.2, 3.2, 11.12, 3.2, .5, 0, "#24323f");
     sign("▼ GROUND · EMERGENCY", 14.0, 3.2, 11.12, 3.2, .5, 0, "#24323f");
@@ -366,11 +386,6 @@ export async function buildInterior(router) {
     sign("NURSES' STATION", 5.2, 3.0, 12.88, 3.0, .5, Math.PI, "#176b65");
     staff(6.2, 11.4, 0xe9f4f4);
   }
-  function sink(x, z) {
-    box(.6, .1, 1.6, x, 1.0, z, mat(0xe6ebee), { solid: true }); box(.5, .55, 1.4, x, .72, z, mat(0xd6dde1));
-    box(.34, .16, 1.0, x, 1.03, z, mat(0xaeb9c0)); cyl(.04, .34, x - .1, 1.2, z, metal);
-  }
-
   /* ================= SECOND FLOOR ================= */
   function second() {
     L = 2;
