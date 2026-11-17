@@ -97,6 +97,7 @@ export async function interiorScene(params, router) {
     const ctl = window.__ph3d_walkCtrl;
     if (ctl && ctl.weapons) {
       ctl._parity = true;   // this scene wires weapons/actions itself
+      ctl._interiorWeaponMode = true; // enable wall-aware weapon handling in every interior
       ctl.opts = ctl.opts || {};
 
       /* Give the Weapons system real targets (the interior's own NPCs). */
@@ -156,6 +157,7 @@ export async function interiorScene(params, router) {
       const baseDispose2 = scene.dispose || (() => {});
       scene.dispose = function () {
         try { WA.unmount(); } catch (e) {}
+        try { if (window.__ph3d_walkCtrl === ctl) ctl._interiorWeaponMode = false; } catch (e) {}
         baseDispose2.call(this);
       };
 

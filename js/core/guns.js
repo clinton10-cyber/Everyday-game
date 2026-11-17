@@ -413,7 +413,7 @@ export class Gun {
     }
     const { origin, dir } = aim;
     const c = this.controls;
-    let hit = 40;
+    let hit = this.range;
     if (c.world && c.world.colliders) {
       for (const col of c.world.colliders) {
         if (col.level !== undefined && col.level !== (c.level || 0)) continue;
@@ -553,7 +553,24 @@ export class Gun {
     Sfx.gunshot(this.type, muzzleWorld.x, muzzleWorld.z);
     if (this.type === "pistol") this._spawnCasing();
 
-    let bestHit = null, bestT = this.range, bestPart = "torso";
+    // Interior shots must stop at the first solid wall/door/furniture collider.
+    // Previously targets were tested without checking the space between the player
+    // and the NPC, allowing bullets to pass through walls in every building.
+    let wallT = this.range;
+    if (c._interiorWeaponMode && c.world && Array.isArray(c.world.colliders)) {
+      for (const col of c.world.colliders) {
+        if (!col) continue;
+        if (col.level !== undefined && col.level !== (c.level || 0)) continue;
+        const t = rayAABBHelper(
+          origin.x, origin.y, origin.z, dir.x, dir.y, dir.z,
+          col.minX, col.y0 != null ? col.y0 : 0, col.minZ,
+          col.maxX, col.y1 != null ? col.y1 : 3, col.maxZ, wallT
+        );
+        if (t > 0 && t < wallT) wallT = t;
+      }
+    }
+
+    let bestHit = null, bestT = wallT, bestPart = "torso";
     const radius = this.type === "sniper" ? 0.52 : 0.55;
 
     if (targets && targets.length) {
@@ -738,6 +755,15 @@ export class Weapons {
   isArmed() { return this.current !== "fists"; }
 
   attack(targets) {
+    const c = this.controls;
+    // Do not fire or swing while seated, lying down, carrying something,
+    // performing a full-body emote, or actively flying inside a building.
+    if (c && (
+      (c.state !== "standing" && c.state !== "crouching") ||
+      !!c.held ||
+      (c._emoteTimer > 0.12) ||
+      (!!(c.jet && c.jet.on) && c.onGround === false)
+    )) return false;
     if (this.current === "knife")  return this.knife.stab();
     if (this.current === "pistol") return this.pistol.fire();
     if (this.current === "sniper") return this.sniper.fire();
