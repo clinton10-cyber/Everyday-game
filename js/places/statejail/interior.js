@@ -150,34 +150,50 @@ export async function buildInterior(router) {
   }
 
   /* ── walls with door gaps ── */
+  // Return wall spans after clipping and merging door openings to the wall bounds.
+  // This prevents overlapping/out-of-range door loops from creating slivers or holes.
+  function wallSpans(start, end, doors_) {
+    const openings = (doors_ || [])
+      .filter(d => Number.isFinite(d.at) && Number.isFinite(d.w) && d.w > 0)
+      .map(d => [Math.max(start, d.at - d.w / 2), Math.min(end, d.at + d.w / 2)])
+      .filter(([a, b]) => b - a > 0.02)
+      .sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    for (const span of openings) {
+      const last = merged[merged.length - 1];
+      if (last && span[0] <= last[1] + 0.02) last[1] = Math.max(last[1], span[1]);
+      else merged.push(span.slice());
+    }
+    const spans = [];
+    let cursor = start;
+    for (const [a, b] of merged) {
+      if (a > cursor + 0.02) spans.push([cursor, a]);
+      cursor = Math.max(cursor, b);
+    }
+    if (end > cursor + 0.02) spans.push([cursor, end]);
+    return spans;
+  }
   function wallX(z, xa, xb, doors_, m, h) {
     h = h || WH;
-    const ds = (doors_ || []).map(d => [d.at - d.w / 2, d.at + d.w / 2]).sort((a, b) => a[0] - b[0]);
-    const segs = []; let cur = xa;
-    for (const [s, e] of ds) { if (s > cur + 0.02) segs.push([cur, s]); cur = e; }
-    if (xb > cur + 0.02) segs.push([cur, xb]);
-    for (const [s, e] of segs) {
-      const w = e - s;
-      B(w, h, 0.2, (s + e) / 2, h / 2, z, m || MAT.wall);
-      addColBox((s + e) / 2, z, w / 2, 0.1, 0, h, 0);
-      if (h > WH) addColBox((s + e) / 2, z, w / 2, 0.1, 0, h, 1);
+    for (const [a, b] of wallSpans(xa, xb, doors_)) {
+      const width = b - a;
+      B(width, h, 0.2, (a + b) / 2, h / 2, z, m || MAT.wall);
+      addColBox((a + b) / 2, z, width / 2, 0.1, 0, h, 0);
+      if (h > WH) addColBox((a + b) / 2, z, width / 2, 0.1, 0, h, 1);
     }
-    for (const d of (doors_ || [])) if (h - 2.4 > 0)
-      B(d.w, h - 2.4, 0.2, d.at, (h + 2.4) / 2, z, m || MAT.wall);
+    for (const d of (doors_ || [])) if (h - 2.4 > 0 && d.w > 0)
+      B(Math.min(d.w, xb - xa), h - 2.4, 0.2, Math.max(xa, Math.min(xb, d.at)), (h + 2.4) / 2, z, m || MAT.wall);
   }
   function wallZ(x, za, zb, doors_, m, h) {
     h = h || WH;
-    const ds = (doors_ || []).map(d => [d.at - d.w / 2, d.at + d.w / 2]).sort((a, b) => a[0] - b[0]);
-    const segs = []; let cur = za;
-    for (const [s, e] of ds) { if (s > cur + 0.02) segs.push([cur, s]); cur = e; }
-    if (zb > cur + 0.02) segs.push([cur, zb]);
-    for (const [s, e] of segs) {
-      const d = e - s;
-      B(0.2, h, d, x, h / 2, (s + e) / 2, m || MAT.wall);
-      addColBox(x, (s + e) / 2, 0.1, d / 2, 0, h, 0);
+    for (const [a, b] of wallSpans(za, zb, doors_)) {
+      const depth = b - a;
+      B(0.2, h, depth, x, h / 2, (a + b) / 2, m || MAT.wall);
+      addColBox(x, (a + b) / 2, 0.1, depth / 2, 0, h, 0);
+      if (h > WH) addColBox(x, (a + b) / 2, 0.1, depth / 2, 0, h, 1);
     }
-    for (const d of (doors_ || [])) if (h - 2.4 > 0)
-      B(0.2, h - 2.4, d.w, x, (h + 2.4) / 2, d.at, m || MAT.wall);
+    for (const d of (doors_ || [])) if (h - 2.4 > 0 && d.w > 0)
+      B(0.2, h - 2.4, Math.min(d.w, zb - za), x, (h + 2.4) / 2, Math.max(za, Math.min(zb, d.at)), m || MAT.wall);
   }
   function slab(x0, z0, x1, z1, m, y) {
     B(x1 - x0, 0.15, z1 - z0, (x0 + x1) / 2, (y ?? 0) + 0.075, (z0 + z1) / 2, m || MAT.concrete);
@@ -287,6 +303,8 @@ export async function buildInterior(router) {
   floorTile(X0, -8, X0 + CELL_X, 8, MAT.cellFloor, 0);   // W cell block
   floorTile(X1 - CELL_X, -8, X1, 8, MAT.cellFloor, 0);   // E cell block
   floorTile(X0, Z0, X1, -8, MAT.messFloor, 0);           // mess hall
+  floorTile(X0, 8, -2, Z1, MAT.floor, 0);                // intake / booking
+  floorTile(-2, 8, 2, Z1, MAT.floor, 0);                 // south access corridor
   floorTile(2, 8, X1, Z1, MAT.medFloor, 0);              // medical
 
   // perimeter
