@@ -1,4 +1,4 @@
-/* statejail/interior.js — State Jail · rebuilt from scratch (premium pass)
+/* statejail/interior.js — State Jail · densified architecture pass
 
    ── Layout ─────────────────────────────────────────────────────────────
    Building: 26 × 36 m, two storeys (4.5 m each), full-height atrium ceiling
@@ -9,7 +9,7 @@
      z=18       South wall — sally port entrance (4 m gap) + metal detector
      z=8..18    Intake (W, x=-13..-2) · Central corridor (x=-2..2) · Medical (E, x=2..13)
      z=-8..8    Cell block W (x=-13..-8) · Atrium (x=-8..8) · Cell block E (x=8..13)
-     z=-18..-8  Mess hall (full width) — serving line, 4 long tables
+     z=-18..-8  Mess hall (full width) — serving line, tables, separated by wall
 
    UPPER FLOOR (y=4.5)
      Cells on both blocks (same x/z ranges as ground)
@@ -22,17 +22,17 @@
    CIRCULATION
      • Enter at z=18, metal detector
      • Walk north through corridor or intake/medical
-     • Into the atrium — guard desk center, picnic tables
+     • Into the atrium — guard desk, pillars, denser seating
      • Cells on both sides (4 per block, per floor)
      • Stairs on the SE side of the atrium to level 1
      • Upper cells accessed via catwalks
+     • Mess hall reached through doorways in the z=-8 wall
 
    ── Premium details ───────────────────────────────────────────────────
-   Steel-and-concrete palette, batched geometry (one draw call per
-   material), recessed ceiling light grid, emergency red lighting on cell
-   fronts, CCTV domes, safety stripes, cell numbers, guard desk with 3
-   monitors, medical exam bay with cabinets, sally-port metal detector,
-   floor drains, wall clocks, fire extinguishers. */
+   Steel-and-concrete palette, batched geometry, recessed ceiling light
+   grid, emergency red lighting, CCTV, safety stripes, cell numbers,
+   guard desk with monitors, medical bay, sally-port, floor drains,
+   pillars, denser furniture, clear zone separation. */
 
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -140,7 +140,7 @@ export async function buildInterior(router) {
     uses.push({ kind, label, x, z, y: lv * WH, r: r || 1.8, level: lv, data: data || null });
   }
 
-  /* ── canvas sign helper (in-scene so it gets a scene.add) ── */
+  /* ── canvas sign helper ── */
   function sign3d(text, x, y, z, w, h, ry, bg, fg) {
     const c = document.createElement("canvas");
     c.width = 512;
@@ -239,29 +239,32 @@ export async function buildInterior(router) {
     }
   }
 
+  /* Simple square pillar (floor to upper or full height) */
+  function pillar(x, z, h = WH2) {
+    B(0.55, h, 0.55, x, h / 2, z, MAT.concrete);
+    B(0.65, 0.12, 0.65, x, 0.06, z, MAT.concrete);           // base
+    B(0.65, 0.10, 0.65, x, h - 0.05, z, MAT.concrete);        // capital
+    addColBox(x, z, 0.32, 0.32, 0, h);
+  }
+
   /* Cell furniture — bed length along depth (X), head against back wall,
      toilet/sink in rear +Z corner, stool near the bars. */
   function cellFurnish(xFront, dir, zc, level) {
     const y0 = level * WH;
 
     /* ── bed (oriented along X / into the cell) ── */
-    const bedLen = 1.90;   // along X (depth)
-    const bedWid = 0.95;   // along Z
+    const bedLen = 1.90;
+    const bedWid = 0.95;
     const bedInsetFromBack = 0.35;
     const bx = xFront + dir * (CELL_X - bedInsetFromBack - bedLen / 2);
-    const bedZ = zc - 0.75;   // shift toward -Z to leave +Z rear corner free
+    const bedZ = zc - 0.75;
 
-    // steel frame
     B(bedLen, 0.12, bedWid, bx, y0 + 0.55, bedZ, MAT.steel);
-    // mattress
     B(bedLen - 0.06, 0.20, bedWid - 0.06, bx, y0 + 0.71, bedZ, MAT.mattress);
-    // pillow at head (toward back wall)
     const headX = bx + dir * (bedLen / 2 - 0.28);
     B(0.42, 0.14, 0.48, headX, y0 + 0.90, bedZ, MAT.white);
-    // blanket toward the foot (front of cell)
     const footX = bx - dir * (bedLen / 2 - 0.55);
     B(0.95, 0.06, bedWid - 0.08, footX, y0 + 0.82, bedZ, MAT.orange);
-    // four legs
     const halfL = bedLen / 2 - 0.10;
     const halfW = bedWid / 2 - 0.10;
     for (const sx of [-1, 1]) for (const sz of [-1, 1])
@@ -277,17 +280,16 @@ export async function buildInterior(router) {
     B(0.50, 0.28, 0.18, toiletX, y0 + 0.42, toiletZ + 0.18, MAT.white);
     addSeat("toilet", "USE TOILET", toiletX, toiletZ, 0, 0.44, level);
 
-    /* ── sink — mounted near toilet, slightly toward cell centre ── */
+    /* ── sink ── */
     B(0.55, 0.10, 0.35, toiletX, y0 + 0.85, toiletZ - 0.55, MAT.white);
     C(0.045, 0.045, 0.28, 6, toiletX, y0 + 1.00, toiletZ - 0.70, MAT.steel);
     addUse("sink", "WASH", toiletX, toiletZ - 0.55, 1.2, level);
 
-    /* ── stool — near the bars so inmate can sit facing outward ── */
+    /* ── stool near the bars ── */
     const stoolX = xFront + dir * 1.25;
     const stoolZ = zc - 1.30;
     B(0.38, 0.06, 0.38, stoolX, y0 + 0.45, stoolZ, MAT.wood);
     C(0.04, 0.04, 0.40, 6, stoolX, y0 + 0.22, stoolZ, MAT.steel);
-    // face the bars (outward)
     const stoolYaw = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
     addSeat("sit", "SIT", stoolX, stoolZ, stoolYaw, 0.50, level);
   }
@@ -296,49 +298,53 @@ export async function buildInterior(router) {
      GROUND FLOOR SLABS + PERIMETER WALLS
      ═══════════════════════════════════════════════════════════════════ */
   slab(X0, Z0, X1, Z1, MAT.concrete, 0);
-  B(W, 0.15, D, 0, WH2 + 0.075, 0, MAT.ceil);   // ceiling
+  B(W, 0.15, D, 0, WH2 + 0.075, 0, MAT.ceil);
 
-  /* outer walls — full double height, all block both floors */
+  /* outer walls — full double height */
   B(W, WH2, 0.3, 0, WH2 / 2, Z0, MAT.wall);
   addColBox(0, Z0, W / 2, 0.15, 0, WH2, 0); addColBox(0, Z0, W / 2, 0.15, 0, WH2, 1);
   B(0.3, WH2, D, X0, WH2 / 2, 0, MAT.wall);
   addColBox(X0, 0, 0.15, D / 2, 0, WH2, 0); addColBox(X0, 0, 0.15, D / 2, 0, WH2, 1);
   B(0.3, WH2, D, X1, WH2 / 2, 0, MAT.wall);
   addColBox(X1, 0, 0.15, D / 2, 0, WH2, 0); addColBox(X1, 0, 0.15, D / 2, 0, WH2, 1);
+
   /* south wall with 4 m sally-port gap */
   wallX(Z1, X0, -2, [], MAT.wall);
   wallX(Z1, 2, X1, [], MAT.wall);
-  B(4, 2.4, 0.3, 0, 1.2, Z1, MAT.dark);                 // rollup door (visual)
+  B(4, 2.4, 0.3, 0, 1.2, Z1, MAT.dark);
   B(4, 0.3, 0.3, 0, 2.7, Z1, MAT.steel);
   B(4.2, WH2 - 3.0, 0.3, 0, 3.0 + (WH2 - 3.0) / 2, Z1, MAT.wall);
-  /* south wall colliders only cover the actual wall segments (not the 4 m gap) */
   addColBox(-7.5, Z1, 5.5, 0.15, 0, WH2, 0); addColBox(-7.5, Z1, 5.5, 0.15, 0, WH2, 1);
   addColBox(7.5, Z1, 5.5, 0.15, 0, WH2, 0);  addColBox(7.5, Z1, 5.5, 0.15, 0, WH2, 1);
 
-  /* interior walls — ground only, both floors tall on some */
-  /* z=8 boundary */
-  wallX(8, X0, X0 + CELL_X, [], MAT.wall);       // cell block W ↔ intake
-  wallX(8, X1 - CELL_X, X1, [], MAT.wall);       // cell block E ↔ medical
-  /* z=-8 boundary */
-  wallX(-8, X0, X0 + CELL_X, [], MAT.wall);      // cell block W ↔ mess
-  wallX(-8, X1 - CELL_X, X1, [], MAT.wall);      // cell block E ↔ mess
+  /* interior walls — ground */
+  /* z=8 boundary (intake / medical vs atrium) */
+  wallX(8, X0, X0 + CELL_X, [], MAT.wall);
+  wallX(8, X1 - CELL_X, X1, [], MAT.wall);
+  /* central corridor walls at z=8 also get short segments */
+  wallX(8, -2, 2, [{ at: 0, w: 2.4 }], MAT.wall);
+
   /* x=-2 / x=2 corridor walls (intake/medical separators) */
   wallZ(-2, 8, 15, [{ at: 11, w: 2 }], MAT.wall);
   wallZ(2, 8, 15, [{ at: 11, w: 2 }], MAT.wall);
+
+  /* ── KEY FIX: full wall at z=-8 separating atrium from mess hall ── */
+  /* side segments already cover cell blocks; now close the centre with doors */
+  wallX(-8, X0, X0 + CELL_X, [], MAT.wall);          // W cell block
+  wallX(-8, X1 - CELL_X, X1, [], MAT.wall);          // E cell block
+  wallX(-8, -8, 8, [                                 // centre atrium → mess
+    { at: -4.0, w: 2.4 },
+    { at:  4.0, w: 2.4 }
+  ], MAT.wall);
 
   /* ═══════════════════════════════════════════════════════════════════
      CELL BLOCKS — 4 cells per block per floor
      ═══════════════════════════════════════════════════════════════════ */
   function buildCellBlock(side) {
-    /* side = -1 (W) or +1 (E) */
     const xFront = side < 0 ? CELL_FRONT_W : CELL_FRONT_E;
     const xBack  = side < 0 ? X0 : X1;
-    /* FIXED: into-cell direction is the same sign as side
-       W (side=-1) → dir=-1 (toward x=-13)
-       E (side=+1) → dir=+1 (toward x=+13) */
-    const dir = side;
+    const dir = side;   // W:-1, E:+1
 
-    /* cell side walls (between cells + outer boundary) */
     const zwalls = [-8, -4, 0, 4, 8];
     for (const zw of zwalls) {
       B(CELL_X, WH2, 0.16, (xFront + xBack) / 2, WH2 / 2, zw, MAT.cellWall);
@@ -347,29 +353,23 @@ export async function buildInterior(router) {
     }
 
     for (const zc of CELL_ZC) {
-      /* horizontal bar rails (two layers, one per storey) */
       for (const yb of [0, WH]) {
         B(0.12, 0.12, CELL_Z, xFront, yb + 0.35, zc, MAT.bar);
         B(0.12, 0.12, CELL_Z, xFront, yb + WH - 0.35, zc, MAT.bar);
-        /* vertical bars: 10 per cell, gap where door opens */
         const nB = 10;
         for (let i = 0; i < nB; i++) {
           const bz = zc - CELL_Z / 2 + 0.15 + i * (CELL_Z - 0.3) / (nB - 1);
-          if (Math.abs(bz - zc) < 0.55) continue;   // door gap
+          if (Math.abs(bz - zc) < 0.55) continue;
           B(0.07, WH - 0.7, 0.07, xFront, yb + (WH - 0.7) / 2 + 0.35, bz, MAT.bar);
         }
-        /* door frame posts */
         B(0.18, WH - 0.4, 0.18, xFront, yb + (WH - 0.4) / 2 + 0.2, zc - 0.55, MAT.steel);
         B(0.18, WH - 0.4, 0.18, xFront, yb + (WH - 0.4) / 2 + 0.2, zc + 0.55, MAT.steel);
-        /* collider for the barred front, skipping the door gap */
         addColBox(xFront, zc - CELL_Z / 2 + 1.05, 0.06, CELL_Z / 2 - 1.05, yb, yb + WH - 0.7, yb > 0 ? 1 : 0);
         addColBox(xFront, zc + CELL_Z / 2 - 0.55, 0.06, 0.55, yb, yb + WH - 0.7, yb > 0 ? 1 : 0);
       }
-      /* interior furniture both floors */
       cellFurnish(xFront, dir, zc, 0);
       cellFurnish(xFront, dir, zc, 1);
 
-      /* sliding door panels (one per storey) */
       for (const level of [0, 1]) {
         const yb = level * WH;
         const panel = new THREE.Group();
@@ -401,7 +401,6 @@ export async function buildInterior(router) {
         });
       }
 
-      /* cell number plaque */
       for (const yb of [0, WH]) {
         B(0.5, 0.26, 0.03, xFront, yb + 3.55, zc, MAT.dark);
         B(0.34, 0.16, 0.02, xFront, yb + 3.55, zc + 0.02, MAT.glow);
@@ -424,7 +423,6 @@ export async function buildInterior(router) {
       B(3, stepH, dz * 0.96, 6.5, y, z, MAT.concrete);
       B(2.95, 0.03, 0.07, 6.5, y + stepH / 2 + 0.01, z - dz * 0.44, MAT.warn);
     }
-    /* solid stringer wall (west side of stairs, blocks both floors) */
     for (let i = 0; i < NST; i++) {
       const z = 8 - i * dz - dz / 2;
       const sh = stepH * (i + 1);
@@ -432,7 +430,6 @@ export async function buildInterior(router) {
     }
     addColBox(5, 6, 0.09, 2.05, 0, WH2, 0);
     addColBox(5, 6, 0.09, 2.05, 0, WH2, 1);
-    /* handrail */
     const ang = Math.atan2(WH, 4);
     const len = Math.hypot(4, WH);
     const rail = new THREE.CylinderGeometry(0.04, 0.04, len, 8);
@@ -442,33 +439,55 @@ export async function buildInterior(router) {
   }
 
   /* ═══════════════════════════════════════════════════════════════════
-     ATRIUM — guard desk, picnic tables, drains
+     ATRIUM — densified: pillars, more tables, side benches, structure
      ═══════════════════════════════════════════════════════════════════ */
   {
-    /* guard desk at centre */
+    /* structural pillars that break the large volume */
+    pillar(-5.2, -5.2);
+    pillar( 5.2, -5.2);
+    pillar(-5.2,  5.2);
+    pillar( 5.2,  5.2);
+    /* two extra lower pillars under the bridge line for visual weight */
+    B(0.45, WH, 0.45, -3.5, WH / 2, 0, MAT.concrete);
+    B(0.45, WH, 0.45,  3.5, WH / 2, 0, MAT.concrete);
+    addColBox(-3.5, 0, 0.28, 0.28, 0, WH);
+    addColBox( 3.5, 0, 0.28, 0.28, 0, WH);
+
+    /* main guard desk (centre) */
     B(3.2, 1.0, 1.2, 0, 0.5, 0, MAT.steel);
     B(3.4, 0.1, 1.35, 0, 1.02, 0, MAT.steelDk);
     addColBox(0, 0, 1.7, 0.65, 0, 1.1);
-    /* CCTV monitors on the desk */
     for (let i = 0; i < 3; i++) {
       B(0.55, 0.4, 0.05, -0.8 + i * 0.8, 1.5, -0.2, MAT.monitor);
       B(0.06, 0.06, 0.2, -0.8 + i * 0.8, 1.5, 0.05, MAT.dark);
     }
-    /* radio */
     B(0.24, 0.16, 0.14, 1.0, 1.12, 0.2, MAT.dark);
     chair(0, 0.9, Math.PI, MAT.steelDk);
+    /* secondary low barrier / counter extension */
+    B(1.6, 0.9, 0.5, -2.6, 0.45, 0.1, MAT.steelDk);
+    B(1.6, 0.9, 0.5,  2.6, 0.45, 0.1, MAT.steelDk);
 
-    /* picnic tables scattered */
-    picnicTable(-3.5, 4);
-    picnicTable(3.5, 4);
-    picnicTable(-3.5, -4);
-    picnicTable(3.5, -4);
+    /* denser picnic / seating clusters */
+    picnicTable(-3.8,  3.8);
+    picnicTable( 3.8,  3.8);
+    picnicTable(-3.8, -3.8);
+    picnicTable( 3.8, -3.8);
+    /* extra smaller tables closer to centre */
+    picnicTable(-2.2,  1.8);
+    picnicTable( 2.2, -1.8);
 
-    /* central floor drain */
+    /* long benches along the outside of the cell fronts (atrium side) */
+    for (const zc of [-6, -2, 2, 6]) {
+      bench(CELL_FRONT_W + 1.4, zc, 2.6, Math.PI / 2);   // west side, facing into atrium
+      bench(CELL_FRONT_E - 1.4, zc, 2.6, -Math.PI / 2);  // east side
+    }
+
+    /* central floor drains + safety markings */
     B(1.2, 0.02, 1.2, 0, 0.02, -2.5, MAT.dark);
     for (let i = 0; i < 5; i++) B(1.0, 0.03, 0.1, 0, 0.03, -2.9 + i * 0.2, MAT.dark);
+    B(0.8, 0.02, 0.8, 0, 0.02,  2.8, MAT.dark);
 
-    /* wall-mounted emergency lights (red) above cell fronts */
+    /* wall-mounted emergency lights above cell fronts */
     for (const zc of CELL_ZC) {
       for (const xf of [CELL_FRONT_W, CELL_FRONT_E]) {
         B(0.16, 0.5, 0.2, xf, 3.0, zc, MAT.steel);
@@ -476,7 +495,7 @@ export async function buildInterior(router) {
       }
     }
 
-    /* CCTV domes at four corners of the atrium ceiling */
+    /* CCTV domes */
     for (const [cx, cz] of [[-7.5, -7.5], [7.5, -7.5], [-7.5, 7.5], [7.5, 7.5]]) {
       C(0.15, 0.15, 0.18, 10, cx, WH2 - 0.2, cz, MAT.dark);
       S(0.1, cx, WH2 - 0.32, cz, MAT.black);
@@ -485,30 +504,27 @@ export async function buildInterior(router) {
     /* signage */
     sign3d("CELL BLOCK A", CELL_FRONT_W + 0.3, WH2 - 0.6, 0, 2.0, 0.4, Math.PI / 2, "#2a2c30", "#d8d8d8");
     sign3d("CELL BLOCK B", CELL_FRONT_E - 0.3, WH2 - 0.6, 0, 2.0, 0.4, -Math.PI / 2, "#2a2c30", "#d8d8d8");
+    sign3d("MESS HALL →", 0, 2.8, -7.85, 2.4, 0.4, 0, "#2a2c30", "#d8d8d8");
   }
 
   /* ═══════════════════════════════════════════════════════════════════
-     MESS HALL — z=-18..-8
+     MESS HALL — z=-18..-8 (now properly separated)
      ═══════════════════════════════════════════════════════════════════ */
   {
-    /* serving counter along north wall */
+    /* serving counter */
     B(12, 1.0, 1.0, 0, 0.5, -16.7, MAT.steel);
     B(12.2, 0.1, 1.15, 0, 1.02, -16.7, MAT.steelDk);
     B(11.8, 0.06, 0.9, 0, 1.08, -16.7, MAT.white);
-    /* sneeze guard */
     B(12, 0.04, 0.04, 0, 1.7, -16.3, MAT.glass);
     B(12, 0.5, 0.03, 0, 1.45, -16.3, MAT.glass);
     addColBox(0, -16.7, 6, 0.55, 0, 1.15);
     addUse("cook", "SERVE FOOD", 0, -15.5, 2.2);
 
-    /* pots on the counter */
     for (let i = 0; i < 5; i++)
       C(0.28, 0.28, 0.32, 10, -3.6 + i * 1.8, 1.24, -16.7, MAT.steel);
 
-    /* 3 rows of 3 tables — fits cleanly inside the 26 m wide mess hall
-       leaving 1 m aisles on each side and between tables.
-       Rows:  z=-14 (deep), z=-11.5 (mid), z=-9.5 (near serving side)  */
-    const tableZs = [-14, -11.5, -9.5];
+    /* denser table layout — 3 rows × 3 */
+    const tableZs = [-14.2, -11.8, -9.6];
     for (const tz of tableZs) {
       for (const tx of [-8.0, 0, 8.0]) {
         B(3.6, 0.1, 1.0, tx, 0.78, tz, MAT.wood);
@@ -517,28 +533,38 @@ export async function buildInterior(router) {
         addColBox(tx, tz, 1.8, 0.5, 0, 0.85);
         bench(tx, tz - 0.85, 3.4, 0);
         bench(tx, tz + 0.85, 3.4, Math.PI);
-        /* tray + cup on each table */
         B(0.5, 0.04, 0.36, tx - 0.6, 0.84, tz, MAT.red);
         C(0.1, 0.1, 0.12, 8, tx - 0.85, 0.9, tz, MAT.white);
       }
     }
+
+    /* side benches + notice boards */
+    bench(-11.5, -13, 3.2, Math.PI / 2);
+    bench( 11.5, -13, 3.2, -Math.PI / 2);
+    B(1.8, 1.2, 0.06, -11.8, 2.0, -9.2, MAT.dark);
+    B(1.6, 1.0, 0.02, -11.8, 2.0, -9.18, MAT.screen);
+    B(1.8, 1.2, 0.06,  11.8, 2.0, -9.2, MAT.dark);
+    B(1.6, 1.0, 0.02,  11.8, 2.0, -9.18, MAT.screen);
 
     /* wall safety stripes */
     B(W, 0.14, 0.06, 0, 1.3, Z0 + 0.16, MAT.warn);
     B(0.06, 0.14, 8, X0 + 0.16, 1.3, -13, MAT.warn);
     B(0.06, 0.14, 8, X1 - 0.16, 1.3, -13, MAT.warn);
 
-    /* emergency exit (visual) */
+    /* emergency exit visual */
     B(2.0, 2.6, 0.15, -8, 1.3, Z0 + 0.16, MAT.dark);
     B(2.2, 0.14, 0.2, -8, 2.7, Z0 + 0.16, MAT.steel);
     B(1.4, 0.9, 0.05, -8, 2.0, Z0 + 0.24, MAT.screen);
 
-    /* signage */
-    sign3d("MESS HALL", 0, 3.2, -8.1, 3.2, 0.5, 0, "#2a2c30", "#d8d8d8");
+    /* trash / recycling bins near serving */
+    C(0.28, 0.28, 0.7, 10, -6.5, 0.35, -15.5, MAT.dark);
+    C(0.28, 0.28, 0.7, 10,  6.5, 0.35, -15.5, MAT.dark);
+
+    sign3d("MESS HALL", 0, 3.2, -8.15, 3.2, 0.5, Math.PI, "#2a2c30", "#d8d8d8");
   }
 
   /* ═══════════════════════════════════════════════════════════════════
-     INTAKE — x=-13..-2, z=8..18
+     INTAKE — densified
      ═══════════════════════════════════════════════════════════════════ */
   {
     /* booking desk */
@@ -550,37 +576,42 @@ export async function buildInterior(router) {
     addColBox(-8, 12.5, 1.6, 0.6, 0, 1.15);
     addUse("booking", "BOOKING DESK", -8, 14.0, 2.0);
     chair(-8, 11.4, Math.PI, MAT.steelDk);
+    chair(-6.5, 11.6, Math.PI * 0.85, MAT.steelDk);   // second officer chair
 
-    /* mugshot height chart on wall */
+    /* filing cabinets */
+    B(0.9, 1.4, 0.5, -11.5, 0.7, 10.5, MAT.steelDk);
+    B(0.9, 1.4, 0.5, -11.5, 0.7, 11.2, MAT.steelDk);
+    addColBox(-11.5, 10.85, 0.5, 0.7, 0, 1.5);
+
+    /* mugshot height chart */
     B(0.6, 2.4, 0.08, -12.85, 1.6, 12.5, MAT.cream);
     for (let i = 0; i < 8; i++)
       B(0.4, 0.03, 0.06, -12.85, 0.5 + i * 0.28, 12.5, MAT.dark);
 
-    /* holding / intake waiting bench */
+    /* holding / waiting benches */
     bench(-10, 16, 3.0, 0);
-
-    /* visitor waiting benches — 4 benches along the east wall of intake
-       (x ≈ -3, facing west, two seats each = 8 visitor seat targets)    */
+    bench(-10, 14.2, 2.4, 0);
     for (const vz of [9.5, 11.5, 13.5, 15.5]) {
       bench(-3.5, vz, 2.4, -Math.PI / 2);
     }
 
-    /* coat rack */
+    /* coat rack + lockers */
     C(0.04, 0.04, 2.0, 6, -12.5, 1.0, 9, MAT.steel);
-    for (const [hx, hz] of [[-12.3, 9], [-12.7, 9]]) {
-      S(0.06, hx, 1.9, hz, MAT.steel);
-    }
+    for (const [hx, hz] of [[-12.3, 9], [-12.7, 9]]) S(0.06, hx, 1.9, hz, MAT.steel);
+    B(1.6, 1.8, 0.5, -12.2, 0.9, 14.5, MAT.steelDk);
+    B(0.02, 1.6, 0.45, -12.2, 0.9, 14.5, MAT.dark);
+    addColBox(-12.2, 14.5, 0.85, 0.3, 0, 1.9);
 
-    /* fire extinguisher */
+    /* fire extinguisher + extra props */
     C(0.1, 0.1, 0.5, 8, -3.5, 1.2, 17.8, MAT.red);
     B(0.14, 0.1, 0.14, -3.5, 1.5, 17.8, MAT.dark);
+    B(0.8, 0.9, 0.4, -5.5, 0.45, 17.2, MAT.dark);   // evidence / property box
 
-    /* signage */
     sign3d("INTAKE · BOOKING", -8, 3.2, 8.1, 3.4, 0.5, Math.PI, "#2a2c30", "#d8d8d8");
   }
 
   /* ═══════════════════════════════════════════════════════════════════
-     MEDICAL — x=2..13, z=8..18
+     MEDICAL — densified
      ═══════════════════════════════════════════════════════════════════ */
   {
     /* exam bed */
@@ -592,12 +623,15 @@ export async function buildInterior(router) {
     addColBox(8, 12, 0.55, 1.15, 0, 0.7);
     addUse("exam", "MEDICAL EXAM", 8, 13.7, 1.8);
 
-    /* medical cabinet */
+    /* medical cabinets */
     B(1.4, 1.8, 0.5, 12, 0.9, 9, MAT.white);
     for (let i = 0; i < 4; i++)
       B(1.3, 0.02, 0.02, 12, 0.3 + i * 0.45, 9.27, MAT.steel);
     B(0.3, 0.5, 0.05, 12, 1.4, 9.27, MAT.glass);
     addColBox(12, 9, 0.75, 0.3, 0, 1.85);
+    /* second cabinet */
+    B(1.2, 1.5, 0.45, 12, 0.75, 11.5, MAT.white);
+    addColBox(12, 11.5, 0.65, 0.28, 0, 1.6);
 
     /* sink */
     B(0.6, 0.1, 1.4, 3, 0.9, 9.5, MAT.white);
@@ -605,22 +639,32 @@ export async function buildInterior(router) {
     C(0.04, 0.04, 0.3, 6, 3, 1.1, 9.5, MAT.steel);
     addColBox(3, 9.5, 0.35, 0.75, 0, 1.1);
 
-    /* doctor's chair */
+    /* chairs + stool */
     chair(5.5, 11.5, -Math.PI / 2, MAT.steelDk);
+    chair(6.5, 14.0, Math.PI, MAT.steelDk);
+    B(0.4, 0.06, 0.4, 9.5, 0.45, 14.2, MAT.wood);
+    C(0.04, 0.04, 0.4, 6, 9.5, 0.22, 14.2, MAT.steel);
 
-    /* biohazard poster */
+    /* privacy screen / curtain rail */
+    B(0.06, 2.0, 0.06, 6.2, 1.5, 10.5, MAT.steel);
+    B(0.06, 2.0, 0.06, 9.8, 1.5, 10.5, MAT.steel);
+    B(3.6, 0.05, 0.05, 8, 2.5, 10.5, MAT.steel);
+    B(3.4, 1.6, 0.03, 8, 1.5, 10.5, MAT.cream);
+
+    /* biohazard + extra wall props */
     B(1.0, 1.4, 0.06, 10, 2.2, 8.15, MAT.warn);
     B(0.8, 1.2, 0.02, 10, 2.2, 8.13, MAT.dark);
+    B(0.7, 0.9, 0.4, 4.5, 0.45, 16.5, MAT.white);   // supply cart
+    C(0.08, 0.08, 0.15, 8, 4.3, 0.15, 16.3, MAT.steel);
+    C(0.08, 0.08, 0.15, 8, 4.7, 0.15, 16.7, MAT.steel);
 
-    /* signage */
     sign3d("MEDICAL", 8, 3.2, 8.1, 2.4, 0.5, Math.PI, "#2a2c30", "#d8d8d8");
   }
 
   /* ═══════════════════════════════════════════════════════════════════
-     SALLY PORT — entrance zone (z=15..18)
+     SALLY PORT
      ═══════════════════════════════════════════════════════════════════ */
   {
-    /* metal detector arch at x=0 */
     B(0.22, 2.4, 0.22, -0.85, 1.2, 16.5, MAT.steel);
     B(0.22, 2.4, 0.22, 0.85, 1.2, 16.5, MAT.steel);
     B(1.92, 0.22, 0.22, 0, 2.35, 16.5, MAT.steel);
@@ -628,47 +672,37 @@ export async function buildInterior(router) {
     addColBox(-0.85, 16.5, 0.15, 0.15, 0, 2.5);
     addColBox(0.85, 16.5, 0.15, 0.15, 0, 2.5);
 
-    /* guard booth (east side of entrance) */
     B(2.4, 2.4, 2.0, 4.5, 1.2, 16.5, MAT.steelDk);
     B(2.2, 1.8, 0.02, 4.5, 1.4, 15.5, MAT.glass);
     B(2.4, 0.15, 2.2, 4.5, 2.45, 16.5, MAT.steel);
     addColBox(4.5, 16.5, 1.2, 1.0, 0, 2.5);
 
-    /* warning signs */
     sign3d("AUTHORIZED PERSONNEL ONLY", 0, 3.2, 17.7, 4.0, 0.5, Math.PI, "#8a1a1a", "#f8f0e0");
     sign3d("ALL PERSONS SUBJECT TO SEARCH", -6, 2.6, 15.85, 4.0, 0.4, Math.PI, "#8a1a1a", "#f8f0e0");
-
-    /* warning stripe on floor */
     B(4, 0.02, 0.3, 0, 0.16, 16.5, MAT.warn);
   }
 
   /* ═══════════════════════════════════════════════════════════════════
-     UPPER FLOOR — catwalks, bridge, upper cells (already built above)
+     UPPER FLOOR — densified catwalks + more structure
      ═══════════════════════════════════════════════════════════════════ */
   {
-    /* slabs for walkable platforms */
-    /* W catwalk */
+    /* slabs */
     slab(-8, -8, -5, 8, MAT.concrete, WH);
-    /* E catwalk — extends to z=3 so it overlaps the stair top (z=4) cleanly */
     slab(5, -8, 8, 3, MAT.concrete, WH);
-    /* N catwalk */
     slab(-5, -8, 5, -6, MAT.concrete, WH);
-    /* S catwalk */
     slab(-5, 6, 5, 8, MAT.concrete, WH);
-    /* Bridge */
     slab(-5, -2, 5, 2, MAT.concrete, WH);
-    /* Upper cell floors (walkable through cell doors) */
     slab(X0, -8, CELL_FRONT_W, 8, MAT.concrete, WH);
     slab(CELL_FRONT_E, -8, X1, 8, MAT.concrete, WH);
 
-    /* slab edge trims (steel) */
+    /* edge trims */
     B(3, 0.12, 0.12, -6.5, WH - 0.06, 8, MAT.steel);
     B(3, 0.12, 0.12, -6.5, WH - 0.06, -8, MAT.steel);
     B(3, 0.12, 0.12, 6.5, WH - 0.06, -8, MAT.steel);
     B(0.12, 0.12, 16, -5, WH - 0.06, 0, MAT.steel);
     B(0.12, 0.12, 6, 5, WH - 0.06, -5, MAT.steel);
 
-    /* railings along all void edges (level 1 only) */
+    /* railings */
     function railing(x1, z1, x2, z2) {
       const len = Math.hypot(x2 - x1, z2 - z1);
       const n = Math.max(3, Math.round(len / 1.2));
@@ -684,40 +718,55 @@ export async function buildInterior(router) {
       rail.rotateY(ang);
       rail.translate((x1 + x2) / 2, WH + 1.02, (z1 + z2) / 2);
       push(rail, MAT.steel);
-      /* collider strip */
       const cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
       const hw = Math.abs(x2 - x1) / 2 + 0.05, hd = Math.abs(z2 - z1) / 2 + 0.05;
       colliders.push({ minX: cx - hw, maxX: cx + hw, minZ: cz - hd, maxZ: cz + hd, y0: WH, y1: WH + 1.2, level: 1 });
     }
-    /* W catwalk inner edge (atrium-void side at x=-5) */
-    railing(-5, -8, -5, -6);  // north section (gap at bridge)
-    railing(-5, 6, -5, 8);    // south section (gap at bridge)
-    /* E catwalk inner edge (atrium-void side at x=5) */
+    railing(-5, -8, -5, -6);
+    railing(-5, 6, -5, 8);
     railing(5, -8, 5, -6);
     railing(5, 6, 5, 4);
-    /* N catwalk inner edge */
     railing(-5, -6, 5, -6);
-    /* S catwalk inner edge */
     railing(-5, 6, 5, 6);
-    /* Bridge edges */
     railing(-5, -2, 5, -2);
     railing(-5, 2, 5, 2);
 
-    /* corner posts */
     for (const [px, pz] of [[-5, 8], [-5, -8], [5, -8], [5, -6], [5, 6], [-5, 6], [-5, -2], [5, -2], [-5, 2], [5, 2]])
       C(0.1, 0.1, 1.3, 8, px, WH + 0.65, pz, MAT.steel);
 
-    /* guard tower on N catwalk */
+    /* main guard tower on N catwalk */
     B(2.4, 2.0, 1.6, 0, WH + 1.0, -7, MAT.steelDk);
     B(2.2, 1.6, 0.02, 0, WH + 1.0, -6.2, MAT.glass);
     B(2.6, 0.15, 1.8, 0, WH + 2.05, -7, MAT.steel);
     addColBox(0, -7, 1.3, 0.9, WH, WH + 2.2, 1);
-    /* desk + monitors inside */
     B(1.8, 0.7, 0.5, 0, WH + 0.35, -7.3, MAT.dark);
     for (let i = 0; i < 2; i++)
       B(0.55, 0.4, 0.05, -0.5 + i, WH + 1.0, -7.35, MAT.monitor);
 
-    /* cell numbers for upper cells */
+    /* secondary small observation post on S catwalk */
+    B(1.8, 1.6, 1.2, 0, WH + 0.8, 7, MAT.steelDk);
+    B(1.6, 1.2, 0.02, 0, WH + 0.8, 6.4, MAT.glass);
+    B(2.0, 0.12, 1.4, 0, WH + 1.65, 7, MAT.steel);
+    addColBox(0, 7, 1.0, 0.7, WH, WH + 1.8, 1);
+
+    /* benches on upper catwalks so the level feels occupied */
+    // N catwalk
+    B(2.2, 0.12, 0.5, -2.5, WH + 0.45, -7.2, MAT.bench);
+    B(2.2, 0.12, 0.5,  2.5, WH + 0.45, -7.2, MAT.bench);
+    // S catwalk
+    B(2.0, 0.12, 0.5, -2.8, WH + 0.45, 7.1, MAT.bench);
+    B(2.0, 0.12, 0.5,  2.8, WH + 0.45, 7.1, MAT.bench);
+    // W catwalk
+    B(0.5, 0.12, 2.4, -6.5, WH + 0.45, 0, MAT.bench);
+    // E catwalk
+    B(0.5, 0.12, 2.0, 6.5, WH + 0.45, -2, MAT.bench);
+
+    /* storage / equipment boxes on catwalks */
+    B(0.8, 0.7, 0.6, -6.6, WH + 0.35, 5.5, MAT.dark);
+    B(0.8, 0.7, 0.6, -6.6, WH + 0.35, -5.5, MAT.dark);
+    B(0.7, 0.6, 0.55, 6.5, WH + 0.3, -5.5, MAT.dark);
+
+    /* upper cell number plaques */
     for (const zc of CELL_ZC) {
       for (const xf of [CELL_FRONT_W, CELL_FRONT_E]) {
         B(0.5, 0.26, 0.03, xf, WH + 3.55, zc, MAT.dark);
@@ -730,20 +779,15 @@ export async function buildInterior(router) {
      CEILING LIGHT GRID
      ═══════════════════════════════════════════════════════════════════ */
   {
-    /* ceiling light grid — 4 columns × 6 rows, centred in the building footprint
-       Column xs: -9.5, -3.2, 3.2, 9.5  (clear of outer walls at ±13 and inner x=±8)
-       Row zs spaced 6 m from z=-15 to z=+15                                      */
     const lightXs = [-9.5, -3.2, 3.2, 9.5];
     const lightZs = [-15, -9, -3, 3, 9, 15];
     for (const px of lightXs) for (const pz of lightZs) {
       B(1.6, 0.08, 0.9, px, WH2 - 0.04, pz, MAT.glow);
     }
-    /* additional lower-ceiling lights for upper cell-block corridors */
     for (const pz of lightZs) {
       B(1.2, 0.08, 0.7, -10.5, WH + WH - 0.04, pz, MAT.glow);
       B(1.2, 0.08, 0.7, 10.5,  WH + WH - 0.04, pz, MAT.glow);
     }
-    /* red emergency light grid near cell blocks */
     for (const zc of CELL_ZC) {
       B(0.3, 0.1, 0.3, CELL_FRONT_W + 0.5, WH - 0.05, zc, MAT.emRed);
       B(0.3, 0.1, 0.3, CELL_FRONT_E - 0.5, WH - 0.05, zc, MAT.emRed);
@@ -770,13 +814,13 @@ export async function buildInterior(router) {
       axis: "z", y0: WH, y1: 0, level: 0, toLevel: 1,
     }],
     platforms: [
-      { level: 1, minX: X0, maxX: CELL_FRONT_W, minZ: -8, maxZ: 8, h: WH },  // upper cells W
-      { level: 1, minX: CELL_FRONT_E, maxX: X1, minZ: -8, maxZ: 8, h: WH },  // upper cells E
-      { level: 1, minX: -8, maxX: -5, minZ: -8, maxZ: 8, h: WH },           // W catwalk
-      { level: 1, minX: 5, maxX: 8, minZ: -8, maxZ: 3, h: WH },             // E catwalk
-      { level: 1, minX: -5, maxX: 5, minZ: -8, maxZ: -6, h: WH },           // N catwalk
-      { level: 1, minX: -5, maxX: 5, minZ: 6, maxZ: 8, h: WH },             // S catwalk
-      { level: 1, minX: -5, maxX: 5, minZ: -2, maxZ: 2, h: WH },            // bridge
+      { level: 1, minX: X0, maxX: CELL_FRONT_W, minZ: -8, maxZ: 8, h: WH },
+      { level: 1, minX: CELL_FRONT_E, maxX: X1, minZ: -8, maxZ: 8, h: WH },
+      { level: 1, minX: -8, maxX: -5, minZ: -8, maxZ: 8, h: WH },
+      { level: 1, minX: 5, maxX: 8, minZ: -8, maxZ: 3, h: WH },
+      { level: 1, minX: -5, maxX: 5, minZ: -8, maxZ: -6, h: WH },
+      { level: 1, minX: -5, maxX: 5, minZ: 6, maxZ: 8, h: WH },
+      { level: 1, minX: -5, maxX: 5, minZ: -2, maxZ: 2, h: WH },
     ],
     levelHeight: () => 0,
     ceilingHeight: (level) => level === 1 ? WH : WH2,
@@ -813,7 +857,6 @@ export async function buildInterior(router) {
       const target = (!d.locked && near) ? 1 : 0;
       d.t += Math.max(-1, Math.min(1, target - d.t)) * Math.min(1, dt * 3.5);
       if (Math.abs(target - d.t) < 0.02) d.t = target;
-      /* panel slides UP as it opens (y animates from yBase+1.1 to yBase+3.3) */
       d.panel.position.y = d.yBase + 1.1 + d.t * 2.2;
       d.light.material.color.setHex(d.locked ? 0xe03a30 : 0x40d060);
       const shouldBlock = d.t < 0.5;
@@ -831,18 +874,15 @@ export async function buildInterior(router) {
      ═══════════════════════════════════════════════════════════════════ */
   const START = { x: 0, z: 16, yaw: 0 };
 
-  /* story link: sentenced player spawns inside a random cell */
   const P0 = window.__ph3d_prison;
   if (P0 && P0.inJail) {
     const westCell = Math.random() < 0.5;
     const zc = CELL_ZC[Math.floor(Math.random() * CELL_ZC.length)];
     const xFront = westCell ? CELL_FRONT_W : CELL_FRONT_E;
-    /* FIXED: spawn properly inside the cell */
     const dir = westCell ? -1 : 1;
     START.x = xFront + dir * 2.0;
     START.z = zc;
     START.yaw = westCell ? -Math.PI / 2 : Math.PI / 2;
-    /* lock the corresponding cell door */
     const target = doors.find(d =>
       d.level === 0 &&
       Math.abs(d.xFront - xFront) < 0.1 &&
@@ -879,9 +919,6 @@ export async function buildInterior(router) {
     },
   });
 
-  /* ═══════════════════════════════════════════════════════════════════
-     RETURN
-     ═══════════════════════════════════════════════════════════════════ */
   return {
     three: scene,
     camera,
@@ -893,7 +930,6 @@ export async function buildInterior(router) {
     isInterior: true,
     sceneId: "statejail",
     update: (dt) => {
-      /* sub-step so a lag spike cannot tunnel through thin bars */
       let r = Math.min(dt, 0.25);
       while (r > 1e-6) {
         const t = Math.min(r, 1 / 60);
