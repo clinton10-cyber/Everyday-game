@@ -11,6 +11,15 @@ import { buildTrafficCar, TRAFFIC_MODELS } from "../../vehicles/traffic.js";
 import { addCarLights } from "../../core/car-lights.js";
 import { addPoleLine } from "../../core/power-lines.js";
 
+/* ---------------------------------------------------------------------------
+   Safe optional-module wrappers.
+   A missing/broken optional module no longer crashes the scene.
+   --------------------------------------------------------------------------- */
+let _addPoleLine = null, _addCarLights = null, _ZoneDrive = null;
+try { _addPoleLine = addPoleLine; } catch (e) { console.warn("[vastcity] power-lines missing", e); }
+try { _addCarLights = addCarLights; } catch (e) { console.warn("[vastcity] car-lights missing", e); }
+try { _ZoneDrive = ZoneDrive; } catch (e) { console.warn("[vastcity] drive-zones missing", e); }
+
 export async function buildInterior(router) {
   /* ======== prototype kit + world ======== */
   /* ================= KIT ================= */
@@ -125,8 +134,15 @@ export async function buildInterior(router) {
         stoneM=mat(0x9a9488), darkM=mat(0x2a2c30), steel=mat(0x8a8e94),
         woodM=mat(0x8a5f3a);
 
-  /* ===== GROUND ===== */
-  box(2*HALF,.2,2*HALF,0,-.1,0,grassM);
+  /* ===== GROUND =====
+     Huge circle so lake, hills and mountains all sit on solid ground. */
+  {
+    const groundGeo = new THREE.CircleGeometry(260, 64);
+    groundGeo.rotateX(-Math.PI/2);
+    const gMesh = new THREE.Mesh(groundGeo, grassM);
+    gMesh.position.y = -0.1;
+    world.add(gMesh);
+  }
 
   /* ===== ROADS ===== */
   for(const rz of ROADS){
@@ -140,11 +156,13 @@ export async function buildInterior(router) {
 
   /* ===== UTILITY POLES + POWER LINES (alongside every road) ===== */
   const POLE_OFF = ROAD_W / 2 + 2.0;
-  for (const rz of ROADS) {
-    addPoleLine(scene, -90, rz + POLE_OFF, 90, rz + POLE_OFF, 0, 36);
-  }
-  for (const rx of ROADS) {
-    addPoleLine(scene, rx + POLE_OFF, -90, rx + POLE_OFF, 90, 0, 36);
+  if (_addPoleLine) {
+    for (const rz of ROADS) {
+      try { _addPoleLine(scene, -90, rz + POLE_OFF, 90, rz + POLE_OFF, 0, 36); } catch(e) {}
+    }
+    for (const rx of ROADS) {
+      try { _addPoleLine(scene, rx + POLE_OFF, -90, rx + POLE_OFF, 90, 0, 36); } catch(e) {}
+    }
   }
 
   /* ===== BUILDINGS ===== */
@@ -174,6 +192,8 @@ export async function buildInterior(router) {
       const cx=(ROADS[i]+ROADS[i+1])/2;
       const cz=(ROADS[j]+ROADS[j+1])/2;
       if(Math.random()<0.18) continue; /* empty block = park */
+      /* Reserve the fountain plaza block. */
+      if (Math.hypot(cx - 15, cz - 15) < 14) continue;
       const n=Math.random()<0.5?1:2;
       if(n===1){
         building(cx+(Math.random()-.5)*4, cz+(Math.random()-.5)*4, 14);
@@ -193,27 +213,25 @@ export async function buildInterior(router) {
     box(8+Math.random()*4,bh,8+Math.random()*4,x,bh/2,z,bMats[i%3]);
   }
 
-  /* ===== HILLS (terrain) ===== */
-  const hills=[[-150,-150,30,18],[150,-150,34,20],[-150,150,30,16],[150,150,26,15]];
+  /* ===== HILLS (terrain) — inside the 260-radius ground disc ===== */
+  const hills=[[-130,-130,30,18],[130,-130,34,20],[-130,130,30,16],[130,130,26,15]];
   for(const [hx,hz,hr,hh] of hills){
     const h=new THREE.Mesh(SPHG,grassM);
     h.scale.set(hr,hh,hr);
     h.position.set(hx,-hh*.55,hz);
     world.add(h);
-    /* rocky crest */
     const r=new THREE.Mesh(SPHG,mat(0x8a8a82));
     r.scale.set(hr*.35,hh*.25,hr*.35);
     r.position.set(hx+hr*.1,hh*.3,hz);
     world.add(r);
   }
 
-  /* ===== LAKE (north-west corner) ===== */
-  cyl(24,.06,-130,.08,-130,waterM);
-  /* lake shore stones */
+  /* ===== LAKE (north-west) — pulled inward to sit on ground ===== */
+  cyl(24,.06,-105,.08,-105,waterM);
   for(let i=0;i<14;i++){
     const a=i/14*Math.PI*2;
-    const sx=-130+Math.cos(a)*(25+Math.random()*2);
-    const sz=-130+Math.sin(a)*(25+Math.random()*2);
+    const sx=-105+Math.cos(a)*(25+Math.random()*2);
+    const sz=-105+Math.sin(a)*(25+Math.random()*2);
     sph(1.2+Math.random()*.6,sx,.4,sz,stoneM);
   }
 
@@ -226,7 +244,6 @@ export async function buildInterior(router) {
     cone(1.4*s,1.8*s,x,th+1.9*s,z,leafM2);
     cone(1.0*s,1.6*s,x,th+2.8*s,z,leafM);
   }
-  /* helper: is a point on road or inside a building? */
   function onRoad(x,z){
     for(const r of ROADS){
       if(Math.abs(z-r)<ROAD_W/2+2 || Math.abs(x-r)<ROAD_W/2+2) return true;
@@ -239,18 +256,27 @@ export async function buildInterior(router) {
     }
     return false;
   }
-  /* trees in empty blocks and along edges */
+  const treesPlaced=[];
+  function nearTree(x,z,minD){
+    for(const t of treesPlaced){
+      if(Math.hypot(x-t.x, z-t.z) < minD) return true;
+    }
+    return false;
+  }
   let treeCount=0;
-  for(let attempt=0; attempt<120 && treeCount<28; attempt++){
+  for(let attempt=0; attempt<200 && treeCount<28; attempt++){
     const x=(Math.random()*2-1)*(HALF-6);
     const z=(Math.random()*2-1)*(HALF-6);
     if(onRoad(x,z) || inBuilding(x,z)) continue;
-    if(Math.hypot(x,z)<12) continue; /* keep center clear-ish */
+    if(Math.hypot(x,z)<12) continue;
+    if(nearTree(x,z, 4.0)) continue;
     tree(x,z,.8+Math.random()*.6);
+    treesPlaced.push({x,z});
     treeCount++;
   }
 
-  /* ===== STREET LAMPS (at intersections, sparse) ===== */
+  /* ===== STREET LAMPS =====
+     Alternate the corner per intersection instead of always SW. */
   function lamp(x,z){
     cyl(.08,3.6,x,1.8,z,darkM,{solid:true});
     box(.35,.12,.35,x,3.65,z,darkM);
@@ -258,10 +284,11 @@ export async function buildInterior(router) {
     sph(.2,x,3.9,z,glow(0xfff4d0));
     (scene.userData.__lampSpots || (scene.userData.__lampSpots = [])).push({ x, y: 3.9, z });
   }
-  /* only some intersections */
-  [[-60,-60],[60,-60],[-60,60],[60,60],[0,-60],[0,60],[-60,0],[60,0],[0,-30],[0,30],[-30,0],[30,0],[30,-60],[-30,60],[30,60],[-30,-60]].forEach(p=>{
-    /* offset from intersection so it's on the corner not road center */
-    lamp(p[0]-ROAD_W/2-1, p[1]-ROAD_W/2-1);
+  const intersections = [[-60,-60],[60,-60],[-60,60],[60,60],[0,-60],[0,60],[-60,0],[60,0],[0,-30],[0,30],[-30,0],[30,0],[30,-60],[-30,60],[30,60],[-30,-60]];
+  intersections.forEach((p, idx)=>{
+    const corners = [[-1,-1],[1,-1],[-1,1],[1,1]];
+    const [sx, sz] = corners[idx % 4];
+    lamp(p[0] + sx * (ROAD_W/2 + 1), p[1] + sz * (ROAD_W/2 + 1));
   });
 
   /* ===== BENCHES (in park-like empty blocks) ===== */
@@ -286,21 +313,26 @@ export async function buildInterior(router) {
   bench(15,45,Math.PI);
   bench(-15,-45,0);
 
-  /* ===== CENTRAL PLAZA ===== */
-  cyl(11,.05,0,.02,0,mat(0x9a8a70));
-  cyl(11.4,.04,0,.01,0,darkM);
-  cyl(3.5,.06,0,.03,0,stoneM);
-  cyl(3.2,.04,0,.05,0,waterM);
-  sph(1.0,0,1.1,0,glow(0x9ae0ff));
-  cyl(.3,1.2,0,1.2,0,stoneM);
-  uses.push({ kind:"use", label:"SPLASH IN FOUNTAIN", x:0, z:0, y:0, level:0, r:4.0 });
+  /* ===== CENTRAL PLAZA =====
+     Moved off the (0,0) intersection into the empty block at (15,15).
+     Shrunk so it fits inside the block (half-size 11). */
+  const PLAZA_X = 15, PLAZA_Z = 15, PLAZA_R = 8;
+  cyl(PLAZA_R,      .05, PLAZA_X, .02, PLAZA_Z, mat(0x9a8a70));
+  cyl(PLAZA_R + .4, .04, PLAZA_X, .01, PLAZA_Z, darkM);
+  cyl(3.0,          .06, PLAZA_X, .03, PLAZA_Z, stoneM);
+  cyl(2.6,          .04, PLAZA_X, .05, PLAZA_Z, waterM);
+  sph(0.9, PLAZA_X, 1.1, PLAZA_Z, glow(0x9ae0ff));
+  cyl(.3, 1.2, PLAZA_X, 1.2, PLAZA_Z, stoneM);
+  solid.push({ x: PLAZA_X, z: PLAZA_Z, hw: 3.0, hd: 3.0 });
+  uses.push({
+    kind:"use", label:"SPLASH IN FOUNTAIN",
+    x: PLAZA_X, z: PLAZA_Z, y: 0, level: 0, r: 3.4,
+  });
 
   /* ===== CARS ===== */
   const cars=[];
   const carColors=[0xd83a3a,0x3a6ac8,0xd8b830,0xe8e8e8,0x2a2a2a,0x3a9a5a,0xc84a8a,0x8a8a8a];
-
-  /* Real vehicle models for traffic (same builders as the drive scene). */
-  const NPC_CAR_MODELS = TRAFFIC_MODELS;   /* real models, nose = +Z */
+  const NPC_CAR_MODELS = TRAFFIC_MODELS;
   const _hex = (c) => "#" + c.toString(16).padStart(6, "0");
 
   function spawnCar(axis, line, dir, startPos){
@@ -309,7 +341,7 @@ export async function buildInterior(router) {
     let g;
     try { g = buildTrafficCar(model, color, "#8d9298"); }
     catch (e) { console.warn("[vastcity] car build failed:", model, e); return; }
-    /* travel heading: +x => PI/2, -x => -PI/2, +z => 0, -z => PI */
+    if (!g) { console.warn("[vastcity] car build returned undefined:", model); return; }
     let ry;
     if(axis==='x') ry = dir>0 ? Math.PI/2 : -Math.PI/2;
     else ry = dir>0 ? 0 : Math.PI;
@@ -318,42 +350,42 @@ export async function buildInterior(router) {
     else           g.position.set(line, .05, startPos);
     world.add(g);
     let lights = null;
-    try { lights = addCarLights(g); } catch (e) {}
-    cars.push({g,axis,dir,speed:5+Math.random()*5,lights});
+    if (_addCarLights) { try { lights = _addCarLights(g); } catch (e) {} }
+    cars.push({g,axis,dir,speed:5+Math.random()*5,lights, wrap:90});
   }
 
-  /* horizontal roads (moving along x) — eastbound lane at z-2, westbound at z+2 */
   for(const rz of [-60,-30,0,30,60]){
     spawnCar('x', rz-2, +1, -85+Math.random()*30);
     spawnCar('x', rz+2, -1,  85-Math.random()*30);
   }
-  /* vertical roads (moving along z) — southbound at x-2, northbound at x+2 */
   for(const rx of [-60,-30,0,30,60]){
     spawnCar('z', rx-2, +1, -85+Math.random()*30);
     spawnCar('z', rx+2, -1,  85-Math.random()*30);
   }
 
-  /* ===== PARKED CARS (a few, static) ===== */
+  /* ===== PARKED CARS =====
+     On the sidewalk shoulder, out of the traffic lanes. */
   function parkedCar(x,z,ry){
     const model = NPC_CAR_MODELS[Math.floor(Math.random()*NPC_CAR_MODELS.length)];
     const color = _hex(carColors[Math.floor(Math.random()*carColors.length)]);
     let g;
     try { g = buildTrafficCar(model, color, "#8d9298"); }
     catch (e) { console.warn("[vastcity] parked car build failed:", model, e); return; }
-    g.position.set(x,.05,z); g.rotation.y=ry;   /* ry = heading, nose-first */
+    if (!g) return;
+    g.position.set(x,.05,z); g.rotation.y=ry;
     world.add(g);
   }
-  parkedCar(-13,0,Math.PI/2);
-  parkedCar(-13,5,Math.PI/2);
-  parkedCar(13,-5,-Math.PI/2);
-  parkedCar(13,-10,-Math.PI/2);
-  parkedCar(0,55,0);
-  parkedCar(3,55,0);
+  parkedCar(-13, 2,  Math.PI/2);
+  parkedCar(-13, 10, Math.PI/2);
+  parkedCar( 13,-2, -Math.PI/2);
+  parkedCar( 13,-10,-Math.PI/2);
+  parkedCar(-13, 55, Math.PI/2);
+  parkedCar(-13, 60, Math.PI/2);
 
-  /* ===== DISTANT MOUNTAINS ===== */
+  /* ===== DISTANT MOUNTAINS — inside the 260-radius ground disc ===== */
   for(let i=0;i<8;i++){
     const a=i/8*Math.PI*2+.4;
-    const r=HALF+45+Math.random()*15;
+    const r=180+Math.random()*15;
     const x=Math.cos(a)*r, z=Math.sin(a)*r;
     cone(28+Math.random()*12, 42+Math.random()*18, x, 0, z, mat(0x7a8a9a));
   }
@@ -377,18 +409,88 @@ export async function buildInterior(router) {
   // Location-specific perimeter and access-road lamps; StreetLights switches them on at dusk.
   const vastcityLampSpots = [];
   for (const [lx,lz] of [[-82,-70],[-42,-70],[0,-70],[42,-70],[82,-70],[-82,-25],[-42,-25],[0,-25],[42,-25],[82,-25],[-82,25],[-42,25],[0,25],[42,25],[82,25],[-82,70],[-42,70],[0,70],[42,70],[82,70]]) {
-    vastcityLampSpots.push(addStreetLamp(scene, lx, 0, lz, Math.PI));
+    try { vastcityLampSpots.push(addStreetLamp(scene, lx, 0, lz, Math.PI)); } catch(e) {}
   }
-  addNightGlow(scene, vastcityLampSpots, { poolRadius: 20 });
+  try { addNightGlow(scene, vastcityLampSpots, { poolRadius: 20 }); } catch(e) {}
 
   const ctl = new ThirdPersonControls(camera, router.renderer.domElement, __world, {
-    scene, x: START.x, z: START.z, yaw: Math.PI + (START.yaw || 0), level: 0,
+    scene, x: START.x, z: START.z, yaw: Math.PI + (START.yaw ?? 0), level: 0,
     onUse: (use) => { if (window.__ph3d_phone) window.__ph3d_phone._toast(use.label || "USE"); },
   });
 
-  const drv = ZoneDrive.attach({
-    scene, camera, renderer: router.renderer, world: __world,
-    spawn: { x: START.x, z: START.z, y: 0 },
+  let drv = null;
+  if (_ZoneDrive) {
+    try {
+      drv = _ZoneDrive.attach({
+        scene, camera, renderer: router.renderer, world: __world,
+        spawn: { x: START.x, z: START.z, y: 0 },
+      });
+    } catch (e) { console.warn("[vastcity] ZoneDrive.attach failed", e); drv = null; }
+  }
+
+  /* ===== CAR ↔ PLAYER COLLISION =====
+     (a) Dynamic colliders: player can't walk into a car.
+     (b) Soft push: a moving car shoves the standing player out. */
+  const carColliders = [];
+  function carAABB(car) {
+    const g = car.g;
+    const halfW = 1.0, halfL = 2.25;
+    const ry = g.rotation.y;
+    const c = Math.abs(Math.cos(ry)), s = Math.abs(Math.sin(ry));
+    const hw = c * halfW + s * halfL;
+    const hd = s * halfW + c * halfL;
+    return { x: g.position.x, z: g.position.z, hw, hd };
+  }
+  function syncCarColliders() {
+    while (carColliders.length < cars.length) {
+      const c = { minX:0, maxX:0, minZ:0, maxZ:0, y0:0, y1:1.6, level:0 };
+      carColliders.push(c);
+      __world.colliders.push(c);
+    }
+    while (carColliders.length > cars.length) {
+      const c = carColliders.pop();
+      const idx = __world.colliders.indexOf(c);
+      if (idx >= 0) __world.colliders.splice(idx, 1);
+    }
+    for (let i = 0; i < cars.length; i++) {
+      const a = carAABB(cars[i]);
+      const cc = carColliders[i];
+      cc.minX = a.x - a.hw; cc.maxX = a.x + a.hw;
+      cc.minZ = a.z - a.hd; cc.maxZ = a.z + a.hd;
+    }
+  }
+  const PUSH_MARGIN = 0.05;
+  function pushPlayerFromCars(ctl) {
+    if (!ctl || !ctl.pos) return;
+    const px = ctl.pos.x, pz = ctl.pos.z;
+    for (let i = 0; i < cars.length; i++) {
+      const a = carAABB(cars[i]);
+      if (px < a.x - a.hw - PUSH_MARGIN || px > a.x + a.hw + PUSH_MARGIN) continue;
+      if (pz < a.z - a.hd - PUSH_MARGIN || pz > a.z + a.hd + PUSH_MARGIN) continue;
+      const dxL = px - (a.x - a.hw);
+      const dxR = (a.x + a.hw) - px;
+      const dzB = pz - (a.z - a.hd);
+      const dzF = (a.z + a.hd) - pz;
+      const m = Math.min(dxL, dxR, dzB, dzF);
+      if (m === dxL)       ctl.pos.x = a.x - a.hw - PUSH_MARGIN;
+      else if (m === dxR)  ctl.pos.x = a.x + a.hw + PUSH_MARGIN;
+      else if (m === dzB)  ctl.pos.z = a.z - a.hd - PUSH_MARGIN;
+      else                 ctl.pos.z = a.z + a.hd + PUSH_MARGIN;
+      if (ctl.vel) {
+        if (m === dxL || m === dxR) ctl.vel.x = 0;
+        else                         ctl.vel.z = 0;
+      }
+    }
+  }
+
+  /* Fix: dispose everything we created. */
+  const createdTextures = [grassTex, bMatA.map, bMatB.map, bMatC.map].filter(Boolean);
+  const createdMaterials = new Set();
+  world.traverse(o => {
+    if (o.isMesh) {
+      if (o.material && !Array.isArray(o.material)) createdMaterials.add(o.material);
+      else if (Array.isArray(o.material)) o.material.forEach(m => m && createdMaterials.add(m));
+    }
   });
 
   return {
@@ -402,18 +504,20 @@ export async function buildInterior(router) {
     isInterior: true,
     sceneId: "vastcity",
     update: (dt) => {
-      if (!drv.isDriving()) ctl.update(dt);
-      drv.update(dt);
+      if (!drv || !drv.isDriving()) ctl.update(dt);
+      if (drv) drv.update(dt);
       const _night = (window.__ph3d_daynight && window.__ph3d_daynight.nightAmount) ? window.__ph3d_daynight.nightAmount() : 0;
       for (let i = 0; i < cars.length; i++) {
         const c = cars[i];
         try { c.lights && c.lights.setNight(_night); } catch (e) {}
         if (c.axis === 'x') {
           c.g.position.x += c.dir * c.speed * dt;
-          if (c.g.position.x > 95) c.g.position.x = -95; else if (c.g.position.x < -95) c.g.position.x = 95;
+          if (c.g.position.x >  c.wrap) c.g.position.x = -c.wrap;
+          else if (c.g.position.x < -c.wrap) c.g.position.x =  c.wrap;
         } else {
           c.g.position.z += c.dir * c.speed * dt;
-          if (c.g.position.z > 95) c.g.position.z = -95; else if (c.g.position.z < -95) c.g.position.z = 95;
+          if (c.g.position.z >  c.wrap) c.g.position.z = -c.wrap;
+          else if (c.g.position.z < -c.wrap) c.g.position.z =  c.wrap;
         }
         const ws = c.g.userData && c.g.userData.wheels;
         if (ws) {
@@ -424,7 +528,25 @@ export async function buildInterior(router) {
           }
         }
       }
+      /* Keep dynamic car colliders in sync, then shove the player out. */
+      syncCarColliders();
+      if (!drv || !drv.isDriving()) pushPlayerFromCars(ctl);
     },
-    dispose: () => { drv.dispose(); ctl.dispose(); },
+    dispose: () => {
+      if (drv) drv.dispose();
+      ctl.dispose();
+      try {
+        world.traverse(o => {
+          if (o.isMesh) {
+            if (o.geometry && o.geometry !== BOXG && o.geometry !== CYLG && o.geometry !== SPHG && o.geometry !== CONEG) {
+              o.geometry.dispose();
+            }
+          }
+        });
+      } catch(e) {}
+      createdMaterials.forEach(m => { try { m.dispose(); } catch(e) {} });
+      createdTextures.forEach(t => { try { t.dispose(); } catch(e) {} });
+      MC.clear();
+    },
   };
 }
