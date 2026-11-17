@@ -80,6 +80,7 @@ export async function buildInterior(router) {
     black:    new THREE.MeshLambertMaterial({ color: 0x101214 }),
     white:    new THREE.MeshLambertMaterial({ color: 0xd8dade }),
     cream:    new THREE.MeshLambertMaterial({ color: 0xc8c4b8 }),
+    mattress: new THREE.MeshLambertMaterial({ color: 0x5a6070 }),
     orange:   new THREE.MeshLambertMaterial({ color: 0xc86a20 }),
     bench:    new THREE.MeshLambertMaterial({ color: 0x70747a }),
     wood:     new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.7 }),
@@ -90,6 +91,7 @@ export async function buildInterior(router) {
     green:    new THREE.MeshBasicMaterial({ color: 0x40d060 }),
     screen:   new THREE.MeshBasicMaterial({ color: 0x5ac0d8 }),
     monitor:  new THREE.MeshBasicMaterial({ color: 0x1e3a5a }),
+    emRed:    new THREE.MeshBasicMaterial({ color: 0xff3030 }),
   };
 
   /* ── batching ── */
@@ -236,38 +238,58 @@ export async function buildInterior(router) {
       for (const sx of [-0.8, 0, 0.8]) addSeat("sit", "SIT", x + sx, z + sz, yaw, 0.51, 0);
     }
   }
+
+  /* Cell furniture — bed length along depth (X), head against back wall,
+     toilet/sink in rear +Z corner, stool near the bars. */
   function cellFurnish(xFront, dir, zc, level) {
     const y0 = level * WH;
-    /* bx: 1.6 m inside the cell — clear of bar front and door gap (±0.55 m) */
-    const bx = xFront + dir * 1.6;
-    /* bunk bed — centred in z so it stays ≥0.5 m from both side walls
-       even in the extreme ±6 m cells (cell spans ±2 m from zc, bunk is ±0.95 m) */
-    const bunkZ = zc;
-    B(1.0, 0.12, 1.9, bx, y0 + 0.55, bunkZ, MAT.steel);
-    B(0.95, 0.22, 1.85, bx, y0 + 0.72, bunkZ, new THREE.MeshLambertMaterial({ color: 0x5a6070 }));
-    /* pillow at head (back of cell) */
-    B(0.5, 0.14, 0.3, bx, y0 + 0.9, bunkZ - 0.65, MAT.white);
-    /* blanket stripe */
-    B(0.95, 0.06, 1.1, bx, y0 + 0.82, bunkZ + 0.4, MAT.orange);
-    /* legs */
-    for (const p of [[-0.45, -0.85], [0.45, -0.85], [-0.45, 0.85], [0.45, 0.85]])
-      B(0.07, 0.55, 0.07, bx + p[0], y0 + 0.28, bunkZ + p[1], MAT.steel);
-    addSeat("lie", "LIE DOWN", bx, bunkZ, 0, 0.83, level);
-    addColBox(bx, bunkZ, 0.55, 1.0, y0, y0 + 1.0);
-    /* toilet — rear corner (back wall side) */
-    const toiletZ = zc + 1.6;
-    C(0.24, 0.24, 0.42, 10, bx, y0 + 0.21, toiletZ, MAT.white);
-    B(0.5, 0.28, 0.18, bx, y0 + 0.42, toiletZ + 0.2, MAT.white);
-    addSeat("toilet", "USE TOILET", bx, toiletZ, 0, 0.44, level);
-    /* sink — mounted on back wall near toilet */
-    B(0.55, 0.1, 0.35, bx, y0 + 0.85, toiletZ - 0.6, MAT.white);
-    C(0.045, 0.045, 0.28, 6, bx, y0 + 1.0, toiletZ - 0.75, MAT.steel);
-    addUse("sink", "WASH", bx, toiletZ - 0.6, 1.2, level);
-    /* stool — near the bars so inmate can sit and face outward */
-    const stoolZ = zc - 1.4;
-    B(0.38, 0.06, 0.38, bx, y0 + 0.45, stoolZ, MAT.wood);
-    C(0.04, 0.04, 0.4, 6, bx, y0 + 0.22, stoolZ, MAT.steel);
-    addSeat("sit", "SIT", bx, stoolZ, 0, 0.5, level);
+
+    /* ── bed (oriented along X / into the cell) ── */
+    const bedLen = 1.90;   // along X (depth)
+    const bedWid = 0.95;   // along Z
+    const bedInsetFromBack = 0.35;
+    const bx = xFront + dir * (CELL_X - bedInsetFromBack - bedLen / 2);
+    const bedZ = zc - 0.75;   // shift toward -Z to leave +Z rear corner free
+
+    // steel frame
+    B(bedLen, 0.12, bedWid, bx, y0 + 0.55, bedZ, MAT.steel);
+    // mattress
+    B(bedLen - 0.06, 0.20, bedWid - 0.06, bx, y0 + 0.71, bedZ, MAT.mattress);
+    // pillow at head (toward back wall)
+    const headX = bx + dir * (bedLen / 2 - 0.28);
+    B(0.42, 0.14, 0.48, headX, y0 + 0.90, bedZ, MAT.white);
+    // blanket toward the foot (front of cell)
+    const footX = bx - dir * (bedLen / 2 - 0.55);
+    B(0.95, 0.06, bedWid - 0.08, footX, y0 + 0.82, bedZ, MAT.orange);
+    // four legs
+    const halfL = bedLen / 2 - 0.10;
+    const halfW = bedWid / 2 - 0.10;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1])
+      B(0.07, 0.55, 0.07, bx + sx * halfL, y0 + 0.28, bedZ + sz * halfW, MAT.steel);
+
+    addSeat("lie", "LIE DOWN", bx, bedZ, 0, 0.83, level);
+    addColBox(bx, bedZ, bedLen / 2 + 0.05, bedWid / 2 + 0.05, y0, y0 + 1.05);
+
+    /* ── toilet — rear +Z corner ── */
+    const toiletX = xFront + dir * (CELL_X - 0.65);
+    const toiletZ = zc + 1.55;
+    C(0.24, 0.24, 0.42, 10, toiletX, y0 + 0.21, toiletZ, MAT.white);
+    B(0.50, 0.28, 0.18, toiletX, y0 + 0.42, toiletZ + 0.18, MAT.white);
+    addSeat("toilet", "USE TOILET", toiletX, toiletZ, 0, 0.44, level);
+
+    /* ── sink — mounted near toilet, slightly toward cell centre ── */
+    B(0.55, 0.10, 0.35, toiletX, y0 + 0.85, toiletZ - 0.55, MAT.white);
+    C(0.045, 0.045, 0.28, 6, toiletX, y0 + 1.00, toiletZ - 0.70, MAT.steel);
+    addUse("sink", "WASH", toiletX, toiletZ - 0.55, 1.2, level);
+
+    /* ── stool — near the bars so inmate can sit facing outward ── */
+    const stoolX = xFront + dir * 1.25;
+    const stoolZ = zc - 1.30;
+    B(0.38, 0.06, 0.38, stoolX, y0 + 0.45, stoolZ, MAT.wood);
+    C(0.04, 0.04, 0.40, 6, stoolX, y0 + 0.22, stoolZ, MAT.steel);
+    // face the bars (outward)
+    const stoolYaw = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+    addSeat("sit", "SIT", stoolX, stoolZ, stoolYaw, 0.50, level);
   }
 
   /* ═══════════════════════════════════════════════════════════════════
@@ -311,7 +333,10 @@ export async function buildInterior(router) {
     /* side = -1 (W) or +1 (E) */
     const xFront = side < 0 ? CELL_FRONT_W : CELL_FRONT_E;
     const xBack  = side < 0 ? X0 : X1;
-    const dir    = -side;    // into-cell direction (W: +1, E: -1)
+    /* FIXED: into-cell direction is the same sign as side
+       W (side=-1) → dir=-1 (toward x=-13)
+       E (side=+1) → dir=+1 (toward x=+13) */
+    const dir = side;
 
     /* cell side walls (between cells + outer boundary) */
     const zwalls = [-8, -4, 0, 4, 8];
@@ -447,8 +472,7 @@ export async function buildInterior(router) {
     for (const zc of CELL_ZC) {
       for (const xf of [CELL_FRONT_W, CELL_FRONT_E]) {
         B(0.16, 0.5, 0.2, xf, 3.0, zc, MAT.steel);
-        B(0.12, 0.42, 0.06, xf + (xf < 0 ? 0.12 : -0.12), 3.0, zc,
-          new THREE.MeshBasicMaterial({ color: 0xff3030 }));
+        B(0.12, 0.42, 0.06, xf + (xf < 0 ? 0.12 : -0.12), 3.0, zc, MAT.emRed);
       }
     }
 
@@ -721,8 +745,8 @@ export async function buildInterior(router) {
     }
     /* red emergency light grid near cell blocks */
     for (const zc of CELL_ZC) {
-      B(0.3, 0.1, 0.3, CELL_FRONT_W + 0.5, WH - 0.05, zc, new THREE.MeshBasicMaterial({ color: 0xff3030 }));
-      B(0.3, 0.1, 0.3, CELL_FRONT_E - 0.5, WH - 0.05, zc, new THREE.MeshBasicMaterial({ color: 0xff3030 }));
+      B(0.3, 0.1, 0.3, CELL_FRONT_W + 0.5, WH - 0.05, zc, MAT.emRed);
+      B(0.3, 0.1, 0.3, CELL_FRONT_E - 0.5, WH - 0.05, zc, MAT.emRed);
     }
   }
 
@@ -813,7 +837,9 @@ export async function buildInterior(router) {
     const westCell = Math.random() < 0.5;
     const zc = CELL_ZC[Math.floor(Math.random() * CELL_ZC.length)];
     const xFront = westCell ? CELL_FRONT_W : CELL_FRONT_E;
-    START.x = xFront + (westCell ? 2.0 : -2.0);
+    /* FIXED: spawn properly inside the cell */
+    const dir = westCell ? -1 : 1;
+    START.x = xFront + dir * 2.0;
     START.z = zc;
     START.yaw = westCell ? -Math.PI / 2 : Math.PI / 2;
     /* lock the corresponding cell door */
