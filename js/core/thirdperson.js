@@ -95,6 +95,11 @@ export class ThirdPersonControls {
     this.camYaw = (opt.yaw || 0) + Math.PI;
     this.camPitch = 0.28;
     this.aimPitch = 0;
+    this.cameraMode = "third";
+    this.aiming = false;
+    this.shoulderSide = 1;
+    this._fpsVisibility = null;
+    this._baseCameraFov = camera && Number(camera.fov) || 62;
     this.state = "standing";
     this.sitTarget = null; this.nearSit = null;
     this._seatArrived = false;
@@ -152,6 +157,7 @@ export class ThirdPersonControls {
              changes take effect instantly instead of only on close.
              (Previously referenced an undefined `built2` and threw,
              silently, on every swatch click, so nothing ever updated.) */
+          this._setFirstPersonVisibility(false);
           const built2 = buildCharacter(cfg2);
           if (this.avatar && this.avatar.parent) this.avatar.parent.remove(this.avatar);
           this.avatar = built2.root;
@@ -272,6 +278,21 @@ export class ThirdPersonControls {
     ["pointerup", "pointermove", "click"].forEach(k => menuBtn.addEventListener(k, stop));
 
     this._buildQuickMenu();
+
+    const makeCombatButton = (id, label, onTap) => {
+      const old = document.getElementById(id); if (old) old.remove();
+      const b = document.createElement("button"); b.id = id; b.type = "button"; b.textContent = label;
+      b.style.cssText = "display:none;pointer-events:auto;touch-action:manipulation;";
+      document.body.appendChild(b);
+      b.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); window.__ph3d_lastHudTouch = performance.now(); onTap(); }, { passive:false });
+      ["pointerup","pointermove","click"].forEach(k => b.addEventListener(k, e => { e.preventDefault(); e.stopPropagation(); }));
+      return b;
+    };
+    this._viewBtn = makeCombatButton("ph3d-view-btn", "1ST PERSON", () => this.toggleCameraMode());
+    this._viewBtn.style.display = "";
+    this._aimBtn = makeCombatButton("ph3d-aim-btn", "AIM", () => this.setAiming(!this.aiming));
+    this._shoulderBtn = makeCombatButton("ph3d-shoulder-btn", "RIGHT SHOULDER", () => this.swapShoulder());
+    this._syncCombatButtons();
 
     const oldJump = document.getElementById("ph3d-jump-btn"); oldJump && oldJump.remove();
     const jumpBtn = document.createElement("button"); jumpBtn.id = "ph3d-jump-btn";
@@ -410,7 +431,8 @@ export class ThirdPersonControls {
         ] },
         { label: "Weapons", cols: 3, radio: true, items: [
           weapon("fists", "Fists"), weapon("knife", "Knife"),
-          weapon("pistol", "Pistol"), weapon("sniper", "Sniper"), weapon("bazooka", "Bazooka"),
+          weapon("pistol", "Pistol"), weapon("smg", "SMG"), weapon("rifle", "Assault Rifle"),
+          weapon("shotgun", "Shotgun"), weapon("lmg", "LMG"), weapon("sniper", "Sniper"), weapon("bazooka", "Bazooka"),
           { label: "Holster", keep: true, onClick: () => { self.weapons.holsterAll(); self._ul(); } },
         ] },
         { label: "Emotes", cols: 5, items: [
@@ -465,6 +487,7 @@ export class ThirdPersonControls {
     e.textContent = "STANDING"; document.body.appendChild(e); this._s = e;
   }
   _ul() {
+    this._syncCombatButtons();
     if (!this._s) return;
     let s = "STANDING";
     if (this._emoteTimer > 0 && this._emoteName) s = EMOTE_LABEL[this._emoteName] || "EMOTING";
@@ -483,8 +506,70 @@ export class ThirdPersonControls {
     if (w === "knife")  s += " · \uD83D\uDD2A KNIFE";
     if (w === "pistol") s += " · \uD83D\uDD2B PISTOL";
     if (w === "sniper") s += " · \uD83C\uDFAF SNIPER";
+    if (w === "rifle") s += " · ASSAULT RIFLE";
+    if (w === "smg") s += " · SMG";
+    if (w === "shotgun") s += " · SHOTGUN";
+    if (w === "lmg") s += " · LMG";
     if (w === "bazooka") s += " · \uD83D\uDE80 BAZOOKA";
     this._s.textContent = s;
+  }
+
+  _isGunWeapon() {
+    return !!(this.weapons && ["pistol", "sniper", "rifle", "smg", "shotgun", "lmg", "bazooka"].includes(this.weapons.current));
+  }
+
+  _setFirstPersonVisibility(enabled) {
+    if (!this.avatar || !this.rig) return;
+    if (!enabled) {
+      if (this._fpsVisibility) {
+        for (const [obj, visible] of this._fpsVisibility) obj.visible = visible;
+        this._fpsVisibility = null;
+      }
+      return;
+    }
+    if (this._fpsVisibility) return;
+    const arms = [this.rig.armL, this.rig.armR].filter(Boolean);
+    const isArmPart = (obj) => {
+      let node = obj;
+      while (node) { if (arms.includes(node)) return true; node = node.parent; }
+      return false;
+    };
+    this._fpsVisibility = new Map();
+    this.avatar.traverse(obj => {
+      if (!obj.isMesh && !obj.isLine && !obj.isSprite) return;
+      this._fpsVisibility.set(obj, obj.visible);
+      obj.visible = isArmPart(obj);
+    });
+    this.avatar.visible = true;
+  }
+
+  toggleCameraMode() {
+    this.cameraMode = this.cameraMode === "first" ? "third" : "first";
+    this._setFirstPersonVisibility(this.cameraMode === "first");
+    this._forceCamSnap = true;
+    if (this._viewBtn) this._viewBtn.textContent = this.cameraMode === "first" ? "3RD PERSON" : "1ST PERSON";
+    this._syncCombatButtons();
+  }
+
+  setAiming(value) {
+    this.aiming = !!value && this._isGunWeapon();
+    if (this._aimBtn) {
+      this._aimBtn.classList.toggle("is-on", this.aiming);
+      this._aimBtn.textContent = this.aiming ? "AIMING" : "AIM";
+    }
+  }
+
+  swapShoulder() {
+    if (this.cameraMode === "first") return;
+    this.shoulderSide *= -1;
+    if (this._shoulderBtn) this._shoulderBtn.textContent = this.shoulderSide < 0 ? "LEFT SHOULDER" : "RIGHT SHOULDER";
+  }
+
+  _syncCombatButtons() {
+    const armed = this._isGunWeapon();
+    if (this._aimBtn) this._aimBtn.style.display = armed ? "" : "none";
+    if (this._shoulderBtn) this._shoulderBtn.style.display = armed && this.cameraMode !== "first" ? "" : "none";
+    if (!armed) this.setAiming(false);
   }
 
   _bind() {
@@ -504,18 +589,28 @@ export class ThirdPersonControls {
       if (e.code === "KeyJ" && !e.repeat) this.toggleJet();
       if (e.code === "KeyR") this.weapons.holsterAll();
       if (e.code === "KeyC") this.crouch();
+      if (e.code === "KeyV" && !e.repeat) this.toggleCameraMode();
+      if (e.code === "KeyB" && !e.repeat) this.swapShoulder();
+      if (e.code === "Mouse2") this.setAiming(true);
       if (e.code === "Digit1") { this.weapons.select("fists");  this._ul(); }
       if (e.code === "Digit2") { this.weapons.select("knife");  this._ul(); }
       if (e.code === "Digit3") { this.weapons.select("pistol"); this._ul(); }
       if (e.code === "Digit4") { this.weapons.select("sniper"); this._ul(); }
       if (e.code === "Digit5") { this.weapons.select("bazooka"); this._ul(); }
+      if (e.code === "Digit6") { this.weapons.select("rifle"); this._ul(); }
+      if (e.code === "Digit7") { this.weapons.select("smg"); this._ul(); }
+      if (e.code === "Digit8") { this.weapons.select("shotgun"); this._ul(); }
+      if (e.code === "Digit9") { this.weapons.select("lmg"); this._ul(); }
       if (e.code === "Space") { e.preventDefault(); this.jump(); }
     };
-    this._ku = e => { this.keys[e.code] = false; };
+    this._ku = e => { this.keys[e.code] = false; if (e.code === "Mouse2") this.setAiming(false); };
     window.addEventListener("keydown", this._kd);
     window.addEventListener("keyup", this._ku);
 
     this._pd = e => {
+      if (e.button === 2 && this._isGunWeapon()) {
+        e.preventDefault(); e.stopPropagation(); this._aimPointerId = e.pointerId; this.setAiming(true); return;
+      }
       const isL = e.clientX < el.clientWidth * 0.5;
       if (isL && !this.joy.on) Object.assign(this.joy, { on:true, id:e.pointerId, ox:e.clientX, oy:e.clientY, dx:0, dy:0 });
       else if (!isL && !this.look.on) Object.assign(this.look, { on:true, id:e.pointerId, x:e.clientX, y:e.clientY });
@@ -530,8 +625,7 @@ export class ThirdPersonControls {
         const _ls = window.__ph3d_lookSens || 1;
         const dx = (e.clientX - this.look.x) * _ls, dy = (e.clientY - this.look.y) * _ls;
 
-        const gunOut = this.weapons &&
-          (this.weapons.current === "pistol" || this.weapons.current === "sniper" || this.weapons.current === "bazooka");
+        const gunOut = this._isGunWeapon();
 
         if (gunOut) {
           /* horizontal → rotate the character; camera mirrors it */
@@ -547,9 +641,12 @@ export class ThirdPersonControls {
       }
     };
     this._pu = e => {
+      if (e.pointerId === this._aimPointerId) { this._aimPointerId = null; this.setAiming(false); }
       if (e.pointerId === this.joy.id) { this.joy.on = false; this.joy.id = null; this.joy.dx = this.joy.dy = 0; }
       if (e.pointerId === this.look.id) { this.look.on = false; this.look.id = null; }
     };
+    this._contextMenuBlock = e => { if (this._isGunWeapon()) e.preventDefault(); };
+    el.addEventListener("contextmenu", this._contextMenuBlock);
     el.addEventListener("pointerdown", this._pd);
     el.addEventListener("pointermove", this._pm);
     ["pointerup", "pointercancel", "pointerleave"].forEach(k => el.addEventListener(k, this._pu));
@@ -876,7 +973,7 @@ export class ThirdPersonControls {
       else if (this._nearestCarryable()) { t = "TAKE"; ds = "take"; }
       else if (this.weapons && this.weapons.current === "knife")  { t = "STAB"; ds = "warn"; }
       else if (this.weapons && this.weapons.current === "pistol") { t = "FIRE"; ds = "interact"; }
-      else if (this.weapons && this.weapons.current === "sniper") { t = "FIRE"; ds = "interact"; }
+      else if (this._isGunWeapon() && this.weapons.current !== "bazooka") { t = "FIRE"; ds = "interact"; }
       else if (this.weapons && this.weapons.current === "bazooka") { t = "LAUNCH"; ds = "warn"; }
     }
     if (t) { b.textContent = t; b.style.opacity = "1"; b.style.transform = "translateY(0)"; b.style.pointerEvents = "auto"; b.dataset.state = ds; }
@@ -1114,8 +1211,7 @@ this.moving = this._movingTimer > 0;
       if (this.state === "crouching") speed = CROUCH_SP * (swimming ? 0.7 : 1);
       else if (this.running && !swimming) speed = baseRun * speedMult;
       if (this.jet && this.jet.on && !this.onGround) speed *= (hasWingFlight() ? WING_FLIGHT.speedMul : 2.8);   /* jetpack flight is much faster than walking; wings are faster still */
-      const gunOut = this.weapons &&
-        (this.weapons.current === "pistol" || this.weapons.current === "sniper" || this.weapons.current === "bazooka");
+      const gunOut = this._isGunWeapon();
       const camF = gunOut ? (this.yaw + Math.PI) : this.camYaw;
       const sin = Math.sin(camF), cos = Math.cos(camF);
       const mx = s * cos - f * sin, mz = -s * sin - f * cos;
@@ -1291,8 +1387,30 @@ _updateCamera(dt, snap) {
   const flyCam = this.jet.on && !this.onGround;
   const baseY = flyCam ? (this._jetBase || 0) : (this.floorY || 0);
   const TALL = flyCam ? 1e3 : 3;
-  const gunOut = this.weapons &&
-    (this.weapons.current === "pistol" || this.weapons.current === "sniper" || this.weapons.current === "bazooka");
+  const gunOut = this._isGunWeapon();
+
+  const firstPerson = this.cameraMode === "first" && this.state === "standing";
+  if (firstPerson) {
+    this._setFirstPersonVisibility(true);
+    const eye = new THREE.Vector3(this.pos.x, this.floorY + 1.58, this.pos.z);
+    const yaw = gunOut ? this.yaw : this.camYaw + Math.PI;
+    const pitch = gunOut ? this.aimPitch : this.camPitch;
+    const aimDir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)).normalize();
+    this.camera.position.copy(eye);
+    this.camera.lookAt(eye.clone().addScaledVector(aimDir, 30));
+    const targetFov = this.aiming ? (this.weapons.current === "sniper" ? 34 : 48) : this._baseCameraFov;
+    this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, Math.max(0, dt) * 12);
+    this.camera.updateProjectionMatrix();
+    this._aimOrigin = eye; this._aimDir = aimDir;
+    return;
+  } else {
+    this._setFirstPersonVisibility(false);
+    const targetFov = this._baseCameraFov;
+    if (this.camera && Math.abs(this.camera.fov - targetFov) > 0.05) {
+      this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, Math.max(0, dt) * 10);
+      this.camera.updateProjectionMatrix();
+    }
+  }
 
   if (gunOut && this.state === "standing") {
     const aimDir = new THREE.Vector3(
@@ -1303,10 +1421,12 @@ _updateCamera(dt, snap) {
     const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     const eye = new THREE.Vector3(this.pos.x, this.floorY + 1.55, this.pos.z);
 
+    const aimDistance = this.aiming ? 1.18 : 2.35;
+    const shoulderOffset = (this.aiming ? 0.22 : 0.52) * (this.shoulderSide || 1);
     let camPos = eye.clone()
-      .addScaledVector(aimDir, -1.75)
-      .addScaledVector(right, 0.38)
-      .add(new THREE.Vector3(0, 0.10, 0));
+      .addScaledVector(aimDir, -aimDistance)
+      .addScaledVector(right, shoulderOffset)
+      .add(new THREE.Vector3(0, this.aiming ? 0.02 : 0.12, 0));
 
     if (this.world.colliders) {
       const backDir = new THREE.Vector3().subVectors(camPos, eye);
@@ -1324,15 +1444,13 @@ _updateCamera(dt, snap) {
           );
           if (t > 0 && t < nearest) nearest = t;
         }
-        /* Flight camera obstruction uses stable world colliders only. Mesh ray hits can
-           flicker as the camera crosses detailed/transparent interior and roof meshes. */
+        if (flyCam) { const mh = this._meshRay(eye.x, eye.y, eye.z, backDir.x, backDir.y, backDir.z, backLen); if (mh && mh.point.y > baseY + 1.2 && mh.distance < nearest) nearest = mh.distance; }
         if (nearest < backLen) camPos.copy(eye).addScaledVector(backDir, Math.max(0.35, nearest - 0.15));
       }
     }
 
     if (this.world.groundAt) { const gy = this.world.groundAt(camPos.x, camPos.z) + 0.3; if (camPos.y < gy) camPos.y = gy; }
-    if (flyCam) this.camera.position.lerp(camPos, Math.min(1, dt * 4.5));
-    else this.camera.position.copy(camPos);
+    this.camera.position.copy(camPos);
     this.camera.lookAt(eye.clone().addScaledVector(aimDir, 15));
 
     this._aimOrigin = eye;
@@ -1384,8 +1502,7 @@ _updateCamera(dt, snap) {
       const t = rayAABB(ox, oy, oz, dx, dy, dz, c.minX, y0, c.minZ, c.maxX, y1, c.maxZ, nearest);
       if (t > 0 && t < nearest) nearest = t;
     }
-    /* Do not use per-frame mesh ray hits for flight camera distance: detailed meshes
-       can alternate hit/no-hit between frames and create visible camera vibration. */
+    if (flyCam) { const mh = this._meshRay(ox, oy, oz, dx, dy, dz, desiredDist + 0.3); if (mh && mh.point.y > baseY + 1.2 && mh.distance < nearest) nearest = mh.distance; }
     if (nearest <= desiredDist + 0.25) allowedDist = Math.max(CAM_MIN_DIST, nearest - 0.18);
   }
   const camPos = targetPos.clone().addScaledVector(dir, allowedDist);
@@ -1434,9 +1551,8 @@ _updateCamera(dt, snap) {
   }
 
   /* flying: never let the camera poke above a roof/ceiling directly over it */
-  /* The player's flight controller (_jetLimits) already enforces roof/ceiling
-     clearance. Avoid clamping the camera to _jetCeilY here: that value is sampled
-     intermittently and causes a visible three-frame camera pulse. */
+  if (flyCam && !worldCeilingHeight(this.world, this.level) && this._jetCeilY < Infinity && camPos.y > this._jetCeilY - 0.3) camPos.y = Math.max(targetPos.y, this._jetCeilY - 0.3);
+  if (flyCam) { const dv = camPos.clone().sub(targetPos), L = dv.length(); if (L > 0.05) { dv.divideScalar(L); const mh = this._meshRay(targetPos.x, targetPos.y, targetPos.z, dv.x, dv.y, dv.z, L + 0.2); if (mh && mh.point.y > baseY + 1.2 && mh.distance < L + 0.2) camPos.copy(targetPos).addScaledVector(dv, Math.max(0.5, mh.distance - 0.25)); } }
   /* never let the camera dip under terrain (beach dunes) */
   if (this.world.groundAt) { const gy = this.world.groundAt(camPos.x, camPos.z) + 0.3; if (camPos.y < gy) camPos.y = gy; }
 
@@ -1455,7 +1571,7 @@ _updateCamera(dt, snap) {
   }
   const currentDist = this.camera.position.distanceTo(targetPos);
   const pullingIn = allowedDist < currentDist;
-  const lerpRate = flyCam ? 4.5 : (pullingIn ? 14 : 6);
+  const lerpRate = pullingIn ? 14 : 6;
 
   if (snap || this._forceCamSnap) {
     this.camera.position.copy(camPos);
@@ -1486,6 +1602,7 @@ _updateCamera(dt, snap) {
     window.removeEventListener("keydown", this._kd);
     window.removeEventListener("keyup", this._ku);
     const el = this.dom;
+    el.removeEventListener("contextmenu", this._contextMenuBlock);
     el.removeEventListener("pointerdown", this._pd);
     el.removeEventListener("pointermove", this._pm);
     ["pointerup", "pointercancel", "pointerleave"].forEach(k => el.removeEventListener(k, this._pu));
@@ -1498,6 +1615,10 @@ _updateCamera(dt, snap) {
     this._menuBtn && this._menuBtn.parentNode && this._menuBtn.parentNode.removeChild(this._menuBtn);
     this._crouchBtn && this._crouchBtn.parentNode && this._crouchBtn.parentNode.removeChild(this._crouchBtn);
     this._lieBtn && this._lieBtn.parentNode && this._lieBtn.parentNode.removeChild(this._lieBtn);
+    this._viewBtn && this._viewBtn.parentNode && this._viewBtn.parentNode.removeChild(this._viewBtn);
+    this._aimBtn && this._aimBtn.parentNode && this._aimBtn.parentNode.removeChild(this._aimBtn);
+    this._shoulderBtn && this._shoulderBtn.parentNode && this._shoulderBtn.parentNode.removeChild(this._shoulderBtn);
+    this._setFirstPersonVisibility(false);
     this._qmWrap && this._qmWrap.parentNode && this._qmWrap.parentNode.removeChild(this._qmWrap);
     this._joyRingEl && this._joyRingEl.parentNode && this._joyRingEl.parentNode.removeChild(this._joyRingEl);
     this._s && this._s.parentNode && this._s.parentNode.removeChild(this._s);

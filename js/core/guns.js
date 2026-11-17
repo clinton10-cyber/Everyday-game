@@ -151,14 +151,49 @@ export function buildSniper3D() {
   return g;
 }
 
+/* ── Long-gun family: shared low-poly construction, distinct proportions ── */
+function buildLongGun3D(type) {
+  const g = new THREE.Group();
+  const metal = new THREE.MeshStandardMaterial({ color: 0x303944, roughness: 0.42, metalness: 0.78 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x171b20, roughness: 0.82, metalness: 0.12 });
+  const accent = new THREE.MeshStandardMaterial({ color: 0x68737c, roughness: 0.3, metalness: 0.9 });
+  const wood = new THREE.MeshStandardMaterial({ color: 0x493522, roughness: 0.8, metalness: 0.05 });
+  const box = (w,h,d,mat,x,y,z) => { const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); m.castShadow=true; g.add(m); return m; };
+  const cyl = (r1,r2,len,mat,x,y,z) => { const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,len,8),mat); m.rotation.x=Math.PI/2; m.position.set(x,y,z); m.castShadow=true; g.add(m); return m; };
+  const dims = { rifle:{barrel:0.48, stock:0.24, mag:0.12, fore:0.22}, smg:{barrel:0.25,stock:0.14,mag:0.10,fore:0.12}, shotgun:{barrel:0.38,stock:0.27,mag:0.05,fore:0.25}, lmg:{barrel:0.62,stock:0.28,mag:0.20,fore:0.30} }[type] || {barrel:0.45,stock:0.22,mag:0.12,fore:0.2};
+  const stockMat = type === "shotgun" ? wood : dark;
+  box(0.055,0.065,0.34,metal,0,0.02,0.10);
+  box(0.045,0.075,dims.stock,stockMat,0,0.005,-0.19-dims.stock*0.35);
+  box(0.045,0.075,dims.fore,dark,0,-0.005,0.27);
+  cyl(0.012,0.014,dims.barrel,accent,0,0.025,0.42+dims.barrel*0.5);
+  box(0.032,0.12,0.055,dark,0,-0.075,0.055);
+  if (type !== "shotgun") box(0.045,dims.mag,0.06,metal,0,-0.105,0.08);
+  if (type === "lmg") {
+    box(0.07,0.11,0.12,dark,0,-0.12,0.18);
+    for (const side of [-1,1]) { const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.008,0.17,5),accent); leg.position.set(side*0.035,-0.11,0.34); leg.rotation.z=side*0.22; g.add(leg); }
+  }
+  if (type === "shotgun") {
+    cyl(0.018,0.018,0.34,wood,0,-0.035,0.37);
+    box(0.018,0.018,0.18,accent,0,-0.06,0.34);
+  }
+  if (type === "rifle" || type === "lmg") {
+    cyl(0.022,0.022,0.17,dark,0,0.085,0.12);
+    box(0.012,0.025,0.025,accent,0,0.12,0.18);
+  }
+  g.userData.muzzleLocal = new THREE.Vector3(0,0.025,0.42+dims.barrel);
+  return g;
+}
+
 /* ── Runtime config ─────────────────────────────────────────── */
 const GUN_CONFIG = {
   pistol: {
     damage: 25, range: 25, cooldown: 0.40, fireDuration: 0.22,
   },
-  sniper: {
-    damage: 85, range: 70, cooldown: 1.50, fireDuration: 0.55,
-  },
+  sniper: { damage: 85, range: 70, cooldown: 1.50, fireDuration: 0.55 },
+  rifle: { damage: 30, range: 46, cooldown: 0.12, fireDuration: 0.24 },
+  smg: { damage: 19, range: 30, cooldown: 0.075, fireDuration: 0.18 },
+  shotgun: { damage: 62, range: 17, cooldown: 0.82, fireDuration: 0.38 },
+  lmg: { damage: 25, range: 43, cooldown: 0.105, fireDuration: 0.30 },
 };
 
 /* ── Crosshair, hitscan ray helper, body parts ────────────────── */
@@ -169,25 +204,20 @@ function ensureCrosshair() {
   _crosshair.id = "ph3d-crosshair";
   _crosshair.style.cssText =
     "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);" +
-    "width:28px;height:28px;z-index:26;pointer-events:none;display:none";
+    "width:24px;height:24px;z-index:29;pointer-events:none;display:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.75))";
   _crosshair.innerHTML =
-    '<div style="position:absolute;left:50%;top:0;width:2px;height:9px;margin-left:-1px;background:#fff;box-shadow:0 0 6px rgba(0,0,0,.95)"></div>' +
-    '<div style="position:absolute;left:50%;bottom:0;width:2px;height:9px;margin-left:-1px;background:#fff;box-shadow:0 0 6px rgba(0,0,0,.95)"></div>' +
-    '<div style="position:absolute;top:50%;left:0;height:2px;width:9px;margin-top:-1px;background:#fff;box-shadow:0 0 6px rgba(0,0,0,.95)"></div>' +
-    '<div style="position:absolute;top:50%;right:0;height:2px;width:9px;margin-top:-1px;background:#fff;box-shadow:0 0 6px rgba(0,0,0,.95)"></div>' +
-    '<div style="position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;background:#ffcc2b;border-radius:50%;box-shadow:0 0 6px rgba(255,204,43,.85)"></div>';
+    '<i style="position:absolute;left:50%;top:1px;width:2px;height:7px;margin-left:-1px;background:#fff;border-radius:2px;box-shadow:0 1px 3px #000"></i>' +
+    '<i style="position:absolute;left:50%;bottom:1px;width:2px;height:7px;margin-left:-1px;background:#fff;border-radius:2px;box-shadow:0 1px 3px #000"></i>' +
+    '<i style="position:absolute;top:50%;left:1px;width:7px;height:2px;margin-top:-1px;background:#fff;border-radius:2px;box-shadow:0 1px 3px #000"></i>' +
+    '<i style="position:absolute;top:50%;right:1px;width:7px;height:2px;margin-top:-1px;background:#fff;border-radius:2px;box-shadow:0 1px 3px #000"></i>' +
+    '<i style="position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;background:#fff;border:1px solid rgba(0,0,0,.75);border-radius:50%"></i>';
   document.body.appendChild(_crosshair);
   return _crosshair;
 }
 
 function setCrosshairVisible(v) {
   const c = ensureCrosshair();
-  let isInterior = false;
-  try {
-    isInterior = !!(window.__ph3d_router && window.__ph3d_router.current &&
-      window.__ph3d_router.current.isInterior);
-  } catch (e) {}
-  c.style.display = (v && isInterior) ? "block" : "none";
+  c.style.display = v ? "block" : "none";
 }
 
 function rayAABBHelper(ox, oy, oz, dx, dy, dz, minX, minY, minZ, maxX, maxY, maxZ, maxT) {
@@ -267,6 +297,11 @@ const SNIPER_READY = {
   head:       [ 0.05, -0.10,  0    ],
 };
 
+const RIFLE_READY = { ...PISTOL_READY, r_shoulder:[-1.48,0.08,-0.12], l_shoulder:[-1.50,-0.28,0.18], l_elbow:[-0.62,0,0], spine:[0.015,0.02,0] };
+const SMG_READY = { ...PISTOL_READY, r_shoulder:[-1.58,0.04,-0.05], l_shoulder:[-1.60,-0.18,0.12], r_elbow:[-0.28,0,0], l_elbow:[-0.48,0,0], spine:[0.025,0,0] };
+const SHOTGUN_READY = { ...RIFLE_READY, r_shoulder:[-1.38,0.12,-0.16], l_shoulder:[-1.42,-0.34,0.22], l_elbow:[-0.72,0,0], spine:[0.06,0.02,0] };
+const LMG_READY = { ...RIFLE_READY, r_shoulder:[-1.30,0.18,-0.20], l_shoulder:[-1.34,-0.42,0.26], l_elbow:[-0.78,0,0], spine:[0.10,0.04,0] };
+
 function blendPose(a, b, k) {
   const mix = (arrA, arrB) => [
     arrA[0] + (arrB[0] - arrA[0]) * k,
@@ -320,6 +355,10 @@ const SNIPER_KICK = {
   spine:      [ 0.20, 0,  0    ],
   head:       [ 0.20, 0,  0    ],
 };
+const RIFLE_KICK = { ...PISTOL_KICK, r_shoulder:[0.24,0,0], l_shoulder:[0.20,0,0], spine:[0.055,0,0], head:[0.07,0,0] };
+const SMG_KICK = { ...PISTOL_KICK, r_shoulder:[0.15,0,0], l_shoulder:[0.13,0,0], spine:[0.035,0,0], head:[0.045,0,0] };
+const SHOTGUN_KICK = { ...SNIPER_KICK, r_shoulder:[0.78,0,0], l_shoulder:[0.70,0,0], spine:[0.24,0,0], head:[0.22,0,0] };
+const LMG_KICK = { ...RIFLE_KICK, r_shoulder:[0.30,0,0], l_shoulder:[0.28,0,0], spine:[0.075,0,0] };
 
 /* Apply a full pose (both arms + torso + head). */
 function applyPose(R, pose) {
@@ -356,7 +395,7 @@ export class Gun {
     this.cooldown = cfg.cooldown;
     this.fireDuration = cfg.fireDuration;
 
-    this.mesh = type === "pistol" ? buildPistol3D() : buildSniper3D();
+    this.mesh = type === "pistol" ? buildPistol3D() : type === "sniper" ? buildSniper3D() : buildLongGun3D(type);
     this.mesh.visible = false;
     this.state = "holstered";
     this.animTime = 0;
@@ -372,74 +411,6 @@ export class Gun {
       this.mesh.rotation.set(Math.PI / 2, 0, 0);
       rig.armR.grip.add(this.mesh);
     }
-    this._initLaser();
-  }
-
-  _initLaser() {
-    const scene = this.controls.scene;
-    if (!scene) return;
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
-    this.laserLine = new THREE.Line(
-      geo,
-      new THREE.LineBasicMaterial({
-        color: this.type === "sniper" ? 0xffcc2b : 0xff2a2a,
-        transparent: true, opacity: 0.65,
-      })
-    );
-    this.laserLine.frustumCulled = false;
-    this.laserLine.visible = false;
-    scene.add(this.laserLine);
-
-    this.laserDot = new THREE.Mesh(
-      new THREE.SphereGeometry(0.035, 8, 6),
-      new THREE.MeshBasicMaterial({
-        color: this.type === "sniper" ? 0xffcc2b : 0xff2a2a,
-        transparent: true, opacity: 0.9,
-      })
-    );
-    this.laserDot.visible = false;
-    scene.add(this.laserDot);
-  }
-
-  _updateLaser() {
-    if (!this.laserLine) return;
-    const armed = this.state === "drawn" || this.state === "firing";
-    const aim = this.controls.getAim && this.controls.getAim();
-    if (!armed || !this.mesh || !aim) {
-      this.laserLine.visible = false;
-      this.laserDot.visible = false;
-      return;
-    }
-    const { origin, dir } = aim;
-    const c = this.controls;
-    let hit = this.range;
-    if (c.world && c.world.colliders) {
-      for (const col of c.world.colliders) {
-        if (col.level !== undefined && col.level !== (c.level || 0)) continue;
-        const t = rayAABBHelper(
-          origin.x, origin.y, origin.z, dir.x, dir.y, dir.z,
-          col.minX, col.y0 != null ? col.y0 : 0, col.minZ,
-          col.maxX, col.y1 != null ? col.y1 : 3, col.maxZ, hit
-        );
-        if (t > 0 && t < hit) hit = t;
-      }
-    }
-    const end = origin.clone().addScaledVector(dir, hit);
-    const muzzle = new THREE.Vector3();
-    if (this.mesh.userData.muzzleLocal) {
-      muzzle.copy(this.mesh.userData.muzzleLocal);
-      this.mesh.localToWorld(muzzle);
-    } else { muzzle.copy(origin); }
-
-    const pos = this.laserLine.geometry.attributes.position.array;
-    pos[0] = muzzle.x; pos[1] = muzzle.y; pos[2] = muzzle.z;
-    pos[3] = end.x;    pos[4] = end.y;    pos[5] = end.z;
-    this.laserLine.geometry.attributes.position.needsUpdate = true;
-    this.laserLine.geometry.computeBoundingSphere();
-    this.laserLine.visible = true;
-    this.laserDot.position.copy(end);
-    this.laserDot.visible = true;
   }
 
   _setState(s) {
@@ -476,7 +447,6 @@ export class Gun {
 
   update(dt, targets) {
     if (this.cdTime > 0) this.cdTime = Math.max(0, this.cdTime - dt);
-    this._updateLaser();
     if (this.state !== "firing") return;
     this.animTime += dt;
     const p = Math.min(this.animTime / this.fireDuration, 1);
@@ -490,8 +460,8 @@ export class Gun {
   /* Full-body arm pose (both arms + torso + head). */
   applyArmPose(R) {
     if (!R) return;
-    const ready = this.type === "pistol" ? PISTOL_READY : SNIPER_READY;
-    const kick  = this.type === "pistol" ? PISTOL_KICK  : SNIPER_KICK;
+    const ready = ({ pistol: PISTOL_READY, sniper: SNIPER_READY, rifle: RIFLE_READY, smg: SMG_READY, shotgun: SHOTGUN_READY, lmg: LMG_READY })[this.type] || PISTOL_READY;
+    const kick  = ({ pistol: PISTOL_KICK, sniper: SNIPER_KICK, rifle: RIFLE_KICK, smg: SMG_KICK, shotgun: SHOTGUN_KICK, lmg: LMG_KICK })[this.type] || PISTOL_KICK;
     const aimPitch = (this.controls && this.controls.aimPitch) || 0;
 
     const adjust = (p) => ({
@@ -504,7 +474,16 @@ export class Gun {
       spine:      p.spine,
       head:       [p.head[0] + aimPitch * 0.35, p.head[1], p.head[2]],
     });
-    const aimed = adjust(ready);
+    let aimed = adjust(ready);
+    if (this.controls && this.controls.aiming) {
+      const ads = {
+        r_shoulder: [-1.72, 0.06, -0.04], r_elbow: [-0.12, 0, 0], r_wrist: [0.02, 0, 0],
+        l_shoulder: [-1.68, -0.20, 0.14], l_elbow: [-0.42, 0, 0], l_wrist: [0.04, -0.02, 0],
+        spine: [-0.035, 0, 0], head: [0.015, -0.02, 0]
+      };
+      const adsPose = adjust(this.type === "sniper" ? { ...ads, r_shoulder: [-1.58,0.08,-0.08], l_shoulder: [-1.62,-0.28,0.18] } : ads);
+      aimed = blendPose(aimed, adsPose, this.type === "sniper" ? 0.88 : 0.62);
+    }
 
     if (this.state === "drawn") {
       applyPose(R, aimed);
@@ -520,7 +499,7 @@ export class Gun {
       else kickAmount = Math.max(0, 1 - (p - 0.30) / 0.70);
 
       /* Sniper kicks harder — scale by type */
-      const scale = this.type === "sniper" ? 1.30 : 1.00;
+      const scale = ({ sniper:1.30, shotgun:1.42, lmg:0.92, rifle:0.86, smg:0.62 })[this.type] || 1.00;
       const blend = blendPose(
         { r_shoulder:[0,0,0], r_elbow:[0,0,0], r_wrist:[0,0,0], l_shoulder:[0,0,0], l_elbow:[0,0,0], l_wrist:[0,0,0], spine:[0,0,0], head:[0,0,0] },
         kick,
@@ -551,11 +530,9 @@ export class Gun {
     } else { muzzleWorld.copy(origin); }
     this._spawnFlash(muzzleWorld);
     Sfx.gunshot(this.type, muzzleWorld.x, muzzleWorld.z);
-    if (this.type === "pistol") this._spawnCasing();
+    if (this.type !== "shotgun") this._spawnCasing();
 
-    // Interior shots must stop at the first solid wall/door/furniture collider.
-    // Previously targets were tested without checking the space between the player
-    // and the NPC, allowing bullets to pass through walls in every building.
+    // Interior shots stop at the first registered solid collider.
     let wallT = this.range;
     if (c._interiorWeaponMode && c.world && Array.isArray(c.world.colliders)) {
       for (const col of c.world.colliders) {
@@ -569,9 +546,8 @@ export class Gun {
         if (t > 0 && t < wallT) wallT = t;
       }
     }
-
     let bestHit = null, bestT = wallT, bestPart = "torso";
-    const radius = this.type === "sniper" ? 0.52 : 0.55;
+    const radius = this.type === "sniper" ? 0.52 : this.type === "shotgun" ? 0.82 : 0.55;
 
     if (targets && targets.length) {
       for (const o of targets) {
@@ -694,18 +670,6 @@ export class Gun {
     for (const t of this._pendingTimers) clearTimeout(t);
     this._pendingTimers.length = 0;
     if (this.mesh && this.mesh.parent) this.mesh.parent.remove(this.mesh);
-    if (this.laserLine) {
-      if (this.laserLine.parent) this.laserLine.parent.remove(this.laserLine);
-      this.laserLine.geometry.dispose();
-      this.laserLine.material.dispose();
-      this.laserLine = null;
-    }
-    if (this.laserDot) {
-      if (this.laserDot.parent) this.laserDot.parent.remove(this.laserDot);
-      this.laserDot.geometry.dispose();
-      this.laserDot.material.dispose();
-      this.laserDot = null;
-    }
     setGrip(this.controls.rig, -1, 0);
   }
 }
@@ -717,6 +681,10 @@ export class Weapons {
     this.knife  = new Knife(controls);
     this.pistol = new Gun(controls, "pistol");
     this.sniper = new Gun(controls, "sniper");
+    this.rifle = new Gun(controls, "rifle");
+    this.smg = new Gun(controls, "smg");
+    this.shotgun = new Gun(controls, "shotgun");
+    this.lmg = new Gun(controls, "lmg");
     this.bazooka = new RocketLauncher(controls);
     this.current = "fists";
     this.onStateChange = null;
@@ -731,22 +699,27 @@ export class Weapons {
     this.knife.holster();
     this.pistol.holster();
     this.sniper.holster();
+    this.rifle.holster(); this.smg.holster(); this.shotgun.holster(); this.lmg.holster();
     this.bazooka.holster();
     this.current = name;
     if (name === "knife")  this.knife.draw();
     else if (name === "pistol") this.pistol.draw();
     else if (name === "sniper") this.sniper.draw();
+    else if (name === "rifle") this.rifle.draw();
+    else if (name === "smg") this.smg.draw();
+    else if (name === "shotgun") this.shotgun.draw();
+    else if (name === "lmg") this.lmg.draw();
     else if (name === "bazooka") this.bazooka.draw();
     this._notify();
     this._syncCrosshair();
   }
 
   _syncCrosshair() {
-    setCrosshairVisible(this.current !== "fists");
+    setCrosshairVisible(["pistol", "sniper", "rifle", "smg", "shotgun", "lmg", "bazooka"].includes(this.current));
   }
 
   cycle() {
-    const list = ["fists", "knife", "pistol", "sniper", "bazooka"];
+    const list = ["fists", "knife", "pistol", "smg", "rifle", "shotgun", "lmg", "sniper", "bazooka"];
     const i = list.indexOf(this.current);
     this.select(list[(i + 1) % list.length]);
   }
@@ -756,17 +729,15 @@ export class Weapons {
 
   attack(targets) {
     const c = this.controls;
-    // Do not fire or swing while seated, lying down, carrying something,
-    // performing a full-body emote, or actively flying inside a building.
-    if (c && (
-      (c.state !== "standing" && c.state !== "crouching") ||
-      !!c.held ||
-      (c._emoteTimer > 0.12) ||
-      (!!(c.jet && c.jet.on) && c.onGround === false)
-    )) return false;
+    if (c && ((c.state !== "standing" && c.state !== "crouching") || !!c.held ||
+      (c._emoteTimer > 0.12) || (!!(c.jet && c.jet.on) && c.onGround === false))) return false;
     if (this.current === "knife")  return this.knife.stab();
     if (this.current === "pistol") return this.pistol.fire();
     if (this.current === "sniper") return this.sniper.fire();
+    if (this.current === "rifle") return this.rifle.fire();
+    if (this.current === "smg") return this.smg.fire();
+    if (this.current === "shotgun") return this.shotgun.fire();
+    if (this.current === "lmg") return this.lmg.fire();
     if (this.current === "bazooka") return this.bazooka.fire();
     return false;
   }
@@ -775,6 +746,7 @@ export class Weapons {
     this.knife.update(dt, targets);
     this.pistol.update(dt, targets);
     this.sniper.update(dt, targets);
+    this.rifle.update(dt, targets); this.smg.update(dt, targets); this.shotgun.update(dt, targets); this.lmg.update(dt, targets);
     this.bazooka.update(dt, targets);
   }
 
@@ -782,6 +754,10 @@ export class Weapons {
     if (this.current === "knife")  return this.knife.applyArmPose(R);
     if (this.current === "pistol") return this.pistol.applyArmPose(R);
     if (this.current === "sniper") return this.sniper.applyArmPose(R);
+    if (this.current === "rifle") return this.rifle.applyArmPose(R);
+    if (this.current === "smg") return this.smg.applyArmPose(R);
+    if (this.current === "shotgun") return this.shotgun.applyArmPose(R);
+    if (this.current === "lmg") return this.lmg.applyArmPose(R);
     if (this.current === "bazooka") return this.bazooka.applyArmPose(R);
   }
 
@@ -789,6 +765,7 @@ export class Weapons {
     this.knife.dispose();
     this.pistol.dispose();
     this.sniper.dispose();
+    this.rifle.dispose(); this.smg.dispose(); this.shotgun.dispose(); this.lmg.dispose();
     this.bazooka.dispose();
     setCrosshairVisible(false);
   }

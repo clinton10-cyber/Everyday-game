@@ -71,7 +71,9 @@ const SPEC = {
   "ph3d-crouch-btn":       { z: "ctx",  cls: "h-ctx",           o: 8 },
   "ph3d-lie-btn":          { z: "ctx",  cls: "h-ctx",  ico: "sit", o: 9 },
   "ph3d-drive-horn":       { z: "ctx",  cls: "h-ctx",           o: 10 },
-  "ph3d-view-btn":         { z: "ctx",  cls: "h-ctx",           o: 11 },
+  "ph3d-view-btn":         { z: "ctx",  cls: "h-ctx h-combat-util", o: 11 },
+  "ph3d-aim-btn":          { z: "ctx",  cls: "h-ctx h-combat-util", o: 12 },
+  "ph3d-shoulder-btn":     { z: "ctx",  cls: "h-ctx h-combat-util", o: 13 },
   "ph3d-furn-btn":         { z: "ctx",  cls: "h-ctx",           o: 12 },
 
   "ph3d-state":            { z: "state", cls: "h-state" },

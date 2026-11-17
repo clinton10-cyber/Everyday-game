@@ -699,3 +699,11 @@
     height:52px!important;
   }
 }
+
+/* Combat camera controls: compact utility buttons in the context stack,
+   separate from the fire/jump thumb targets. */
+#hud-ctx .h-combat-util{width:142px!important;min-height:38px!important;line-height:38px!important;
+  font-size:11px!important;letter-spacing:.035em!important;border-radius:13px!important;
+  background:rgba(9,14,20,.88)!important;border:1px solid rgba(255,255,255,.22)!important;
+  color:#f4f6f8!important;box-shadow:0 6px 18px rgba(0,0,0,.32)!important}
+#hud-ctx .h-combat-util.is-on{background:rgba(36,92,72,.95)!important;border-color:rgba(92,224,164,.6)!important}
