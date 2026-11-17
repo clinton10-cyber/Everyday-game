@@ -177,7 +177,6 @@ export async function buildInterior(router) {
 
   /* ===== GAZEBO (north, at 0,-30) ===== */
   const GZ={x:0,z:-30,r:3.4};
-  seats.push({ type: "sit", label: "SIT IN GAZEBO", x: GZ.x, z: GZ.z, yaw: 0, h: 0.2, level: 0, taken: false });
   /* raised base */
   cyl(GZ.r+.6,.18,GZ.x,.09,GZ.z,stoneM);
   cyl(GZ.r+.35,.14,GZ.x,.16,GZ.z,stoneLight);
@@ -220,6 +219,7 @@ export async function buildInterior(router) {
     const bz=GZ.z+Math.sin(a)*(GZ.r-0.55);
     box(1.5,.08,.35,bx,.6,bz,woodM,{ry:a+Math.PI/2,solid:true});
     box(1.5,.5,.08,bx,.86,bz+Math.sin(a+Math.PI/2)*.14,woodM,{ry:a+Math.PI/2});
+    seats.push({ type: "sit", label: "SIT IN GAZEBO", x: bx, z: bz, yaw: a + Math.PI / 2, h: 0.64, level: 0, taken: false });
   }
   /* central garden table */
   cyl(.5,.08,GZ.x,.72,GZ.z,woodM);
@@ -327,7 +327,7 @@ export async function buildInterior(router) {
     /* legs */
     put(.12,.5,.12,-.85,.25,0,steel);
     put(.12,.5,.12, .85,.25,0,steel);
-    seats.push({ type: "sit", label: "SIT", x, z, yaw: ry, h: 0.5, level: 0, taken: false });
+    seats.push({ type: "sit", label: "SIT", x, z, yaw: ry, h: 0.55, level: 0, taken: false });
   }
   /* along south path */
   bench(-3.5,14,Math.PI);

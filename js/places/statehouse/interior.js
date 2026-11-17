@@ -263,10 +263,14 @@ export async function buildInterior(router) {
     put(.16,.55,.85,-w/2+.08,.58,0,mat(c));
     put(.16,.55,.85,w/2-.08,.58,0,mat(c));
     const n=Math.max(2,Math.floor(w/.7));
-    for(let i=0;i<n;i++) put(w/n-.06,.14,.7,-w/2+(i+.5)*(w/n),.47,.05,mat(c+0x0a0a0a));
+    for(let i=0;i<n;i++) {
+      const lx=-w/2+(i+.5)*(w/n);
+      put(w/n-.06,.14,.7,lx,.47,.05,mat(c+0x0a0a0a));
+      /* One interaction point per actual cushion, transformed with the sofa. */
+      seats.push({ type: "sit", label: "SIT", x:x+lx*cs+.05*sn, z:z-lx*sn+.05*cs, yaw:ry, h:0.54, level:0, taken:false });
+    }
     [[-w/2+.14,-.3],[w/2-.14,-.3],[-w/2+.14,.3],[w/2-.14,.3]].forEach(p=>
       box(.07,.15,.07,x+p[0]*cs+p[1]*sn,.08,z-p[0]*sn+p[1]*cs,gold));
-    seats.push({ type: "sit", label: "SIT", x, z, yaw: ry, h: 0.5, level: 0, taken: false });
   }
   benchSofa(-10.5,16.4,3.2,Math.PI,0x2a3a4a);
   benchSofa(10.5,16.4,3.2,Math.PI,0x2a3a4a);

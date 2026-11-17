@@ -1231,8 +1231,14 @@ this._lastVy = vyBeforeSnap;
     {
       const flying = this.jet.on && !this.onGround;
       const hs = Math.hypot(this.vel.x || 0, this.vel.z || 0);
-      const want = flying ? 0.22 + Math.min(1, hs / 4) * (Math.PI / 2 - 0.22) : 0;   /* same head-first 90-degree angle as swimming */
-      this.jet.tilt += (want - this.jet.tilt) * Math.min(1, dt * 6);
+      /* Wing flight uses a controlled forward-leaning glide pose instead of the
+         jetpack's steep, head-first dive. Lean increases smoothly with air speed,
+         while hovering/ascending keeps a gentler angle. */
+      const wingLean = 0.34 + Math.min(1, hs / 7) * 0.42;
+      const want = flying
+        ? (_wingFly ? wingLean : 0.22 + Math.min(1, hs / 4) * (Math.PI / 2 - 0.22))
+        : 0;
+      this.jet.tilt += (want - this.jet.tilt) * Math.min(1, dt * (_wingFly ? 4.5 : 6));
       if (this.jet.tilt < 0.002 && !flying) this.jet.tilt = 0;
       this._tiltNow = this.jet.tilt;
     }

@@ -11,11 +11,26 @@ export const MANSION_ROOF_Y = 4.00;
 export const STAIR_X0 = MANSION_OX + 15, STAIR_X1 = MANSION_OX + 19;
 export const STAIR_Z0 = MANSION_OZ +  4, STAIR_Z1 = MANSION_OZ + 14;
 
-const {fArmchair, fBench, fBigScreen, fBookshelf, fChair, fChandelier,
+const {fArmchair, fBed, fBench, fBigScreen, fChair, fChandelier,
        fCinemaSeat, fCoffeeTable, fConsole, fDiningTable, fDumbbellRack,
        fFridge, fIsland, fKitchen, fLamp, fLampCeil, fLounger,
        fMansionEntranceDoor, fPainting, fPiano, fPlant, fPoleLamp, fRug,
-       fSink, fSofa, fStove, fTV, fTreadmill, fWindow, fYogaMat} = F;
+       fSink, fSofa, fStove, fTV, fTreadmill, fWardrobe, fNightstand, fWindow, fYogaMat} = F;
+
+/* Mansion dining/island chairs: full-size padded seats with four stable legs.
+   Cushion top = 0.55 m; the interaction anchor is centred on that cushion,
+   facing away from the backrest. */
+function fMansionChair(B, x, z, ry, color) {
+  const Fm = F.mkFrame(B, x, z, ry);
+  const wood = 0x8a6428;
+  const upholstery = color || 0xd9a04a;
+  Fm.box(0.64, 0.10, 0.64, wood, 0, 0.46, 0, true);
+  Fm.box(0.62, 0.12, 0.62, upholstery, 0, 0.57, 0.015);
+  Fm.box(0.62, 0.66, 0.09, upholstery, 0, 0.88, -0.275);
+  for (const [x0,z0] of [[-0.25,-0.25],[0.25,-0.25],[-0.25,0.25],[0.25,0.25]])
+    Fm.box(0.07, 0.44, 0.07, wood, x0, 0.22, z0);
+  B.addSeat(x, z, ry + Math.PI, "sit", "SIT", 0.565);
+}
 
 export function buildMansion(B) {
   const H  = MANSION_ROOF_Y;
@@ -72,18 +87,28 @@ export function buildMansion(B) {
   fPainting(B, 0.20, 4.5, Math.PI/2, 1.2, 0.9, 0x4a8ae0);
   fPiano(B, 10.8, 7.5, -Math.PI/2);
 
-  /* ══ LIBRARY (x 0-12, z 9-18, center 6, 13.5) ══════════════════ */
-  fBookshelf(B,  2.0, 17.58, 0, 2.4, 3.2, 0.45, 0xa0602a);
-  fBookshelf(B,  5.0, 17.58, 0, 2.4, 3.2, 0.45, 0xa0602a);
-  fBookshelf(B,  8.0, 17.58, 0, 2.4, 3.2, 0.45, 0xa0602a);
-  fBookshelf(B, 11.0, 17.58, 0, 2.4, 3.2, 0.45, 0xa0602a);
-  fBookshelf(B, 0.42, 13.5, Math.PI/2, 2.6, 3.2, 0.45, 0xa0602a);
-  fRug(B, 6.0, 14.5, 0, 7.0, 4.0, 0x3a6a3a, 0xd8f0a0);
-  fArmchair(B, 4.0, 14.5, 0,       0xf0c020, 0xffe070);
-  fArmchair(B, 8.0, 14.5, 0,       0xf0c020, 0xffe070);
-  fCoffeeTable(B, 6.0, 15.5, 0, 1.4, 0.7);
-  fLamp(B, 3.0, 15.5, 0);
-  fLamp(B, 9.0, 15.5, 0);
+  /* ══ BEDROOM SUITE (x 0-12, z 9-18) ═══════════════════════════
+     The former library zone becomes a proper residential bedroom suite.
+     Two full-size beds have independent lie-down points, clear walkways,
+     bedside tables and wardrobes; reading chairs sit beyond the bed foot. */
+  fRug(B, 6.0, 14.0, 0, 8.0, 6.0, 0x3a6a3a, 0xd8f0a0);
+  fBed(B, 3.25, 13.1, 0, {
+    w: 1.80, l: 2.20, frame: 0x70452c, matt: 0xfff8ec,
+    duvet: 0x416f9a, pillow: 0xfffdf6, head: 0x5a3928
+  });
+  fBed(B, 8.75, 13.1, 0, {
+    w: 1.80, l: 2.20, frame: 0x70452c, matt: 0xfff8ec,
+    duvet: 0x9a456a, pillow: 0xfffdf6, head: 0x5a3928
+  });
+  fNightstand(B, 5.0, 12.9, 0, 0x9a6a42);
+  fNightstand(B, 7.0, 12.9, 0, 0x9a6a42);
+  fLamp(B, 5.0, 12.9, 0);
+  fLamp(B, 7.0, 12.9, 0);
+  fWardrobe(B, 1.2, 16.9, 0, 1.7, 0.65, 2.15, 0x9a7048);
+  fWardrobe(B, 10.8, 16.9, 0, 1.7, 0.65, 2.15, 0x9a7048);
+  fArmchair(B, 3.2, 16.2, Math.PI, 0xd0a050, 0xf0d090);
+  fArmchair(B, 8.8, 16.2, Math.PI, 0x5088b8, 0x90c8e8);
+  fCoffeeTable(B, 6.0, 16.5, 0, 1.2, 0.65);
   fLampCeil(B, 6.0, 13.5, H);
   fWindow(B, 0.15, 13.5, Math.PI/2, 2.0, 1.8, 1.0);
 
@@ -140,8 +165,8 @@ export function buildMansion(B) {
   fRug(B, 17.0, 24.5, 0, 6.0, 4.0, 0x8a2a5a, 0xffc8e0);
   fDiningTable(B, 17.0, 24.5, 0, 4.0, 1.4, 0x6a2a5a);
   for (let i = 0; i < 4; i++) {
-    fChair(B, 15.2 + i * 1.2, 23.4, 0,        0xf0c020);
-    fChair(B, 15.2 + i * 1.2, 25.6, Math.PI,  0xf0c020);
+    fMansionChair(B, 15.2 + i * 1.2, 23.4, 0,        0xf0c020);
+    fMansionChair(B, 15.2 + i * 1.2, 25.6, Math.PI,  0xf0c020);
   }
   fPainting(B, 17.0, 21.20, Math.PI, 1.6, 1.0, 0xe08a4a);
   fWindow(B, 14.0, 27.85, Math.PI, 1.6, 1.8, 1.0);
@@ -155,7 +180,7 @@ export function buildMansion(B) {
   fStove(B, 27.0, 0.44, 0);
   fFridge(B, 32.5, 0.48, 0, 0xe0a0c0);
   fIsland(B, 28.0, 4.5, 0, 3.5, 1.2, { cab:0x5ac8a0, top:0x2f3237 });
-  for (let i = 0; i < 3; i++) fChair(B, 26.5 + i * 1.4, 3.5, 0, 0xf0a040);
+  for (let i = 0; i < 3; i++) fMansionChair(B, 26.5 + i * 1.4, 3.5, 0, 0xf0a040);
   fWindow(B, 28.0, 0.16, 0, 2.4, 1.8, 1.0);
   fLampCeil(B, 28.0, 4.5, H);
   fPlant(B, 33.0, 8.0);
@@ -165,11 +190,11 @@ export function buildMansion(B) {
   fRug(B, 28.0, 12.5, 0, 8.0, 5.0, 0x8a2a5a, 0xffc8e0);
   fDiningTable(B, 28.0, 12.5, 0, 5.0, 1.4, 0x6a2a5a);
   for (let i = 0; i < 5; i++) {
-    fChair(B, 25.6 + i * 1.1, 11.4, 0,        0xf0c020);
-    fChair(B, 25.6 + i * 1.1, 13.6, Math.PI,  0xf0c020);
+    fMansionChair(B, 25.6 + i * 1.1, 11.4, 0,        0xf0c020);
+    fMansionChair(B, 25.6 + i * 1.1, 13.6, Math.PI,  0xf0c020);
   }
-  fChair(B, 24.2, 12.5,  Math.PI/2, 0xf0c020);
-  fChair(B, 31.8, 12.5, -Math.PI/2, 0xf0c020);
+  fMansionChair(B, 24.2, 12.5,  Math.PI/2, 0xf0c020);
+  fMansionChair(B, 31.8, 12.5, -Math.PI/2, 0xf0c020);
   fPainting(B, 28.0, 9.20, Math.PI, 1.6, 1.0, 0xe08a4a);
   fWindow(B, 26.0, 9.20, Math.PI, 1.4, 1.8, 1.0);
   fWindow(B, 30.0, 9.20, Math.PI, 1.4, 1.8, 1.0);
@@ -227,8 +252,8 @@ export function buildMansion(B) {
   /* Terrace dining cluster (x 20-32, z 10-20) */
   fDiningTable(B, 26.0, 14.0, 0, 3.5, 1.2, 0xe06a3a);
   for (let i = 0; i < 4; i++) {
-    fChair(B, 24.8 + i * 0.9, 13.0, 0,        0xf0a040);
-    fChair(B, 24.8 + i * 0.9, 15.0, Math.PI,  0xf0a040);
+    fMansionChair(B, 24.8 + i * 0.9, 13.0, 0,        0xf0a040);
+    fMansionChair(B, 24.8 + i * 0.9, 15.0, Math.PI,  0xf0a040);
   }
   fRug(B, 26.0, 14.0, 0, 5.0, 4.0, 0x8a5a2a, 0xffc880);
   fConsole(B, 20.30, 15.0, Math.PI/2, 1.0);

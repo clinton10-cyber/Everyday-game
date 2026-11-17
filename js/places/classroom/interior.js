@@ -142,7 +142,7 @@ export async function buildInterior(router) {
     [[-.18,.55],[.18,.55]].forEach(p=>
       box(.04,.42,.04,x+p[0],.24,z+.62,metal));
     /* FIXED: Added seat interactable for student desks */
-    seats.push({ type: "sit", label: "SIT", x: x, z: z + 0.85, yaw: Math.PI, h: 0.55, level: 0, taken: false });
+    seats.push({ type: "sit", label: "SIT", x: x, z: z + 0.66, yaw: Math.PI, h: 0.52, level: 0, taken: false });
     
     /* books on desk */
     box(.3,.05,.22,x-.2,.83,z,mat(0xc44a3a));
