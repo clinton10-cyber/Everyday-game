@@ -142,16 +142,16 @@ export const INTERIOR_NPCS = {
   ],
   statejail: [
     /* inmates loitering in the cell block */
-    { role: "inmate", x: -5, z:  3 },
+    { role: "inmate", x: -6, z:  2 },
     { role: "inmate", x:  1, z:  4 },
-    { role: "inmate", x: -5, z: -3 },
+    { role: "inmate", x: -6, z: -2 },
     { role: "inmate", x:  1, z: -4 },
-    { role: "inmate", x: -2, z: -8 },
-    /* wardens at the gates / corners */
-    { role: "warden", x: -7, z:  11 },
-    { role: "warden", x:  7, z:  11 },
-    { role: "warden", x: -7, z: -11 },
-    { role: "warden", x:  7, z: -11 },
+    { role: "inmate", x: -2, z: -7 },
+    /* wardens at the gates / corners (clear of the new tables, desk and exam bed) */
+    { role: "warden", x: -7, z:  10 },
+    { role: "warden", x: 10, z:  11 },
+    { role: "warden", x: -10.5, z: -10 },
+    { role: "warden", x: 10.5, z: -10 },
   ],
 
   autoHub: [
