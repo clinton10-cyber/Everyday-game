@@ -457,6 +457,14 @@ function buildTopShell(rig, B, M, o, T) {
       w = Math.max(w, hipW * lerp(0.94, 1, k)) * (1 + 0.20 * (S.flare || 0) * k);
       d = Math.max(d, hipD * lerp(0.94, 1, k)) * (1 + 0.14 * (S.flare || 0) * k);
     }
+    if (S.hem !== undefined && S.hem < -0.02 && y < 0.16) {   /* long tunics: clear the trouser pelvis/waistband so it can't poke through */
+      const be = ((BOTTOMS[o.bottom] || {}).ease || 0.02) + 0.014, kk = clamp((y - 0.04) / 0.12, 0, 1);
+      const bt = BOTTOMS[o.bottom] || {}, tpl = (bt.taper || 1) > 1.12 && !bt.flare ? bt.taper : 1, bE = bt.ease || 0.02;
+      const legW = B.hipX + B.thighTop * tpl + bE + 0.02, legD = B.thighTop * 1.06 * tpl + bE + 0.02;
+      const wl = clamp((-0.02 - y) / 0.10, 0, 1);             /* below the waist the tunic widens to clear baggy/wide legs */
+      w = Math.max(w, lerp(Math.max(...B.pelvRx) + be, 0, kk), lerp(0, legW, wl));
+      d = Math.max(d, lerp(Math.max(...B.pelvRz) + be, 0, kk), lerp(0, legD, wl));
+    }
     if (i === 0 && S.hemBand) { w += S.hemBand; d += S.hemBand; }
     if (i === 1 && S.hemBand) { w += S.hemBand * 0.4; d += S.hemBand * 0.4; }
     rr.push({ y, t, rx: w, rz: d, cx: 0, cz: 0 });
@@ -521,11 +529,11 @@ function buildSleeve(group, B, M, o, side, which, S) {
     if (len <= 0) return;
     const rr = [];
     for (let i = 0; i < 5; i++) {
-      const t = i / 4, y = lerp(0.012, -len, t), tt = Math.min(1, -y / 0.27);
+      const t = i / 4, y = lerp(-0.002, -len, t), tt = Math.min(1, -y / 0.27);
       rr.push({ y, t, rx: lerp(B.armTop + 0.004, B.armElbow, Math.max(0, tt)) + e, rz: lerp(B.armTop + 0.004, B.armElbow, Math.max(0, tt)) * 0.96 + e, cx: 0, cz: 0 });
     }
     mesh(loft(rr, { seg: 7, caps: len >= 0.27 ? false : "bottom" }), M.top, group);
-    mesh(blobGeo(B.armTop + e + 0.002, 0), M.top, group, 0, 0.0, 0);      /* shoulder cap */
+    { const c = mesh(blobGeo(B.armTop + e + 0.002, 0), M.top, group, 0, -0.016, 0); c.scale.set(1, 0.58, 1); }   /* shoulder cap: flattened so it follows the shoulder slope */
   } else {
     const len = S.lo;
     if (len <= 0) return;
@@ -551,7 +559,7 @@ function buildArm(rig, ctx, side) {
 
   const upper = ringsFrom(-0.27, 0.0, 4, { rx: [B.armElbow, B.armElbow * 1.12, B.armTop * 0.98, B.armTop], rz: [B.armElbow * 0.96, B.armElbow * 1.08, B.armTop * 0.94, B.armTop * 0.96] });
   mesh(loft(upper, { seg: 7, caps: false }), M.skin, shoulder);
-  mesh(blobGeo(B.armTop * 1.04, 0), M.skin, shoulder, 0, 0.004, 0);
+  { const c = mesh(blobGeo(B.armTop * 1.04, 0), M.skin, shoulder, 0, -0.014, 0); c.scale.set(1, 0.60, 1); }
 
   const elbow = new THREE.Group(); elbow.position.y = -0.270; shoulder.add(elbow); g.elbow = elbow;
   const lower = ringsFrom(-0.25, 0.0, 4, { rx: [B.armWrist, B.armWrist * 1.1, B.armElbow * 1.06, B.armElbow], rz: [B.armWrist * 0.92, B.armWrist * 1.0, B.armElbow * 1.0, B.armElbow * 0.96] });
@@ -598,8 +606,8 @@ const BOTTOMS = {
   baggy:    { kind: "pants",  ease: 0.034, hem: 0.000, taper: 1.30 },
   tracksuit:{ kind: "pants",  ease: 0.022, hem: 0.000, taper: 1.02 },
   cargo:    { kind: "pants",  ease: 0.028, hem: 0.000, taper: 1.10 },
-  palazzo:  { kind: "pants",  ease: 0.046, hem: 0.000, taper: 1.62 },
-  leggings: { kind: "pants",  ease: 0.004, hem: 0.000, taper: 0.94 },
+  palazzo:  { kind: "pants",  ease: 0.030, hem: 0.000, taper: 1.75, flare: true },
+  leggings: { kind: "pants",  ease: 0.010, hem: 0.000, taper: 1.00 },
   shorts:   { kind: "shorts", ease: 0.016, len: 0.24 },
   bermuda:  { kind: "shorts", ease: 0.020, len: 0.38 },
   skirt:    { kind: "skirt" },
@@ -618,28 +626,31 @@ function buildLeg(rig, ctx, side) {
   mesh(loft(thigh, { seg: 7, caps: false }), M.skin, hip);
   const calf = ringsFrom(-0.40, 0, 5, { rx: [B.calfBot, B.calfBot * 1.2, B.calfTop * 1.0, B.calfTop * 1.02, B.thighBot * 0.98], rz: [B.calfBot, B.calfBot * 1.25, B.calfTop * 1.08, B.calfTop * 1.04, B.thighBot] });
   mesh(loft(calf, { seg: 7, caps: false }), M.skin, knee);
-  mesh(blobGeo(B.thighBot * 1.0, 0), M.skin, knee, 0, 0, 0);
-
   const kind = dressMode ? "none" : BT.kind;
+  if (kind !== "pants") mesh(blobGeo(B.thighBot * 1.0, 0), M.skin, knee, 0, 0, 0);
   if (kind === "pants" || kind === "shorts") {
     const e = BT.ease;
     const tp = BT.taper || 1;
+    /* flared legs (palazzo) widen smoothly from the hip to the hem; everything else keeps one taper */
+    const rtU = (v, u) => v * (BT.flare ? lerp(1.0, tp, sstep(u)) : tp);
     const rt = (v) => v * tp;
     const thLen = kind === "shorts" ? BT.len : 0.42;
     const tr = [];
     for (let i = 0; i < 5; i++) {
       const t = i / 4, y = lerp(0.012, -thLen, t), tt = Math.min(1, -y / 0.42);
       const r = lerp(B.thighTop, B.thighBot, tt);
-      tr.push({ y, t, rx: rt(r) + e, rz: rt(r) * 1.06 + e, cx: 0, cz: 0 });
+      tr.push({ y, t, rx: rtU(r, tt * 0.5) + e, rz: rtU(r, tt * 0.5) * 1.06 + e, cx: 0, cz: 0 });
     }
     mesh(loft(tr, { seg: 7, caps: false }), M.bottom, hip);
     if (kind === "pants") {
       const cr = [];
       for (let i = 0; i < 5; i++) {
         const t = i / 4, y = lerp(0.012, -0.385, t), r = lerp(B.calfTop * 0.98, B.calfBot * 1.02, t);
-        cr.push({ y, t, rx: rt(r) + e + (i === 4 ? 0.008 : 0), rz: rt(r) * 1.04 + e + (i === 4 ? 0.008 : 0), cx: 0, cz: 0 });
+        const rk = i === 0 ? Math.max(r, B.thighBot * 0.99) : i === 1 ? Math.max(r, B.calfTop * 1.04) : r;   /* match the skin calf so the knee can't poke through */
+        cr.push({ y, t, rx: rtU(rk, 0.5 + t * 0.5) + e + (i === 4 ? 0.008 : 0), rz: rtU(rk, 0.5 + t * 0.5) * 1.04 + e + (i === 4 ? 0.008 : 0), cx: 0, cz: 0 });
       }
       mesh(loft(cr, { seg: 7, caps: false }), M.bottom, knee);
+      mesh(blobGeo((rtU(B.thighBot, 0.5) + e + 0.004) * 1.12, 0), M.bottom, knee, 0, 0, 0);   /* cloth knee: hides the skin joint */
     }
   }
   buildShoe(g, ctx, side);
