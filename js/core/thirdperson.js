@@ -1324,13 +1324,15 @@ _updateCamera(dt, snap) {
           );
           if (t > 0 && t < nearest) nearest = t;
         }
-        if (flyCam) { const mh = this._meshRay(eye.x, eye.y, eye.z, backDir.x, backDir.y, backDir.z, backLen); if (mh && mh.point.y > baseY + 1.2 && mh.distance < nearest) nearest = mh.distance; }
+        /* Flight camera obstruction uses stable world colliders only. Mesh ray hits can
+           flicker as the camera crosses detailed/transparent interior and roof meshes. */
         if (nearest < backLen) camPos.copy(eye).addScaledVector(backDir, Math.max(0.35, nearest - 0.15));
       }
     }
 
     if (this.world.groundAt) { const gy = this.world.groundAt(camPos.x, camPos.z) + 0.3; if (camPos.y < gy) camPos.y = gy; }
-    this.camera.position.copy(camPos);
+    if (flyCam) this.camera.position.lerp(camPos, Math.min(1, dt * 4.5));
+    else this.camera.position.copy(camPos);
     this.camera.lookAt(eye.clone().addScaledVector(aimDir, 15));
 
     this._aimOrigin = eye;
@@ -1382,7 +1384,8 @@ _updateCamera(dt, snap) {
       const t = rayAABB(ox, oy, oz, dx, dy, dz, c.minX, y0, c.minZ, c.maxX, y1, c.maxZ, nearest);
       if (t > 0 && t < nearest) nearest = t;
     }
-    if (flyCam) { const mh = this._meshRay(ox, oy, oz, dx, dy, dz, desiredDist + 0.3); if (mh && mh.point.y > baseY + 1.2 && mh.distance < nearest) nearest = mh.distance; }
+    /* Do not use per-frame mesh ray hits for flight camera distance: detailed meshes
+       can alternate hit/no-hit between frames and create visible camera vibration. */
     if (nearest <= desiredDist + 0.25) allowedDist = Math.max(CAM_MIN_DIST, nearest - 0.18);
   }
   const camPos = targetPos.clone().addScaledVector(dir, allowedDist);
@@ -1431,8 +1434,9 @@ _updateCamera(dt, snap) {
   }
 
   /* flying: never let the camera poke above a roof/ceiling directly over it */
-  if (flyCam && !worldCeilingHeight(this.world, this.level) && this._jetCeilY < Infinity && camPos.y > this._jetCeilY - 0.3) camPos.y = Math.max(targetPos.y, this._jetCeilY - 0.3);
-  if (flyCam) { const dv = camPos.clone().sub(targetPos), L = dv.length(); if (L > 0.05) { dv.divideScalar(L); const mh = this._meshRay(targetPos.x, targetPos.y, targetPos.z, dv.x, dv.y, dv.z, L + 0.2); if (mh && mh.point.y > baseY + 1.2 && mh.distance < L + 0.2) camPos.copy(targetPos).addScaledVector(dv, Math.max(0.5, mh.distance - 0.25)); } }
+  /* The player's flight controller (_jetLimits) already enforces roof/ceiling
+     clearance. Avoid clamping the camera to _jetCeilY here: that value is sampled
+     intermittently and causes a visible three-frame camera pulse. */
   /* never let the camera dip under terrain (beach dunes) */
   if (this.world.groundAt) { const gy = this.world.groundAt(camPos.x, camPos.z) + 0.3; if (camPos.y < gy) camPos.y = gy; }
 
@@ -1451,7 +1455,7 @@ _updateCamera(dt, snap) {
   }
   const currentDist = this.camera.position.distanceTo(targetPos);
   const pullingIn = allowedDist < currentDist;
-  const lerpRate = pullingIn ? 14 : 6;
+  const lerpRate = flyCam ? 4.5 : (pullingIn ? 14 : 6);
 
   if (snap || this._forceCamSnap) {
     this.camera.position.copy(camPos);
