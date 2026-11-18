@@ -20,7 +20,10 @@ function css() {
   #${ROOT_ID}.show{display:block}
   #${ROOT_ID} .kb-head{display:flex;align-items:center;gap:4px;margin-bottom:5px;cursor:grab;touch-action:none}
   #${ROOT_ID} .kb-head span{flex:1;font-size:10px;letter-spacing:.12em;opacity:.65;padding-left:4px}
-  #${ROOT_ID} .kb-head button{flex:none;width:30px;height:24px;font-size:11px;background:#34364d}
+  #${ROOT_ID} .kb-head button{flex:none;width:30px;height:26px;font-size:11px;background:#34364d}
+  #${ROOT_ID} .kb-head button[data-a=sys]{width:36px}
+  #ph3d-kb-handle{position:fixed;z-index:1000000;left:50%;top:8px;transform:translateX(-50%);display:none;padding:7px 14px;border:0;border-radius:999px;background:rgba(13,15,29,.92);color:#fff;font:600 12px system-ui,sans-serif;box-shadow:0 4px 16px #0008}
+  #ph3d-kb-handle.show{display:block}
   #${ROOT_ID} .kb-head button.done{width:auto;padding:0 10px;background:#2f7d4f}
   #${ROOT_ID} .kb-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
   #${ROOT_ID} button{border:0;border-radius:7px;background:#292c43;color:#fff;font:600 14px system-ui,sans-serif;padding:0;touch-action:manipulation}
@@ -39,13 +42,13 @@ function css() {
 function mount() {
   if (!isTouch() || document.getElementById(ROOT_ID)) return;
   css();
-  let st = { size: 1, x: null, y: null, moved: false };
+  let st = { size: 1, x: null, y: null, moved: false, sys: false };
   try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
 
   const root = document.createElement("section");
   root.id = ROOT_ID; root.setAttribute("aria-label", "In-game keyboard");
-  root.innerHTML = `<div class="kb-head"><span>KEYBOARD</span><button type="button" class="fn" data-a="smaller">A-</button><button type="button" class="fn" data-a="bigger">A+</button><button type="button" class="done" data-a="done">Done</button></div><div class="kb-grid"></div>`;
+  root.innerHTML = `<div class="kb-head"><span>KEYBOARD</span><button type="button" class="fn" data-a="left">‹</button><button type="button" class="fn" data-a="right">›</button><button type="button" class="fn" data-a="sys" title="Use the phone keyboard">SYS</button><button type="button" class="fn" data-a="smaller">A-</button><button type="button" class="fn" data-a="bigger">A+</button><button type="button" class="done" data-a="done">Done</button></div><div class="kb-grid"></div>`;
   document.body.appendChild(root);
   const grid = root.querySelector(".kb-grid");
   let target = null, shift = false, symbols = false, restore = null;
@@ -87,6 +90,7 @@ function mount() {
     try { target.setSelectionRange(s, s); } catch (_) {}
     changed(null, "deleteContentBackward");
   };
+  const caret = (d) => { if (!target) return; const p = (target.selectionStart ?? target.value.length) + d, q = Math.max(0, Math.min(target.value.length, p)); try { target.setSelectionRange(q, q); } catch (_) {} };
   const enter = () => {
     if (!target) return;
     if (target.tagName === "TEXTAREA") { type("\n"); return; }
@@ -108,11 +112,16 @@ function mount() {
     key(symbols ? "ABC" : "123", "sym", "fn w2" + (symbols ? " on" : ""));
     key(",", "c:,", ""); key("space", "c: ", "w4"); key(".", "c:.", ""); key("\u21b5", "enter", "fn w2");
   }
+  /* hold a key to repeat it (backspace and cursor keys) */
+  let rep1 = 0, rep2 = 0;
+  const stopRepeat = () => { clearTimeout(rep1); clearInterval(rep2); rep1 = rep2 = 0; };
+  const startRepeat = (fn) => { stopRepeat(); rep1 = setTimeout(() => { rep2 = setInterval(fn, 55); }, 380); };
+  window.addEventListener("pointerup", stopRepeat, true); window.addEventListener("pointercancel", stopRepeat, true);
   grid.addEventListener("pointerdown", (e) => {
     const b = e.target.closest("button"); if (!b) return; e.preventDefault(); e.stopPropagation();
     const k = b.dataset.k;
     if (k.startsWith("c:")) type(k.slice(2));
-    else if (k === "back") back();
+    else if (k === "back") { back(); startRepeat(back); }
     else if (k === "enter") enter();
     else if (k === "sym") { symbols = !symbols; draw(); }
     else if (k === "shift") {
@@ -129,6 +138,8 @@ function mount() {
       e.preventDefault(); e.stopPropagation();
       const a = b.dataset.a;
       if (a === "done") { hide(); }
+      else if (a === "left" || a === "right") { const d = a === "left" ? -1 : 1; caret(d); startRepeat(() => caret(d)); }
+      else if (a === "sys") { useSystem(); }
       else { st.size = Math.max(0, Math.min(SIZES.length - 1, st.size + (a === "bigger" ? 1 : -1))); save(); place(); }
       return;
     }
@@ -140,18 +151,29 @@ function mount() {
     h.addEventListener("pointermove", mv); h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up);
   });
 
+  /* hand over to the phone's own keyboard; a small pill brings the game keyboard back */
+  const handle = document.createElement("button");
+  handle.id = "ph3d-kb-handle"; handle.type = "button"; handle.textContent = "\u2328 Game keyboard"; document.body.appendChild(handle);
+  handle.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); st.sys = false; save(); handle.classList.remove("show"); if (target) show(target); });
+  function useSystem() {
+    const el = target; st.sys = true; save(); unlock(); root.classList.remove("show"); shift = caps = false;
+    if (el) { el.removeAttribute("inputmode"); try { el.blur(); el.focus(); } catch (_) {} }
+    handle.classList.add("show");
+  }
   function show(el) {
+    if (st.sys) { target = el; handle.classList.add("show"); return; }
     if (restore && restore.el !== el) unlock();
     target = el; restore = restore && restore.el === el ? restore : { el, ro: el.readOnly, im: el.getAttribute("inputmode") };
     el.setAttribute("inputmode", "none"); el.readOnly = true;       /* no system keyboard */
     root.classList.add("show"); draw(); place();
   }
   function unlock() { if (!restore) return; const { el, ro, im } = restore; el.readOnly = ro; if (im == null) el.removeAttribute("inputmode"); else el.setAttribute("inputmode", im); restore = null; }
-  function hide() { root.classList.remove("show"); unlock(); if (target) { try { target.blur(); } catch (_) {} } target = null; shift = caps = false; }
+  function hide() { root.classList.remove("show"); handle.classList.remove("show"); unlock(); if (target) { try { target.blur(); } catch (_) {} } target = null; shift = caps = false; }
 
   const typable = (el) => (el instanceof HTMLInputElement && !["button", "submit", "checkbox", "radio", "range", "color", "file", "reset", "image", "hidden"].includes(el.type)) || el instanceof HTMLTextAreaElement;
   document.addEventListener("focusin", (e) => { const el = e.target; if (typable(el) && !el.disabled && !(el.readOnly && !(restore && restore.el === el))) show(el); }, true);
   document.addEventListener("pointerdown", (e) => {
+    if (st.sys && handle.classList.contains("show") && e.target !== handle && !typable(e.target)) { handle.classList.remove("show"); target = null; return; }
     if (!root.classList.contains("show") || root.contains(e.target)) return;
     if (target && (e.target === target || target.contains(e.target))) return;
     if (typable(e.target)) return;                                   /* tapping another box: focusin takes over */
