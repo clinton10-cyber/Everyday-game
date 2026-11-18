@@ -26,7 +26,7 @@ let ARENA_W = 44, ARENA_D = 44, ARENA_H = 7;
 let PLAYER_SPAWN = { x: 0, z: 16 };
 let GROUND = () => 0;            /* terrain height at (x, z); 0 in the flat neon arena */
 let BIG_ARENA = false;           /* open terrain: enemies hop between cover to close the distance */
-const MAX_ALIVE = 6;                     /* enemies on the field at once */
+const MAX_ALIVE = 12;                    /* enemies on the field at once */
 
 const SOLDIER_CONFIGS = [
   { gender: "masculine", skinTone: 4, hairStyle: "buzz", hairColor: 1, topStyle: "jacket", topColor: 6, topPattern: "solid", topAccent: 9,
@@ -415,6 +415,43 @@ export async function shootingRangeScene(params, router) {
   const $h = (id) => hud.querySelector("#" + id);
   const elHp = $h("rg-hp"), elBar = $h("rg-hpbar"), elWave = $h("rg-wave"), elScore = $h("rg-score"), elFeed = $h("rg-feed"), elHit = $h("rg-hit"), elBanner = $h("rg-banner"), elDead = $h("rg-dead");
 
+  /* ---- find-the-enemy markers: a red diamond over every enemy on screen, an arrow on the screen edge for the rest ---- */
+  const marksEl = document.createElement("div"); marksEl.id = "rg-marks"; marksEl.style.cssText = "position:absolute;inset:0;overflow:hidden;pointer-events:none";
+  hud.appendChild(marksEl);
+  const markPool = [], _v = new THREE.Vector3(), _c = new THREE.Vector3();
+  function markEl(i) {
+    if (markPool[i]) return markPool[i];
+    const d = document.createElement("div");
+    d.style.cssText = "position:absolute;left:0;top:0;display:none;will-change:transform;font:800 10px Inter,system-ui,sans-serif;color:#fff;text-shadow:0 1px 2px #000";
+    d.innerHTML = '<i style="position:absolute;left:-7px;top:-7px;width:14px;height:14px;transform:rotate(45deg);background:#ff3b3b;border:2px solid #fff;box-shadow:0 0 8px #ff3b3b"></i><span style="position:absolute;left:-14px;top:9px;width:28px;text-align:center"></span>';
+    marksEl.appendChild(d); markPool[i] = d; return d;
+  }
+  function updateMarks() {
+    const W = innerWidth, H = innerHeight; let n = 0;
+    camera.updateMatrixWorld();
+    for (const e of G.enemies) {
+      if (e.dead || e.gone) continue;
+      _c.set(e.pos.x, GROUND(e.pos.x, e.pos.z) + 2.1, e.pos.z).applyMatrix4(camera.matrixWorldInverse);
+      const behind = _c.z > 0;
+      _v.set(e.pos.x, GROUND(e.pos.x, e.pos.z) + 2.1, e.pos.z).project(camera);
+      let nx = _v.x, ny = _v.y; if (behind) { nx = -nx; ny = -ny; }
+      const inView = !behind && Math.abs(nx) < 0.94 && Math.abs(ny) < 0.9;
+      const el = markEl(n++), dist = Math.hypot(e.pos.x - player.x, e.pos.z - player.z);
+      el.style.display = "block";
+      const dia = el.children[0], lab = el.children[1];
+      if (inView) {
+        el.style.transform = "translate(" + ((nx * 0.5 + 0.5) * W).toFixed(1) + "px," + ((1 - (ny * 0.5 + 0.5)) * H).toFixed(1) + "px)";
+        dia.style.clipPath = "none"; dia.style.borderRadius = "2px"; dia.style.transform = "rotate(45deg)"; lab.textContent = Math.round(dist) + "m";
+      } else {
+        const k = Math.min(0.9 / (Math.abs(nx) || 1e-6), 0.8 / (Math.abs(ny) || 1e-6)), ex = nx * k, ey = ny * k;
+        el.style.transform = "translate(" + ((ex * 0.5 + 0.5) * W).toFixed(1) + "px," + ((1 - (ey * 0.5 + 0.5)) * H).toFixed(1) + "px)";
+        dia.style.borderRadius = "0"; dia.style.clipPath = "polygon(50% 0,100% 100%,0 100%)";      /* arrow pointing at the enemy */
+        dia.style.transform = "rotate(" + (Math.atan2(ex, ey) * 180 / Math.PI).toFixed(0) + "deg)"; lab.textContent = Math.round(dist) + "m";
+      }
+    }
+    for (let i = n; i < markPool.length; i++) markPool[i].style.display = "none";
+  }
+
   const exitBtn = document.createElement("button");
   exitBtn.id = "ph3d-range-exit-btn";
   exitBtn.textContent = "\u25C0 EXIT";
@@ -519,7 +556,7 @@ export async function shootingRangeScene(params, router) {
     }
   }
 
-  const waveSize = (n) => Math.min(14, 2 + n * 2);
+  const waveSize = (n) => Math.min(22, 6 + n * 2);
 
   function respawn() {
     G.hp = 100; G.alive = true; player.alive = true;
@@ -532,11 +569,29 @@ export async function shootingRangeScene(params, router) {
 
   function startWave() {
     G.wave++; G.waveLeft = waveSize(G.wave); G.spawned = 0;
-    elWave.textContent = "WAVE " + G.wave; banner("WAVE " + G.wave, 2);
+    elWave.textContent = "WAVE " + G.wave + " \u00b7 " + G.waveLeft + " LEFT"; banner("WAVE " + G.wave, 2);
     try { Sfx.play("bell", { vol: 0.5 }); } catch (e) {}
+    for (let i = 0, n = Math.min(MAX_ALIVE, waveSize(G.wave)); i < n; i++) spawnOne();     /* the whole field appears at once, spread out */
+  }
+  /* enemies are scattered over the WHOLE arena (3x3 zones, shuffled), never inside crates/walls,
+     never on top of you and never stacked on each other */
+  const insideSolid = (x, z, pad) => arena.colliders.some((c) => !c._glowWall && x > c.minX - pad && x < c.maxX + pad && z > c.minZ - pad && z < c.maxZ + pad);
+  function scatterSpot() {
+    const B = bounds, cell = (G.spawned + G.wave) % 9, cx = cell % 3, cz = Math.floor(cell / 3);
+    const w = (B.maxX - B.minX) / 3, d = (B.maxZ - B.minZ) / 3;
+    for (let i = 0; i < 40; i++) {
+      const local = i < 14;                                       /* first tries stay in the chosen zone, then anywhere */
+      const x = local ? B.minX + (cx + rnd()) * w : B.minX + rnd() * (B.maxX - B.minX);
+      const z = local ? B.minZ + (cz + rnd()) * d : B.minZ + rnd() * (B.maxZ - B.minZ);
+      if (Math.hypot(x - player.x, z - player.z) < 9) continue;
+      if (insideSolid(x, z, 0.8)) continue;
+      if (G.enemies.some((e) => !e.dead && Math.hypot(e.pos.x - x, e.pos.z - z) < 2.5)) continue;
+      return { x, z };
+    }
+    return { x: clamp((rnd() - 0.5) * bounds.maxX, bounds.minX, bounds.maxX), z: bounds.minZ + 2 + rnd() * 2 };
   }
   function spawnOne() {
-    const x = clamp((rnd() - 0.5) * ARENA_W * 0.7, -ARENA_W * 0.36, ARENA_W * 0.36), z = -(ARENA_D / 2 - 5) - rnd() * 2;
+    const { x, z } = scatterSpot();
     const cfg = SOLDIER_CONFIGS[Math.floor(rnd() * SOLDIER_CONFIGS.length)];
     G.enemies.push(new TacticalEnemy(G, cfg, { x, z }, G.nextId++, G.wave));
     G.spawned++;
@@ -615,6 +670,9 @@ export async function shootingRangeScene(params, router) {
       }
 
       for (const e of G.enemies) e.tick(dt, player);
+      updateMarks();
+      const left = "WAVE " + G.wave + " \u00b7 " + Math.max(0, G.waveLeft) + " LEFT";
+      if (elWave.textContent !== left) elWave.textContent = left;
       /* remove corpses after a while */
       for (let i = G.enemies.length - 1; i >= 0; i--) {
         const e = G.enemies[i];
