@@ -273,34 +273,34 @@ function rayCylinder(ox, oy, oz, dx, dy, dz, cx, cz, r, yMin, yMax) {
   return Math.max(tNear, 0);
 }
 
-/* ── Two-handed ready poses ───────────────────────────────────
-   Both arms + torso + head. Recoil blends from ready → peak → ready. */
-const PISTOL_READY = {
-  r_shoulder: [-1.60,  0.10, -0.08],
-  r_elbow:    [-0.18,  0,     0    ],
-  r_wrist:    [ 0.05,  0,     0    ],
-  l_shoulder: [-1.55, -0.32,  0.22 ],
-  l_elbow:    [-0.55,  0,     0    ],
-  l_wrist:    [ 0.10, -0.05,  0    ],
-  spine:      [ 0.02,  0,     0    ],
-  head:       [ 0.03, -0.05,  0    ],
+/* ── Two-handed stances (solved against the real rig: barrel level, right hand on the grip, left hand on the fore-end) ──
+   ready = low-ready / hip carry, ads = aimed down the sights. Shoulders add -aimPitch at runtime so the barrel follows the camera. */
+const STANCE = {
+  pistol: {
+    ready: { r_shoulder:[-0.075,0.004,0.01], r_elbow:[-1.601,0,0], r_wrist:[0.099,0,0], l_shoulder:[-0.678,-0.665,-0.354], l_elbow:[-0.841,0,0], l_wrist:[0,0,0], spine:[0.02,0,0], head:[0.04,0,0] },
+    ads:   { r_shoulder:[-0.762,0.024,0.038], r_elbow:[-1.543,0,0], r_wrist:[0.689,0,0], l_shoulder:[-0.953,-0.222,-0.476], l_elbow:[-0.884,0,0], l_wrist:[-0.001,0,0], spine:[-0.02,0,0], head:[0.02,0,0] },
+  },
+  smg: {
+    ready: { r_shoulder:[0.166,0.009,0.012], r_elbow:[-1.771,0,0], r_wrist:[0.031,0,0], l_shoulder:[-0.965,-0.079,-0.542], l_elbow:[-0.08,0,0], l_wrist:[0.004,0,0], spine:[0.03,0,0], head:[0.04,0,0] },
+    ads:   { r_shoulder:[-0.31,0.021,0.032], r_elbow:[-2.01,0,0], r_wrist:[0.702,0,0], l_shoulder:[-1.151,0.215,-0.57], l_elbow:[-0.08,0,0], l_wrist:[0.002,0,0], spine:[-0.03,0,0], head:[0.02,0,0] },
+  },
+  rifle: {
+    ready: { r_shoulder:[0.279,0.012,0.01], r_elbow:[-1.837,0,0], r_wrist:[-0.016,0,0], l_shoulder:[-0.955,-0.04,-0.525], l_elbow:[-0.079,0,0], l_wrist:[0.006,0,0], spine:[0.03,0,0], head:[0.04,0,0] },
+    ads:   { r_shoulder:[-0.115,0.022,0.028], r_elbow:[-2.188,0,0], r_wrist:[0.686,0,0], l_shoulder:[-1.226,0.047,-0.547], l_elbow:[-0.089,0,0], l_wrist:[0.002,-0.001,0], spine:[-0.04,0,0], head:[0.02,0,0] },
+  },
+  shotgun: {
+    ready: { r_shoulder:[0.324,0.02,0.014], r_elbow:[-1.837,0,0], r_wrist:[-0.061,0,0], l_shoulder:[-1.019,-0.128,-0.497], l_elbow:[-0.079,0,0], l_wrist:[0.01,0,0], spine:[0.05,0,0], head:[0.04,0,0] },
+    ads:   { r_shoulder:[0.071,0.025,0.028], r_elbow:[-2.307,0,0], r_wrist:[0.62,0,0], l_shoulder:[-1.278,-0.064,-0.536], l_elbow:[-0.079,0,0], l_wrist:[0.002,0,0], spine:[-0.02,0,0], head:[0.02,0,0] },
+  },
+  lmg: {
+    ready: { r_shoulder:[0.361,0.021,0.011], r_elbow:[-1.831,0,0], r_wrist:[-0.103,0,0], l_shoulder:[-0.951,-0.017,-0.487], l_elbow:[-0.078,0,0], l_wrist:[0.012,0,0], spine:[0.07,0,0], head:[0.04,0,0] },
+    ads:   { r_shoulder:[0.191,0.027,0.027], r_elbow:[-2.316,0,0], r_wrist:[0.515,0,0], l_shoulder:[-1.22,-0.04,-0.528], l_elbow:[-0.08,0,0], l_wrist:[0.005,0,0], spine:[0.0,0,0], head:[0.02,0,0] },
+  },
+  sniper: {
+    ready: { r_shoulder:[0.457,0.018,0.009], r_elbow:[-2.02,0,0], r_wrist:[-0.013,0,0], l_shoulder:[-1.092,-0.242,-0.518], l_elbow:[-0.079,0,0], l_wrist:[0.008,0,0], spine:[0.0,0,0], head:[0.04,0,0] },
+    ads:   { r_shoulder:[0.124,0.027,0.028], r_elbow:[-2.331,0,0], r_wrist:[0.591,0,0], l_shoulder:[-1.298,-0.147,-0.523], l_elbow:[-0.08,0,0], l_wrist:[0.006,0,0], spine:[-0.05,0,0], head:[0.02,0,0] },
+  },
 };
-
-const SNIPER_READY = {
-  r_shoulder: [-0.55,  0.15, -0.25],
-  r_elbow:    [-1.55,  0,     0    ],
-  r_wrist:    [ 0.15,  0,     0    ],
-  l_shoulder: [-1.45, -0.50,  0.25 ],
-  l_elbow:    [-0.35,  0,     0    ],
-  l_wrist:    [ 0.10,  0.05,  0    ],
-  spine:      [ 0,     0.10,  0    ],
-  head:       [ 0.05, -0.10,  0    ],
-};
-
-const RIFLE_READY = { ...PISTOL_READY, r_shoulder:[-1.48,0.08,-0.12], l_shoulder:[-1.62,-0.30,0.28], l_elbow:[-0.92,0,0], l_wrist:[0.14,-0.04,0], spine:[0.015,0.02,0] };
-const SMG_READY = { ...PISTOL_READY, r_shoulder:[-1.58,0.04,-0.05], l_shoulder:[-1.68,-0.22,0.24], r_elbow:[-0.28,0,0], l_elbow:[-0.82,0,0], l_wrist:[0.12,-0.04,0], spine:[0.025,0,0] };
-const SHOTGUN_READY = { ...RIFLE_READY, r_shoulder:[-1.38,0.12,-0.16], l_shoulder:[-1.58,-0.38,0.32], l_elbow:[-1.02,0,0], spine:[0.06,0.02,0] };
-const LMG_READY = { ...RIFLE_READY, r_shoulder:[-1.30,0.18,-0.20], l_shoulder:[-1.52,-0.44,0.34], l_elbow:[-1.08,0,0], spine:[0.10,0.04,0] };
 
 function blendPose(a, b, k) {
   const mix = (arrA, arrB) => [
@@ -462,9 +462,15 @@ export class Gun {
   /* Full-body arm pose (both arms + torso + head). */
   applyArmPose(R) {
     if (!R) return;
-    const ready = ({ pistol: PISTOL_READY, sniper: SNIPER_READY, rifle: RIFLE_READY, smg: SMG_READY, shotgun: SHOTGUN_READY, lmg: LMG_READY })[this.type] || PISTOL_READY;
     const kick  = ({ pistol: PISTOL_KICK, sniper: SNIPER_KICK, rifle: RIFLE_KICK, smg: SMG_KICK, shotgun: SHOTGUN_KICK, lmg: LMG_KICK })[this.type] || PISTOL_KICK;
     const aimPitch = (this.controls && this.controls.aimPitch) || 0;
+    const st = STANCE[this.type] || STANCE.pistol;
+
+    /* hip -> aimed blend, eased over ~0.12 s so raising the gun is a motion, not a snap */
+    const now = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    const dt = Math.min(0.1, Math.max(0, (now - (this._aimT || now)) / 1000)); this._aimT = now;
+    const want = (this.controls && this.controls.aiming) ? 1 : 0;
+    this._aimK = (this._aimK || 0) + (want - (this._aimK || 0)) * Math.min(1, dt * 14);
 
     const adjust = (p) => ({
       r_shoulder: [p.r_shoulder[0] - aimPitch, p.r_shoulder[1], p.r_shoulder[2]],
@@ -473,19 +479,10 @@ export class Gun {
       l_shoulder: [p.l_shoulder[0] - aimPitch, p.l_shoulder[1], p.l_shoulder[2]],
       l_elbow:    p.l_elbow,
       l_wrist:    p.l_wrist,
-      spine:      p.spine,
+      spine:      [p.spine[0] + aimPitch * 0.12, p.spine[1], p.spine[2]],
       head:       [p.head[0] + aimPitch * 0.35, p.head[1], p.head[2]],
     });
-    let aimed = adjust(ready);
-    if (this.controls && this.controls.aiming) {
-      const ads = {
-        r_shoulder: [-1.72, 0.06, -0.04], r_elbow: [-0.12, 0, 0], r_wrist: [0.02, 0, 0],
-        l_shoulder: [-1.68, -0.20, 0.14], l_elbow: [-0.42, 0, 0], l_wrist: [0.04, -0.02, 0],
-        spine: [-0.035, 0, 0], head: [0.015, -0.02, 0]
-      };
-      const adsPose = adjust(this.type === "sniper" ? { ...ads, r_shoulder: [-1.58,0.08,-0.08], l_shoulder: [-1.62,-0.28,0.18] } : ads);
-      aimed = blendPose(aimed, adsPose, this.type === "sniper" ? 0.88 : 0.62);
-    }
+    const aimed = adjust(blendPose(st.ready, st.ads, this._aimK));
 
     if (this.state === "drawn") {
       applyPose(R, aimed);

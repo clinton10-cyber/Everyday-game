@@ -1418,7 +1418,8 @@ _updateCamera(dt, snap) {
       Math.sin(this.aimPitch),
       Math.cos(this.yaw) * Math.cos(this.aimPitch)
     ).normalize();
-    const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    /* the character faces +Z, so its RIGHT side is -X: shoulderSide +1 now really is the right shoulder (camera sits behind the gun hand, CoD style) */
+    const right = new THREE.Vector3(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
     const eye = new THREE.Vector3(this.pos.x, this.floorY + 1.55, this.pos.z);
 
     const aimDistance = this.aiming ? 1.18 : 2.35;
