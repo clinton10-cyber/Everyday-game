@@ -1,0 +1,33 @@
+EVERYDAY-GAME PATCH — WEAPON POSTURE + FLOATING MOBILE KEYBOARD
+
+Source inspected: clinton10-cyber/Everyday-game, branch main.
+No GitHub files were changed.
+
+Files in this ZIP:
+- js/core/combat-pose-upgrade.js
+- js/core/mobile-keyboard.js
+
+INTEGRATION (required)
+Open js/main.js and add these two imports with the other top-level imports:
+
+import "./core/combat-pose-upgrade.js";
+import "./core/mobile-keyboard.js";
+
+Do not add these imports inside a function or conditional.
+
+What this patch does:
+- Applies separate two-handed arm/shoulder/elbow poses for pistol, SMG,
+  rifle, shotgun, LMG, sniper and bazooka.
+- Keeps right shoulder as the default and relabels the existing shoulder
+  control as SWAP SHOULDER with the active side shown.
+- Adds a draggable compact in-game keyboard on touch devices.
+- Sets focused text fields to inputmode=none + readonly to suppress the
+  operating-system keyboard; the in-game keyboard inserts the text.
+
+Important limitations:
+- Pose angles are an initial rig-specific tuning pass. Verify hand-to-grip
+  contact and adjust angles in-game; no gameplay screenshot test was possible.
+- The keyboard currently targets ordinary input and textarea elements.
+  If a custom chat field uses a contenteditable div, it needs a small adapter.
+- Because the fields are made readonly while using the custom keyboard,
+  text entry is intentionally routed through this keyboard only.
