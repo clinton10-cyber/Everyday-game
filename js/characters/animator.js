@@ -1549,6 +1549,7 @@ export function animate(ctl, dt) {
 
   // Let guns/knives override the arm poses if we are aiming or attacking
   if (ctl.weapons && ctl.weapons.isArmed && ctl.weapons.isArmed() && !emoting) {
+    ctl._moveAmt = a.moveAmt;   /* lets the gun stance know whether to show the standing-still firing stance */
     try { ctl.weapons.applyArmPose(R); } catch (e) {}
   }
 

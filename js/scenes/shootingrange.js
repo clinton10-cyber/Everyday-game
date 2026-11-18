@@ -301,6 +301,7 @@ class TacticalEnemy {
     const aiming = this.state === "peek" || this.state === "fire" || this.state === "reload";
     this.ctl.pos.x = this.pos.x; this.ctl.pos.z = this.pos.z; this.ctl.yaw = this.yaw;
     this.ctl._intentSpeed = moved ? sp : 0;
+    this.ctl.aiming = aiming;
     this.ctl._overlay = aiming ? (R) => { try { this.gun.applyArmPose(R); } catch (e) {} } : null;
     this.group.position.set(this.pos.x, 0, this.pos.z);
     this.group.rotation.y = this.yaw;
@@ -341,41 +342,61 @@ export async function shootingRangeScene(params, router) {
   hud.id = "ph3d-range-hud";
   hud.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:26;font-family:Inter,system-ui,sans-serif;color:#fff";
   hud.innerHTML = `
-    <div style="position:absolute;left:14px;top:calc(env(safe-area-inset-top) + 14px);width:150px">
-      <div style="font:800 11px Inter;letter-spacing:.14em;opacity:.8;margin-bottom:4px">HP <span id="rg-hp">100</span></div>
-      <div style="height:8px;border-radius:5px;background:rgba(0,0,0,.55);overflow:hidden"><div id="rg-hpbar" style="height:100%;width:100%;background:linear-gradient(90deg,#ff5a4d,#ffd23a 50%,#7dff9a)"></div></div>
+    <div class="rg-top"><div id="rg-wave">WAVE 1</div><div id="rg-score">KILLS 0 · HEADSHOTS 0</div></div>
+    <div id="rg-feed"></div>
+    <div id="rg-hit">
+      <i style="transform:rotate(45deg)"></i><i style="transform:rotate(-45deg)"></i></div>
+    <div id="rg-banner"></div>
+    <div id="rg-dead">DOWN</div>
+    <div class="rg-vitals">
+      <div class="rg-hp"><span>HP <b id="rg-hp">100</b></span><div class="rg-bar"><div id="rg-hpbar"></div></div></div>
+      <div class="rg-weaponbar"><button id="rg-pistol"><small>3</small>PISTOL</button><button id="rg-sniper"><small>4</small>SNIPER</button></div>
     </div>
-    <div id="rg-wave" style="position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 16px);transform:translateX(-50%);padding:8px 18px;border-radius:999px;background:rgba(0,0,0,.6);border:1px solid rgba(255,80,80,.55);font:800 11px Inter;letter-spacing:.2em;color:#ff9999;white-space:nowrap">WAVE 1</div>
-    <div id="rg-score" style="position:absolute;left:14px;top:calc(env(safe-area-inset-top) + 56px);font:800 11px Inter;letter-spacing:.12em;text-shadow:0 1px 4px #000">KILLS 0 · HEADSHOTS 0</div>
-    <div id="rg-feed" style="position:absolute;right:14px;top:calc(env(safe-area-inset-top) + 60px);text-align:right;font:700 12px Inter;text-shadow:0 1px 4px #000"></div>
-    <div id="rg-hit" style="position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;opacity:0;transition:opacity .12s">
-      <div style="position:absolute;left:3px;top:11px;width:20px;height:3px;background:#fff;transform:rotate(45deg);box-shadow:0 0 4px #000"></div>
-      <div style="position:absolute;left:3px;top:11px;width:20px;height:3px;background:#fff;transform:rotate(-45deg);box-shadow:0 0 4px #000"></div></div>
-    <div id="rg-banner" style="position:absolute;left:0;right:0;top:32%;text-align:center;font:900 26px Inter;letter-spacing:.14em;text-shadow:0 2px 10px #000;opacity:0;transition:opacity .3s"></div>
-    <div id="rg-dead" style="position:absolute;inset:0;background:rgba(120,0,0,.55);display:flex;align-items:center;justify-content:center;font:900 28px Inter;letter-spacing:.2em;opacity:0;transition:opacity .25s">DOWN</div>
-    <div class="rg-weaponbar"><button id="rg-pistol">PISTOL · 3</button><button id="rg-sniper">SNIPER · 4</button></div>
     <div class="rg-skills"><button id="rg-shield"><b>▰</b><span>GLOW WALL</span><small id="rg-shield-cd">READY</small></button><button id="rg-dash"><b>➤</b><span>BLINK DASH</span><small id="rg-dash-cd">READY</small></button><button id="rg-heal"><b>✚</b><span>MED KIT</span><small id="rg-heal-cd">READY</small></button></div>
     <div id="rg-skill-msg" class="rg-skill-msg"></div>`;
   const rangeStyle = document.createElement("style");
+  /* Range layout = the same fixed lanes as the main HUD (css/hud-landscape.css), so nothing lands on anything else:
+     top-centre  wave + kills        bottom-centre  HP + weapon slots        right  skills (left of the thumb buttons) */
   rangeStyle.textContent = `
-    .rg-weaponbar{position:absolute;right:14px;bottom:116px;display:flex;gap:8px;pointer-events:auto}
-    .rg-weaponbar button,.rg-skills button{min-height:42px;color:#f4f8ff;background:rgba(12,20,31,.88);border:1px solid rgba(157,190,216,.34);box-shadow:0 6px 18px rgba(0,0,0,.28);border-radius:12px;font:800 11px Inter,system-ui;letter-spacing:.045em;padding:0 14px;pointer-events:auto;touch-action:manipulation;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+    #ph3d-range-hud button{font-family:Inter,system-ui,sans-serif}
+    .rg-top{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px}
+    #rg-wave{padding:5px 16px;border-radius:999px;background:rgba(0,0,0,.6);border:1px solid rgba(255,80,80,.55);font:800 11px Inter,system-ui;letter-spacing:.2em;color:#ff9999;white-space:nowrap}
+    #rg-score{font:800 10px Inter,system-ui;letter-spacing:.12em;text-shadow:0 1px 4px #000;white-space:nowrap}
+    #rg-feed{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 58px);transform:translateX(-50%);text-align:center;font:700 11px Inter,system-ui;text-shadow:0 1px 4px #000;max-width:38vw}
+    #rg-hit{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;opacity:0;transition:opacity .12s}
+    #rg-hit i{position:absolute;left:3px;top:11px;width:20px;height:3px;background:#fff;box-shadow:0 0 4px #000}
+    #rg-banner{position:absolute;left:0;right:0;top:32%;text-align:center;font:900 24px Inter,system-ui;letter-spacing:.14em;text-shadow:0 2px 10px #000;opacity:0;transition:opacity .3s}
+    #rg-dead{position:absolute;inset:0;background:rgba(120,0,0,.55);display:flex;align-items:center;justify-content:center;font:900 28px Inter,system-ui;letter-spacing:.2em;opacity:0;transition:opacity .25s}
+    .rg-vitals{position:absolute;left:var(--lane-l,178px);bottom:calc(var(--h-bottom,12px) + 4px);width:min(170px,22vw);display:flex;flex-direction:column;gap:6px}
+    .rg-hp{display:flex;flex-direction:column;gap:3px;font:800 10px Inter,system-ui;letter-spacing:.14em;text-shadow:0 1px 4px #000}
+    .rg-bar{height:7px;border-radius:5px;background:rgba(0,0,0,.55);overflow:hidden;border:1px solid rgba(255,255,255,.16)}
+    #rg-hpbar{height:100%;width:100%;background:linear-gradient(90deg,#ff5a4d,#ffd23a 50%,#7dff9a);transition:width .15s}
+    .rg-weaponbar{display:flex;gap:6px;pointer-events:auto}
+    .rg-weaponbar button,.rg-skills button{color:#f4f8ff;background:rgba(12,20,31,.88);border:1px solid rgba(157,190,216,.34);box-shadow:0 6px 18px rgba(0,0,0,.28);border-radius:11px;font:800 10px Inter,system-ui;letter-spacing:.06em;pointer-events:auto;touch-action:manipulation;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+    .rg-weaponbar button{flex:1;height:34px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 6px}
+    .rg-weaponbar button small{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:5px;background:rgba(255,255,255,.14);font-size:9px}
+    .rg-weaponbar button.on{background:rgba(255,198,43,.95);color:#241800;border-color:transparent}
+    .rg-weaponbar button.on small{background:rgba(0,0,0,.18)}
     .rg-weaponbar button:focus-visible,.rg-skills button:focus-visible{outline:2px solid #78d7ff;outline-offset:2px}
-    .rg-skills{position:absolute;right:14px;bottom:16px;display:flex;gap:7px;pointer-events:auto}
-    .rg-skills button{width:82px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;border-color:rgba(157,190,216,.30)}
-    .rg-skills b{font-size:17px;color:#a8dfff}.rg-skills span{font-size:9px}.rg-skills small{font-size:8px;color:#a8d8bd}
-    .rg-skills button:disabled{opacity:.45;filter:grayscale(.6)}.rg-skill-msg{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);font:800 12px Inter;color:#d9f2ff;text-shadow:0 2px 8px #000;opacity:0;transition:opacity .2s;white-space:nowrap}
-    @media (max-width:760px){.rg-weaponbar{right:10px;bottom:112px}.rg-skills{right:10px;bottom:10px;gap:5px}.rg-skills button{width:70px;min-height:54px}.rg-skills span{font-size:8px}.rg-skills b{font-size:15px}}
-    @media (orientation:landscape) and (max-height:480px){.rg-weaponbar{bottom:88px}.rg-skills{bottom:8px}.rg-skills button{width:66px;min-height:48px}.rg-skill-msg{bottom:92px}}
+    .rg-skills{position:absolute;right:calc(var(--h-right,14px) + 232px);bottom:calc(var(--h-bottom,12px) + 2px);display:flex;gap:6px}
+    .rg-skills button{width:58px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:4px 2px}
+    .rg-skills b{font-size:16px;line-height:1;color:#a8dfff}.rg-skills span{font-size:7.5px;letter-spacing:.03em}.rg-skills small{font-size:8px;color:#a8d8bd}
+    .rg-skills button:disabled{opacity:.45;filter:grayscale(.6)}
+    .rg-skill-msg{position:absolute;left:50%;bottom:calc(var(--h-bottom,12px) + 74px);transform:translateX(-50%);font:800 12px Inter,system-ui;color:#d9f2ff;text-shadow:0 2px 8px #000;opacity:0;transition:opacity .2s;white-space:nowrap}
+    /* range = combat only: hide the life-sim chips + torch, keep the combat utilities (crouch / view / aim / shoulder) */
+    body.rg-active #hud-ctx .h-ctx:not(.h-combat-util):not(#ph3d-crouch-btn){display:none!important}
+    body.rg-active #ph3d-torch-btn{display:none!important}
+    #ph3d-range-exit-btn{position:fixed;right:var(--h-right,14px);top:calc(env(safe-area-inset-top,0px) + 46px);z-index:27;height:30px;padding:0 14px;border-radius:10px;background:rgba(12,20,31,.88);border:1px solid rgba(255,255,255,.3);color:#fff;font:800 10px Inter,system-ui,sans-serif;letter-spacing:.12em;pointer-events:auto;cursor:pointer}
   `;
   document.head.appendChild(rangeStyle);
   document.body.appendChild(hud);
+  document.body.classList.add("rg-active");
   const $h = (id) => hud.querySelector("#" + id);
   const elHp = $h("rg-hp"), elBar = $h("rg-hpbar"), elWave = $h("rg-wave"), elScore = $h("rg-score"), elFeed = $h("rg-feed"), elHit = $h("rg-hit"), elBanner = $h("rg-banner"), elDead = $h("rg-dead");
 
   const exitBtn = document.createElement("button");
+  exitBtn.id = "ph3d-range-exit-btn";
   exitBtn.textContent = "\u25C0 EXIT";
-  exitBtn.style.cssText = "position:fixed;right:14px;top:calc(env(safe-area-inset-top) + 14px);z-index:27;padding:10px 16px;border-radius:22px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;font:800 11px Inter,system-ui,sans-serif;letter-spacing:.14em;pointer-events:auto;cursor:pointer";
   exitBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); router.go("city"); }, { passive: false });
   document.body.appendChild(exitBtn);
 
@@ -516,7 +537,8 @@ export async function shootingRangeScene(params, router) {
     },
     onGunFire: (info) => { if (info && info.hit) { elHit.style.opacity = "1"; G.hitT = 0.12; } },
   });
-  try { ctl.weapons.select("pistol"); } catch (e) {}
+  const syncWeaponBar = () => { const cur = ctl.weapons && ctl.weapons.current; $h("rg-pistol").classList.toggle("on", cur === "pistol"); $h("rg-sniper").classList.toggle("on", cur === "sniper"); };
+  try { ctl.weapons.onStateChange = syncWeaponBar; ctl.weapons.select("pistol"); syncWeaponBar(); } catch (e) {}
   $h("rg-pistol").addEventListener("pointerdown", e => { e.preventDefault(); try { ctl.weapons.select("pistol"); skillToast("PISTOL EQUIPPED"); } catch (_) {} });
   $h("rg-sniper").addEventListener("pointerdown", e => { e.preventDefault(); try { ctl.weapons.select("sniper"); skillToast("SNIPER EQUIPPED"); } catch (_) {} });
   banner("TACTICAL RANGE", 1.8);
@@ -535,6 +557,7 @@ export async function shootingRangeScene(params, router) {
       try { ctl.dispose(); } catch (e) {}
       if (skills.wall) { three.remove(skills.wall); skills.wall.geometry.dispose(); skills.wall.material.dispose(); }
       [hud, exitBtn, rangeStyle].forEach((el) => { try { el.remove(); } catch (e) {} });
+      document.body.classList.remove("rg-active");
       arena.geos.forEach((g) => g.dispose()); arena.mats.forEach((m) => m.dispose()); stripGeo.dispose(); stripMat.dispose();
     },
     update: (dt) => {

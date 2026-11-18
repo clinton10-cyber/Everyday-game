@@ -567,6 +567,7 @@ export class ThirdPersonControls {
 
   _syncCombatButtons() {
     const armed = this._isGunWeapon();
+    document.body.classList.toggle("gun-out", armed);   /* compact combat HUD (css/hud-landscape.css) */
     if (this._aimBtn) this._aimBtn.style.display = armed ? "" : "none";
     if (this._shoulderBtn) this._shoulderBtn.style.display = armed && this.cameraMode !== "first" ? "" : "none";
     if (!armed) this.setAiming(false);

@@ -95,7 +95,7 @@ export class Router {
     b.type = "button";
     b.textContent = "🔦 TORCH OFF";
     Object.assign(b.style, {
-      position: "fixed", right: "14px", top: "calc(env(safe-area-inset-top) + 145px)",
+      position: "fixed", right: "14px", top: "calc(env(safe-area-inset-top) + 84px)",
       zIndex: "31", padding: "10px 13px", borderRadius: "22px",
       border: "1px solid rgba(255,255,255,.28)", background: "rgba(8,16,28,.88)",
       color: "#fff7df", font: "800 10px Inter,system-ui,sans-serif",

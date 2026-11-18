@@ -220,6 +220,7 @@
 "js/core/gangs.js",
 "js/core/garage.js",
 "js/core/guns.js",
+"js/core/gun-stances.js",
 "js/core/home-prog.js",
 "js/core/houses.js",
 "js/core/identity.js",

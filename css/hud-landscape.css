@@ -194,3 +194,23 @@
   .tphone.app-immersive #gm-runner-stage{height:min(62dvh,560px);min-height:360px}
   .tphone.app-immersive .gm-cv{height:min(60dvh,540px)}
 }
+
+
+/* ════════════ COMBAT HUD (gun drawn) — CoD-style: clear centre, small corner clusters ════════════
+   Life-sim chips (Jetpack, Lie, Actions, Go Outside...) hide while a gun is out, the remaining
+   combat chips shrink to a slim 2x2 block above the thumb buttons, and the torch / talk
+   buttons get their own slots under the wallet instead of sitting on the chips. */
+@media (orientation:landscape){
+  #ph3d-torch-btn{top:calc(env(safe-area-inset-top,0px) + 84px)!important;right:var(--h-right)!important;padding:0 10px!important;height:28px!important;
+    border-radius:10px!important;font-size:10px!important;z-index:31}
+  #ph3d-npc-actions{top:calc(env(safe-area-inset-top,0px) + 46px)!important;right:var(--h-right)!important;max-width:min(40vw,300px)!important}
+  body.gun-out #hud-ctx{display:grid!important;grid-template-columns:repeat(2,84px)!important;width:auto!important;gap:5px!important;
+    bottom:calc(var(--h-bottom) + var(--row-h) + 14px)!important;right:var(--h-right)!important}
+  body.gun-out #hud-ctx .h-ctx:not(.h-combat-util):not(#ph3d-crouch-btn):not(.is-live){display:none!important}
+  body.gun-out #hud-ctx .h-ctx{width:84px!important;height:30px!important;min-height:0!important;line-height:30px!important;padding:0 6px!important;
+    font-size:10px!important;border-radius:10px!important;text-align:center!important;background:rgba(9,14,20,.78)!important}
+  body.gun-out #hud-ctx .h-ctx::before{display:none!important}
+  body.gun-out #hud-item{display:none!important}
+  body.gun-out #ph3d-gun-hud{left:auto!important;right:calc(var(--h-right) + 96px)!important;bottom:calc(var(--h-bottom) + 6px)!important}
+  body.gun-out #ph3d-gun-ammo{font-size:22px!important}
+}
