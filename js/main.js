@@ -58,6 +58,8 @@ import { AudioSystem } from "./core/audio.js";
 import { Engagement } from "./core/engagement.js";
 import { RobberyUI } from "./ui/robbery-ui.js";
 import "./core/scenes.js";
+import "./core/combat-pose-upgrade.js";
+import "./core/mobile-keyboard.js";
 
 /* ── Core globals ── */
 window.__ph3d_wardrobe       = Wardrobe;
