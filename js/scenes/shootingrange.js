@@ -358,13 +358,15 @@ export async function shootingRangeScene(params, router) {
     <div id="rg-skill-msg" class="rg-skill-msg"></div>`;
   const rangeStyle = document.createElement("style");
   rangeStyle.textContent = `
-    .rg-weaponbar{position:absolute;right:14px;bottom:112px;display:flex;gap:7px;pointer-events:auto}
-    .rg-weaponbar button,.rg-skills button{color:#eafaff;background:linear-gradient(145deg,rgba(10,22,45,.94),rgba(25,14,52,.92));border:1px solid rgba(38,218,255,.65);box-shadow:0 0 16px rgba(0,190,255,.18),inset 0 0 12px rgba(0,180,255,.08);border-radius:12px;font:800 10px Inter,system-ui;letter-spacing:.08em;padding:10px 12px;pointer-events:auto;touch-action:manipulation}
-    .rg-skills{position:absolute;right:14px;bottom:18px;display:flex;gap:8px;pointer-events:auto}
-    .rg-skills button{min-width:76px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 7px;border-color:rgba(255,69,181,.7);box-shadow:0 0 16px rgba(255,30,160,.2)}
-    .rg-skills b{font-size:19px;color:#62eaff;text-shadow:0 0 12px #00cfff}.rg-skills span{font-size:9px}.rg-skills small{font-size:9px;color:#8dffcc}
-    .rg-skills button:disabled{opacity:.48;filter:grayscale(.6)}.rg-skill-msg{position:absolute;left:50%;bottom:100px;transform:translateX(-50%);font:900 13px Inter;color:#8ffaff;text-shadow:0 0 14px #00cfff;opacity:0;transition:opacity .2s;white-space:nowrap}
-    @media(max-width:600px){.rg-weaponbar{right:8px;bottom:128px}.rg-skills{right:8px;bottom:14px;gap:5px}.rg-skills button{min-width:67px;padding:8px 5px}.rg-skills span{font-size:8px}}
+    .rg-weaponbar{position:absolute;right:14px;bottom:116px;display:flex;gap:8px;pointer-events:auto}
+    .rg-weaponbar button,.rg-skills button{min-height:42px;color:#f4f8ff;background:rgba(12,20,31,.88);border:1px solid rgba(157,190,216,.34);box-shadow:0 6px 18px rgba(0,0,0,.28);border-radius:12px;font:800 11px Inter,system-ui;letter-spacing:.045em;padding:0 14px;pointer-events:auto;touch-action:manipulation;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+    .rg-weaponbar button:focus-visible,.rg-skills button:focus-visible{outline:2px solid #78d7ff;outline-offset:2px}
+    .rg-skills{position:absolute;right:14px;bottom:16px;display:flex;gap:7px;pointer-events:auto}
+    .rg-skills button{width:82px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;border-color:rgba(157,190,216,.30)}
+    .rg-skills b{font-size:17px;color:#a8dfff}.rg-skills span{font-size:9px}.rg-skills small{font-size:8px;color:#a8d8bd}
+    .rg-skills button:disabled{opacity:.45;filter:grayscale(.6)}.rg-skill-msg{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);font:800 12px Inter;color:#d9f2ff;text-shadow:0 2px 8px #000;opacity:0;transition:opacity .2s;white-space:nowrap}
+    @media (max-width:760px){.rg-weaponbar{right:10px;bottom:112px}.rg-skills{right:10px;bottom:10px;gap:5px}.rg-skills button{width:70px;min-height:54px}.rg-skills span{font-size:8px}.rg-skills b{font-size:15px}}
+    @media (orientation:landscape) and (max-height:480px){.rg-weaponbar{bottom:88px}.rg-skills{bottom:8px}.rg-skills button{width:66px;min-height:48px}.rg-skill-msg{bottom:92px}}
   `;
   document.head.appendChild(rangeStyle);
   document.body.appendChild(hud);

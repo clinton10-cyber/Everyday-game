@@ -707,3 +707,37 @@
   background:rgba(9,14,20,.88)!important;border:1px solid rgba(255,255,255,.22)!important;
   color:#f4f6f8!important;box-shadow:0 6px 18px rgba(0,0,0,.32)!important}
 #hud-ctx .h-combat-util.is-on{background:rgba(36,92,72,.95)!important;border-color:rgba(92,224,164,.6)!important}
+
+
+/* Combat HUD — landscape phone cleanup (two-column utility cluster). */
+@media (orientation:landscape) and (max-height:600px) {
+  #hud-ctx {
+    right: max(10px, env(safe-area-inset-right, 0px)) !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 104px) !important;
+    width: min(310px, 39vw) !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-auto-flow: row !important;
+    gap: 6px !important;
+    align-items: stretch !important;
+  }
+  #hud-ctx .h-combat-util,
+  #hud-ctx .h-ctx {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    line-height: 36px !important;
+    padding: 0 9px !important;
+    border-radius: 11px !important;
+    font-size: clamp(10px, 1.35vw, 12px) !important;
+    letter-spacing: 0 !important;
+  }
+  #hud-ctx .h-combat-util { grid-column: auto !important; }
+  #hud-item { bottom: calc(env(safe-area-inset-bottom, 0px) + 260px) !important; }
+  #hud-pad { right: max(10px, env(safe-area-inset-right, 0px)) !important; bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important; }
+}
+@media (orientation:landscape) and (max-height:420px) {
+  #hud-ctx { width: min(270px, 36vw) !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 88px) !important; gap: 4px !important; }
+  #hud-ctx .h-ctx { min-height: 32px !important; height: 32px !important; line-height: 32px !important; }
+}

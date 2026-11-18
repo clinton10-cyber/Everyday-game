@@ -297,10 +297,10 @@ const SNIPER_READY = {
   head:       [ 0.05, -0.10,  0    ],
 };
 
-const RIFLE_READY = { ...PISTOL_READY, r_shoulder:[-1.48,0.08,-0.12], l_shoulder:[-1.50,-0.28,0.18], l_elbow:[-0.62,0,0], spine:[0.015,0.02,0] };
-const SMG_READY = { ...PISTOL_READY, r_shoulder:[-1.58,0.04,-0.05], l_shoulder:[-1.60,-0.18,0.12], r_elbow:[-0.28,0,0], l_elbow:[-0.48,0,0], spine:[0.025,0,0] };
-const SHOTGUN_READY = { ...RIFLE_READY, r_shoulder:[-1.38,0.12,-0.16], l_shoulder:[-1.42,-0.34,0.22], l_elbow:[-0.72,0,0], spine:[0.06,0.02,0] };
-const LMG_READY = { ...RIFLE_READY, r_shoulder:[-1.30,0.18,-0.20], l_shoulder:[-1.34,-0.42,0.26], l_elbow:[-0.78,0,0], spine:[0.10,0.04,0] };
+const RIFLE_READY = { ...PISTOL_READY, r_shoulder:[-1.48,0.08,-0.12], l_shoulder:[-1.62,-0.30,0.28], l_elbow:[-0.92,0,0], l_wrist:[0.14,-0.04,0], spine:[0.015,0.02,0] };
+const SMG_READY = { ...PISTOL_READY, r_shoulder:[-1.58,0.04,-0.05], l_shoulder:[-1.68,-0.22,0.24], r_elbow:[-0.28,0,0], l_elbow:[-0.82,0,0], l_wrist:[0.12,-0.04,0], spine:[0.025,0,0] };
+const SHOTGUN_READY = { ...RIFLE_READY, r_shoulder:[-1.38,0.12,-0.16], l_shoulder:[-1.58,-0.38,0.32], l_elbow:[-1.02,0,0], spine:[0.06,0.02,0] };
+const LMG_READY = { ...RIFLE_READY, r_shoulder:[-1.30,0.18,-0.20], l_shoulder:[-1.52,-0.44,0.34], l_elbow:[-1.08,0,0], spine:[0.10,0.04,0] };
 
 function blendPose(a, b, k) {
   const mix = (arrA, arrB) => [
@@ -423,6 +423,7 @@ export class Gun {
     if (this.state !== "holstered") return;
     this.mesh.visible = true;
     setGrip(this.controls.rig, -1, 1);
+    setGrip(this.controls.rig, +1, 1);
     this._setState("drawn");
   }
 
@@ -430,6 +431,7 @@ export class Gun {
     if (this.state === "holstered") return;
     this.mesh.visible = false;
     setGrip(this.controls.rig, -1, 0);
+    setGrip(this.controls.rig, +1, 0);
     this._setState("holstered");
     this.animTime = 0;
     this.cdTime = 0;

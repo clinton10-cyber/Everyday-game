@@ -1,0 +1,17 @@
+Everyday-game patch
+
+Changed files:
+- css/hud.css
+  * Reflows the mobile landscape combat/context controls into a compact two-column cluster.
+  * Keeps the control dock above the bottom thumb controls and reduces button height/spacing.
+- js/scenes/shootingrange.js
+  * Simplifies the dedicated range weapon/skill dock with consistent sizing, spacing, and landscape sizing.
+- js/core/guns.js
+  * Closes the support-hand fingers while firearms are drawn and releases them when holstered.
+  * Adjusts support-arm pose values for rifle, SMG, shotgun, and LMG.
+
+Install:
+Copy these files into the matching paths in your project, replacing the existing files.
+
+Validation:
+JavaScript syntax checks passed for the modified JS files. This patch has not been visually tested in the running game. The support-hand pose is improved, but exact hand-to-foregrip contact still needs an in-game check against your character rig and weapon proportions.
