@@ -1,108 +1,166 @@
-/* Floating in-game keyboard for Everyday-game mobile text entry.
- * Import once from js/main.js. Inputs are made readonly on touch devices so
- * Android/iOS do not open their native keyboard; this keyboard writes values.
- */
-const STYLE_ID = "ph3d-floating-keyboard-style";
-const ROOT_ID = "ph3d-floating-keyboard";
+/* Floating in-game keyboard for phone typing (touch devices only).
+ * Import once from js/main.js. A compact keyboard with SQUARE keys floats over the game: drag it by its title
+ * bar, resize it with the A- / A+ buttons, switch letters / numbers+symbols, shift for capitals.
+ * It opens when you tap a text box, closes on Done or when you tap elsewhere, and stays inside the screen.
+ * The phone's own keyboard is suppressed (inputmode=none + readonly while focused); this keyboard types instead.
+ * Position and size are remembered. */
+const STYLE_ID = "ph3d-floating-keyboard-style", ROOT_ID = "ph3d-floating-keyboard", KEY = "ph3d_kb_v2";
 const isTouch = () => ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+const SIZES = [250, 300, 350, 400];                   /* panel width in px; keys stay square */
+const LETTERS = ["1234567890", "qwertyuiop", "asdfghjkl", "zxcvbnm"];
+const SYMBOLS = ["1234567890", "@#$%&*-+()", "!?\"':;/_=", ".,~^|\\<>"];
 
-function installStyle() {
+function css() {
   if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement("style");
-  style.id = STYLE_ID;
-  style.textContent = `
-  #${ROOT_ID}{position:fixed;z-index:1000000;left:50%;bottom:16px;transform:translateX(-50%);
-    width:min(94vw,430px);padding:9px;border:1px solid #ffffff30;border-radius:15px;
-    background:rgba(13,15,29,.96);box-shadow:0 12px 40px #0009;backdrop-filter:blur(14px);
-    color:#fff;font:600 13px system-ui;display:none;touch-action:manipulation;user-select:none}
+  const s = document.createElement("style"); s.id = STYLE_ID;
+  s.textContent = `
+  #${ROOT_ID}{position:fixed;z-index:1000000;display:none;box-sizing:border-box;padding:6px;border:1px solid #ffffff2e;border-radius:14px;
+    background:rgba(13,15,29,.94);box-shadow:0 10px 34px #000a;backdrop-filter:blur(12px);color:#fff;font:600 12px system-ui,sans-serif;
+    touch-action:manipulation;user-select:none;-webkit-user-select:none}
   #${ROOT_ID}.show{display:block}
-  #${ROOT_ID} .kb-head{display:flex;align-items:center;justify-content:space-between;margin:0 2px 7px}
-  #${ROOT_ID} .kb-head button{width:auto;padding:5px 10px;background:#34364d}
-  #${ROOT_ID} .kb-row{display:flex;gap:4px;margin:4px 0}
-  #${ROOT_ID} button{flex:1;min-width:0;height:37px;border:0;border-radius:7px;background:#292c43;color:#fff;
-    font:600 13px system-ui;touch-action:manipulation}
+  #${ROOT_ID} .kb-head{display:flex;align-items:center;gap:4px;margin-bottom:5px;cursor:grab;touch-action:none}
+  #${ROOT_ID} .kb-head span{flex:1;font-size:10px;letter-spacing:.12em;opacity:.65;padding-left:4px}
+  #${ROOT_ID} .kb-head button{flex:none;width:30px;height:24px;font-size:11px;background:#34364d}
+  #${ROOT_ID} .kb-head button.done{width:auto;padding:0 10px;background:#2f7d4f}
+  #${ROOT_ID} .kb-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+  #${ROOT_ID} button{border:0;border-radius:7px;background:#292c43;color:#fff;font:600 14px system-ui,sans-serif;padding:0;touch-action:manipulation}
+  #${ROOT_ID} .kb-grid button{aspect-ratio:1/1;min-width:0}
   #${ROOT_ID} button:active{background:#6554d9}
-  #${ROOT_ID} button.wide{flex:1.6;background:#41445f}
-  #${ROOT_ID} button.space{flex:5}
-  #${ROOT_ID} .kb-drag{cursor:move;touch-action:none}
+  #${ROOT_ID} button.fn{background:#3f4261;font-size:12px}
+  #${ROOT_ID} button.on{background:#6554d9}
+  #${ROOT_ID} .kb-grid .w2{grid-column:span 2;aspect-ratio:auto}
+  #${ROOT_ID} .kb-grid .w4{grid-column:span 4;aspect-ratio:auto}
+  #${ROOT_ID} .kb-grid .w6{grid-column:span 6;aspect-ratio:auto}
+  #${ROOT_ID} .kb-grid .w3{grid-column:span 3;aspect-ratio:auto}
   `;
-  document.head.appendChild(style);
+  document.head.appendChild(s);
 }
 
 function mount() {
   if (!isTouch() || document.getElementById(ROOT_ID)) return;
-  installStyle();
+  css();
+  let st = { size: 1, x: null, y: null, moved: false };
+  try { Object.assign(st, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+
   const root = document.createElement("section");
-  root.id = ROOT_ID;
-  root.setAttribute("aria-label", "In-game keyboard");
-  root.innerHTML = `
-    <div class="kb-head kb-drag"><span>GAME KEYBOARD</span><button type="button" data-k="hide">−</button></div>
-    <div class="kb-rows"></div>`;
+  root.id = ROOT_ID; root.setAttribute("aria-label", "In-game keyboard");
+  root.innerHTML = `<div class="kb-head"><span>KEYBOARD</span><button type="button" class="fn" data-a="smaller">A-</button><button type="button" class="fn" data-a="bigger">A+</button><button type="button" class="done" data-a="done">Done</button></div><div class="kb-grid"></div>`;
   document.body.appendChild(root);
-  const rows = root.querySelector(".kb-rows");
-  let target = null, shifted = false;
-  const layout = ["1234567890","qwertyuiop","asdfghjkl","zxcvbnm"];
-  const emit = () => {
-    if (!target) return;
-    target.dispatchEvent(new Event("input",{bubbles:true}));
-    target.dispatchEvent(new Event("change",{bubbles:true}));
+  const grid = root.querySelector(".kb-grid");
+  let target = null, shift = false, symbols = false, restore = null;
+
+  const applySize = () => { root.style.width = Math.min(SIZES[st.size], window.innerWidth - 12) + "px"; };
+  const clamp = () => {
+    const w = root.offsetWidth, h = root.offsetHeight;
+    st.x = Math.max(4, Math.min(window.innerWidth - w - 4, st.x)); st.y = Math.max(4, Math.min(window.innerHeight - h - 4, st.y));
+    root.style.left = st.x + "px"; root.style.top = st.y + "px"; root.style.right = root.style.bottom = "auto";
   };
-  const insert = value => {
-    if (!target) return;
-    const start = target.selectionStart ?? target.value.length;
-    const end = target.selectionEnd ?? target.value.length;
-    const text = shifted ? value.toUpperCase() : value;
-    target.value = target.value.slice(0,start) + text + target.value.slice(end);
-    const pos = start + text.length;
-    try { target.setSelectionRange(pos,pos); } catch(e) {}
-    emit();
+  const place = () => {
+    applySize();
+    if (st.x == null || st.y == null) { st.x = (window.innerWidth - root.offsetWidth) / 2; st.y = window.innerHeight - root.offsetHeight - 14; }
+    clamp();
+    /* if the keyboard covers the box being typed in, hop to the other half of the screen (until you drag it yourself) */
+    if (!st.moved && target) {
+      const t = target.getBoundingClientRect(), r = root.getBoundingClientRect();
+      if (t.bottom > r.top && t.top < r.bottom) { st.y = t.top > window.innerHeight / 2 ? 8 : window.innerHeight - r.height - 14; clamp(); }
+    }
   };
-  const addRow = keys => {
-    const row = document.createElement("div"); row.className = "kb-row";
-    keys.forEach(({label,value,wide,space}) => {
-      const b = document.createElement("button"); b.type="button"; b.textContent=label;
-      if(wide)b.classList.add("wide"); if(space)b.classList.add("space");
-      b.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation();
-        if(value==="hide"){root.classList.remove("show");return;}
-        if(value==="shift"){shifted=!shifted; b.style.background=shifted?"#6554d9":"";return;}
-        if(value==="back"){if(!target)return;const p=target.selectionStart??target.value.length;
-          target.value=target.value.slice(0,Math.max(0,p-1))+target.value.slice(target.selectionEnd??p);try{target.setSelectionRange(Math.max(0,p-1),Math.max(0,p-1));}catch(e){}emit();return;}
-        if(value==="enter"){insert("\\n");return;}
-        insert(value);
-      },{passive:false});
-      row.appendChild(b);
+
+  const fire = (type, init) => { if (target) target.dispatchEvent(new (init && init.key ? KeyboardEvent : InputEvent)(type, Object.assign({ bubbles: true, cancelable: true }, init || {}))); };
+  const changed = (data, inputType) => { fire("input", { data, inputType: inputType || "insertText" }); target && target.dispatchEvent(new Event("change", { bubbles: true })); };
+  const type = (ch) => {
+    if (!target) return;
+    const s = target.selectionStart ?? target.value.length, e = target.selectionEnd ?? target.value.length;
+    const t = shift ? ch.toUpperCase() : ch;
+    if (target.maxLength > 0 && target.value.length - (e - s) + t.length > target.maxLength) return;
+    target.value = target.value.slice(0, s) + t + target.value.slice(e);
+    try { target.setSelectionRange(s + t.length, s + t.length); } catch (_) {}
+    changed(t);
+    if (shift && !caps) { shift = false; draw(); }
+  };
+  const back = () => {
+    if (!target) return;
+    let s = target.selectionStart ?? target.value.length; const e = target.selectionEnd ?? s;
+    if (s === e) { if (s === 0) return; s -= 1; }
+    target.value = target.value.slice(0, s) + target.value.slice(e);
+    try { target.setSelectionRange(s, s); } catch (_) {}
+    changed(null, "deleteContentBackward");
+  };
+  const enter = () => {
+    if (!target) return;
+    if (target.tagName === "TEXTAREA") { type("\n"); return; }
+    const k = { key: "Enter", code: "Enter", keyCode: 13, which: 13 };
+    fire("keydown", k); fire("keypress", k); fire("keyup", k);       /* game chat boxes send on Enter */
+    const f = target.form; if (f && f.requestSubmit) { try { f.requestSubmit(); } catch (_) {} }
+  };
+  let caps = false, lastShiftTap = 0;
+
+  const key = (label, act, cls) => { const b = document.createElement("button"); b.type = "button"; b.textContent = label; if (cls) b.className = cls; b.dataset.k = act; grid.appendChild(b); return b; };
+  function draw() {
+    grid.innerHTML = "";
+    const rows = symbols ? SYMBOLS : LETTERS;
+    rows.forEach((line, i) => {
+      if (i === 3) { const sh = key(caps ? "\u21ea" : "\u21e7", "shift", "fn w2" + (shift ? " on" : "")); if (symbols) { sh.textContent = ""; sh.style.visibility = "hidden"; } }
+      [...line].forEach((ch) => key(shift && !symbols && /[a-z]/.test(ch) ? ch.toUpperCase() : ch, "c:" + ch));
+      if (i === 3) key("\u232b", "back", "fn w2");
     });
-    rows.appendChild(row);
-  };
-  layout.forEach(line=>addRow([...line].map(ch=>({label:ch,value:ch}))));
-  addRow([{label:"⇧",value:"shift",wide:true},... "zxcvbnm".split("").map(ch=>({label:ch,value:ch})),{label:"⌫",value:"back",wide:true}]);
-  addRow([{label:"?123",value:"shift",wide:true},{label:"SPACE",value:" ",space:true},{label:"↵",value:"enter",wide:true},{label:"Done",value:"hide",wide:true}]);
+    key(symbols ? "ABC" : "123", "sym", "fn w2" + (symbols ? " on" : ""));
+    key(",", "c:,", ""); key("space", "c: ", "w4"); key(".", "c:.", ""); key("\u21b5", "enter", "fn w2");
+  }
+  grid.addEventListener("pointerdown", (e) => {
+    const b = e.target.closest("button"); if (!b) return; e.preventDefault(); e.stopPropagation();
+    const k = b.dataset.k;
+    if (k.startsWith("c:")) type(k.slice(2));
+    else if (k === "back") back();
+    else if (k === "enter") enter();
+    else if (k === "sym") { symbols = !symbols; draw(); }
+    else if (k === "shift") {
+      const now = Date.now();
+      if (caps) { caps = false; shift = false; }
+      else if (shift && now - lastShiftTap < 400) caps = true;       /* double tap = caps lock */
+      else shift = !shift;
+      lastShiftTap = now; draw();
+    }
+  }, { passive: false });
+  root.querySelector(".kb-head").addEventListener("pointerdown", (e) => {
+    const b = e.target.closest("button");
+    if (b) {
+      e.preventDefault(); e.stopPropagation();
+      const a = b.dataset.a;
+      if (a === "done") { hide(); }
+      else { st.size = Math.max(0, Math.min(SIZES.length - 1, st.size + (a === "bigger" ? 1 : -1))); save(); place(); }
+      return;
+    }
+    /* drag by the title bar */
+    const r = root.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top, h = e.currentTarget;
+    h.setPointerCapture(e.pointerId); e.preventDefault();
+    const mv = (ev) => { st.x = ev.clientX - ox; st.y = ev.clientY - oy; st.moved = true; clamp(); };
+    const up = () => { h.removeEventListener("pointermove", mv); h.removeEventListener("pointerup", up); h.removeEventListener("pointercancel", up); save(); };
+    h.addEventListener("pointermove", mv); h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up);
+  });
 
-  document.addEventListener("focusin", e => {
-    const el=e.target;
-    if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
-    if (el.disabled || el.readOnly || el.type==="button" || el.type==="submit" || el.type==="checkbox") return;
-    target=el;
-    el.dataset.ph3dKeyboard="1";
-    el.setAttribute("inputmode","none");
-    el.readOnly=true; // prevent native keyboard; values are inserted by this keyboard
-    root.classList.add("show");
-  }, true);
-  document.addEventListener("pointerdown", e => {
-    if (root.contains(e.target)) return;
-    if (target && e.target !== target && !target.contains(e.target)) root.classList.remove("show");
-  }, true);
+  function show(el) {
+    if (restore && restore.el !== el) unlock();
+    target = el; restore = restore && restore.el === el ? restore : { el, ro: el.readOnly, im: el.getAttribute("inputmode") };
+    el.setAttribute("inputmode", "none"); el.readOnly = true;       /* no system keyboard */
+    root.classList.add("show"); draw(); place();
+  }
+  function unlock() { if (!restore) return; const { el, ro, im } = restore; el.readOnly = ro; if (im == null) el.removeAttribute("inputmode"); else el.setAttribute("inputmode", im); restore = null; }
+  function hide() { root.classList.remove("show"); unlock(); if (target) { try { target.blur(); } catch (_) {} } target = null; shift = caps = false; }
 
-  // Drag the floating panel by its title bar.
-  const drag=root.querySelector(".kb-drag");
-  let sx=0,sy=0,left=0,bottom=0,dragging=false;
-  drag.addEventListener("pointerdown",e=>{if(e.target.tagName==="BUTTON")return;dragging=true;sx=e.clientX;sy=e.clientY;
-    const r=root.getBoundingClientRect();left=r.left;bottom=window.innerHeight-r.bottom;
-    drag.setPointerCapture(e.pointerId);e.preventDefault();});
-  drag.addEventListener("pointermove",e=>{if(!dragging)return;root.style.left=(left+e.clientX-sx+root.offsetWidth/2)+"px";
-    root.style.bottom=(bottom-(e.clientY-sy))+"px";});
-  drag.addEventListener("pointerup",()=>dragging=false);
+  const typable = (el) => (el instanceof HTMLInputElement && !["button", "submit", "checkbox", "radio", "range", "color", "file", "reset", "image", "hidden"].includes(el.type)) || el instanceof HTMLTextAreaElement;
+  document.addEventListener("focusin", (e) => { const el = e.target; if (typable(el) && !el.disabled && !(el.readOnly && !(restore && restore.el === el))) show(el); }, true);
+  document.addEventListener("pointerdown", (e) => {
+    if (!root.classList.contains("show") || root.contains(e.target)) return;
+    if (target && (e.target === target || target.contains(e.target))) return;
+    if (typable(e.target)) return;                                   /* tapping another box: focusin takes over */
+    hide();
+  }, true);
+  window.addEventListener("resize", () => { if (root.classList.contains("show")) place(); });
+  window.addEventListener("orientationchange", () => setTimeout(() => { if (root.classList.contains("show")) place(); }, 250));
+  window.__ph3d_keyboard = { show: (el) => typable(el) && show(el), hide };
 }
 
-if (document.readyState==="loading") document.addEventListener("DOMContentLoaded",mount,{once:true});
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount, { once: true });
 else mount();
