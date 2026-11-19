@@ -1014,8 +1014,8 @@ function holdLayer(P, arms) {
     const left = h.arm === "L", sg = left ? 1 : -1, A = left ? P.aL : P.aR;
     if (h.kind === "hand") {
       const up = h.up || 0;
-      A.sh = [-0.14 - 0.10 * up, 0, sg * (0.30 + 0.85 * up)];
-      A.el = [-0.22 - 0.25 * up, 0, 0];
+      A.sh = [-0.15 - 0.10 * up, 0, sg * (0.334 + 0.85 * up)];   /* solved against the real rig: grips meet within 3 cm */
+      A.el = [-0.16 - 0.25 * up, 0, 0];
       A.wr = [0, 0, 0];
     } else if (h.kind === "linker") {
       A.sh = [-0.62, sg * 0.55, sg * 0.06];

@@ -25,7 +25,7 @@ export const AnimationAutomation = {
       if (n.dead || n._lifeHidden || n._isHunter || n._companion) continue;
       if (n.state !== "idle") continue;
       if (!n.ctl || !n.group || n.group.visible === false) continue;
-      if (n.ctl._emoteName && n.ctl._emoteTimer > 0) continue;
+      if (n.ctl._holdArms || (n.ctl._emoteName && n.ctl._emoteTimer > 0)) continue;
       const d = Math.hypot(n.ctl.pos.x - px, n.ctl.pos.z - pz);
       if (d > 45) continue;
       const w = d < 3 ? 0.35 : 1 / (1 + d * 0.10);
@@ -49,7 +49,7 @@ export const AnimationAutomation = {
      Any movement input cancels the emote (thirdperson.js already does that). */
   tickPlayer(dt, p) {
     const gun = p.weapons && ["pistol", "sniper", "bazooka"].includes(p.weapons.current);
-    const busy = !this.playerIdle || this.paused || p.state !== "standing" || p.moving || p.dead ||
+    const busy = !this.playerIdle || this.paused || p._holdArms || p.state !== "standing" || p.moving || p.dead ||
       p.ragdoll || p._fightLock || p.held || p.look && p.look.on || gun ||
       (p._emoteTimer > 0) || (p._useTimer > 0);
     if (busy) { this._pIdle = 0; if (!p.moving) return; this._pNext = 5 + Math.random() * 5; return; }

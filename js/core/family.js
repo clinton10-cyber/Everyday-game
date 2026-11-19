@@ -120,6 +120,7 @@ const cfgOf = (p) => { if (!p.cfg) p.cfg = fallbackCfg(p); return p.cfg; };
 
 /* ═══ outfit changes ════════════════════════════════════════════ */
 const _live = new Map();       /* person id → { group, rig, ctl } own avatar */
+if (typeof window !== "undefined") window.__ph3d_famLive = _live;
 
 function refreshLook(p) {
   const cfg = cfgOf(p);
@@ -197,6 +198,7 @@ function applyHold(tp, list, plan) {
       mine.push({ kind: s.hold.kind === "link" ? "linked" : "hand", arm: s.hold.arm, up: 0, kid: !!s.hold.up });
     } else ctl._holdArms = null;
   }
+  if (mine.length && !tp._holdArms && tp._emoteTimer > 0.3) tp._emoteTimer = 0.3;     /* drop any fidget so the hands come together */
   tp._holdArms = mine.length ? mine : null;
 }
 
