@@ -671,17 +671,45 @@ function companions(px, pz) {
 
 /* ═══ UI: interaction panel + People app ═══════════════════════════════ */
 const css = `
-#lv-panel{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);transform:translateX(-50%);z-index:9500;width:min(94vw,430px);background:rgba(10,16,13,.96);border:1px solid rgba(125,255,154,.35);border-radius:18px;color:#eaf6ff;font:600 13px Inter,system-ui,sans-serif;box-shadow:0 16px 40px rgba(0,0,0,.6);padding:12px 14px;display:none}
-#lv-panel h3{margin:0;font:900 17px Inter,system-ui,sans-serif;display:flex;justify-content:space-between;align-items:center;gap:8px}
-#lv-panel .sub{opacity:.75;font-size:12px;margin:2px 0 8px}
-#lv-panel .bar{height:8px;border-radius:6px;background:#26302b;overflow:hidden;margin:6px 0 10px}
-#lv-panel .bar i{display:block;height:100%;background:linear-gradient(90deg,#ff5a4d,#ffd23a 50%,#7dff9a)}
-#lv-panel .g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-#lv-panel button,#lv-app button.pill{background:#1c2b24;border:1px solid rgba(125,255,154,.3);color:#eaf6ff;border-radius:11px;padding:8px 4px;font:700 12px Inter,system-ui,sans-serif;cursor:pointer}
-#lv-panel button:active{transform:scale(.96)}
-#lv-panel button[disabled]{opacity:.35}
-#lv-panel .x{background:none;border:none;font-size:20px;padding:0 4px;color:#9ab}
-#lv-say{margin:8px 0 2px;font-style:italic;opacity:.9;min-height:16px}
+#lv-panel{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);transform:translateX(-50%);z-index:9500;width:min(96vw,460px);max-height:min(74vh,560px);display:none;flex-direction:column;
+  background:linear-gradient(180deg,rgba(16,26,21,.97),rgba(8,13,11,.98));border:1px solid rgba(125,255,154,.32);border-radius:20px;color:#eaf6ff;font:600 13px Inter,system-ui,sans-serif;box-shadow:0 18px 48px rgba(0,0,0,.65);overflow:hidden}
+#lv-panel.on{display:flex}
+#lv-panel .hd{display:flex;gap:11px;align-items:center;padding:12px 12px 8px}
+#lv-panel .av{flex:none;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:900 19px Inter,system-ui,sans-serif;color:#0c1a12;background:linear-gradient(135deg,#7dff9a,#3fbf7a)}
+#lv-panel .av.f{background:linear-gradient(135deg,#ffb3d1,#ff7aa8)}#lv-panel .av.m{background:linear-gradient(135deg,#9fd2ff,#5ea4ff)}
+#lv-panel .nm{flex:1;min-width:0}#lv-panel .nm b{display:block;font:900 17px/1.15 Inter,system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lv-panel .nm span{font-size:11.5px;opacity:.72}
+#lv-panel .x{flex:none;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.08);border:none;color:#cfe;font-size:16px;padding:0;cursor:pointer}
+#lv-panel .chips{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 6px}
+#lv-panel .chips i{font-style:normal;font:700 10.5px Inter,system-ui,sans-serif;padding:3px 8px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.08)}
+#lv-panel .meter{padding:0 12px 8px}
+#lv-panel .meter .ml{display:flex;justify-content:space-between;font:800 10.5px Inter,system-ui,sans-serif;opacity:.85;margin-bottom:3px;letter-spacing:.04em}
+#lv-panel .bar{height:9px;border-radius:6px;background:#26302b;overflow:hidden;position:relative}
+#lv-panel .bar i{display:block;height:100%;background:linear-gradient(90deg,#ff5a4d,#ffd23a 50%,#7dff9a);border-radius:6px;transition:width .35s}
+#lv-panel .bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:rgba(255,255,255,.55);left:82.5%}
+#lv-panel .stg{display:flex;gap:3px;padding:0 12px 8px}
+#lv-panel .stg span{flex:1;text-align:center;font:800 9px Inter,system-ui,sans-serif;padding:4px 0;border-radius:7px;background:#16211b;opacity:.55}
+#lv-panel .stg span.done{background:#244c37;opacity:.9}
+#lv-panel .stg span.now{background:#2f8a5a;opacity:1;box-shadow:0 0 0 1px #7dff9a inset}
+#lv-panel .tabs{display:flex;gap:5px;padding:2px 12px 8px;overflow-x:auto;scrollbar-width:none}
+#lv-panel .tabs::-webkit-scrollbar{display:none}
+#lv-panel .tabs button{flex:1 0 auto;padding:8px 12px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfe3d8;font:800 11.5px Inter,system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+#lv-panel .tabs button.on{background:#2f8a5a;border-color:#7dff9a;color:#fff}
+#lv-panel .bd{flex:1;min-height:0;overflow-y:auto;padding:2px 12px 10px;-webkit-overflow-scrolling:touch}
+#lv-panel .note{font-size:11.5px;line-height:1.35;opacity:.8;margin:0 0 8px;padding:8px 10px;border-radius:10px;background:rgba(125,255,154,.07);border-left:3px solid #3fbf7a}
+#lv-panel .g{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+#lv-panel .g button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:58px;padding:6px 3px;border-radius:13px;background:#1b2a23;border:1px solid rgba(125,255,154,.26);color:#eaf6ff;font:800 11px/1.15 Inter,system-ui,sans-serif;cursor:pointer;text-align:center}
+#lv-panel .g button .ic{font-size:20px;line-height:1}
+#lv-panel .g button:active{transform:scale(.96);background:#25382f}
+#lv-panel .g button[disabled]{opacity:.38}
+#lv-panel .g button.danger{background:#2b1717;border-color:rgba(255,110,110,.35)}
+#lv-panel .g button.hot{background:#24402f;border-color:#7dff9a}
+#lv-say{margin:0;padding:8px 14px 10px;font-style:italic;opacity:.92;min-height:18px;border-top:1px solid rgba(255,255,255,.07);background:rgba(0,0,0,.18);font-size:12.5px}
+@media (orientation:landscape) and (max-height:520px){
+  #lv-panel{left:auto;right:calc(env(safe-area-inset-right,0px) + 10px);top:calc(env(safe-area-inset-top,0px) + 8px);bottom:calc(env(safe-area-inset-bottom,0px) + 8px);transform:none;width:min(54vw,500px);max-height:none}
+  #lv-panel .hd{padding:9px 10px 6px}#lv-panel .av{width:38px;height:38px;font-size:16px}
+  #lv-panel .g button{min-height:50px}
+}
 #lv-app{position:fixed;inset:0;z-index:9600;background:rgba(5,9,7,.97);color:#eaf6ff;font:600 14px Inter,system-ui,sans-serif;display:none;flex-direction:column}
 #lv-app header{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 8px}
 #lv-app header b{font:900 20px Inter,system-ui,sans-serif;flex:1}
@@ -694,14 +722,8 @@ const css = `
 #lv-app .row .t{flex:1;min-width:0}#lv-app .row .t b{display:block}#lv-app .row .t span{opacity:.7;font-size:12px}
 #lv-app .log{padding:8px 10px;border-left:3px solid #2f6b4a;margin-bottom:6px;background:#0e1612;border-radius:0 10px 10px 0}
 #lv-app .card{background:#121b16;border-radius:14px;padding:12px;margin-bottom:10px}
-#lv-panel{max-height:62vh;overflow-y:auto}
-#lv-panel .stg{display:flex;gap:3px;margin:2px 0 6px}
-#lv-panel .stg span{flex:1;text-align:center;font:800 9px Inter,system-ui,sans-serif;padding:4px 0;border-radius:7px;background:#16211b;opacity:.55}
-#lv-panel .stg span.done{background:#244c37;opacity:.9}
-#lv-panel .stg span.now{background:#2f8a5a;opacity:1;box-shadow:0 0 0 1px #7dff9a inset}
-#lv-panel .note{font-size:11px;opacity:.7;margin:4px 0 8px}
 `;
-let panelEl = null, appEl = null, curNpc = null, appTab = "family", openedAt = 0;
+let panelEl = null, appEl = null, curNpc = null, appTab = "family", openedAt = 0, panelTab = "talk", _lastSay = "";
 function ensureUI() {
   if (panelEl) return;
   const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
@@ -723,13 +745,14 @@ function hookPhone() {
     if (++tries > 120) clearInterval(iv);
   }, 1000);
 }
-function closePanel() { if (panelEl) panelEl.style.display = "none"; curNpc = null; try { const T = window.__ph3d_talkchat; if (T && T._current) T.close(); } catch (e) {} }
+function closePanel() { if (panelEl) { panelEl.classList.remove("on"); panelEl.style.display = ""; } curNpc = null; try { const T = window.__ph3d_talkchat; if (T && T._current) T.close(); } catch (e) {} }
 function closeApp() { if (appEl) appEl.style.display = "none"; }
 
 const SAY = {
   chat: { friend: ["Ah, you! How far?", "Long time, oh!", "I dey fine, thank God. You?"], enemy: ["What do you want?", "Hmph.", "Don't test me."], def: ["How's your day?", "This city, eh!", "Na wa o, the traffic today.", "Good to see you."] },
 };
 function say(txt) {
+  _lastSay = String(txt);
   const e = document.getElementById("lv-say"); if (e) e.textContent = txt;
   /* when the WhatsApp-style chat is open, NPC lines become bubbles and notices become toasts */
   try {
@@ -751,9 +774,10 @@ function bump(p, dv) { const r = pRel(p); r.v = clamp(r.v + dv, -100, 100); r.me
 function openPanel(npc) {
   ensureUI();
   const p = npc && npc._life; if (!p) return;
+  if (curNpc !== npc) { panelTab = "talk"; _lastSay = ""; }
   curNpc = npc; openedAt = performance.now();
   renderPanel();
-  panelEl.style.display = "block";
+  panelEl.classList.add("on");
 }
 function stageBar(stage) {
   const i = STAGES.indexOf(stage);
@@ -777,7 +801,8 @@ function renderPanel() {
   };
   const mood = p.mood > 0.7 ? "😄 happy" : p.mood > 0.4 ? "🙂 okay" : "😕 low";
   const kids = p.kids.map(byId).filter(Boolean);
-  const btn = (id, label, dis) => `<button data-a="${id}" ${dis ? "disabled" : ""}>${label}</button>`;
+  const list = [];
+  const btn = (id, label, dis) => { list.push({ id, label, dis: !!dis }); return ""; };
   const tired = pst >= 2;
   let acts = "", note = "";
   if (isKid) {
@@ -812,14 +837,42 @@ function renderPanel() {
     else if (isSp && p.preg) note = ["", "First trimester — she's still active.", "Second trimester — she rests at home more.", "Third trimester — she stays home, resting."][pst];
     else if (stage === "dating") note = "Dating unlocks outings and proposals.";
   }
-  panelEl.innerHTML = `<h3><span>${p.name}</span><button class="x" data-a="close">✕</button></h3>
-    <div class="sub">${p.g === "feminine" ? "♀" : "♂"} ${p.age < 2 ? Math.max(0, Math.floor(p.age * 12)) + " mo" : Math.floor(p.age)} · ${p.role === "walker" ? "resident" : p.role} · ${mood} · ${whereText(p)} · ${relLabel(p)}
-      ${p.preg ? " · 🤰 expecting" : ""}${p.spouse ? " · married to " + (p.spouse === "player" ? "you" : (byId(p.spouse) || {}).name) : ""}${kids.length ? " · " + kids.length + " kid(s)" : ""}</div>
+  const TAB = {
+    chat: "talk", compliment: "talk", joke: "talk", gift: "talk", selfie: "talk", hang: "talk",
+    dress: "together", holdhand: "together", holdelbow: "together", friend: "together", flirt: "together", ask: "together", plan: "together", prop: "together", along: "together",
+    date_walk: "together", date_dinner: "together", date_cinema: "together", date_beach: "together",
+    baby: "family", cookfor: "family", massage: "family", ante: "family",
+    breakup: "more", divorce: "more", insult: "more", sorry: "more",
+  };
+  const TABS = { talk: "💬 Talk", together: "❤ Together", family: "👶 Family", more: "⋯ More" };
+  const DANGER = new Set(["insult", "breakup", "divorce"]);
+  const items = list.map((x) => ({ ...x, tab: isKid ? "care" : (TAB[x.id] || "together") }));
+  const have = [...new Set(items.map((x) => x.tab))];
+  const order = isKid ? ["care"] : ["talk", "together", "family", "more"].filter((t) => have.includes(t));
+  if (!order.includes(panelTab)) panelTab = order[0];
+  const emo = /^(\p{Extended_Pictographic}\S*)\s+([\s\S]*)$/u;
+  const cell = (x) => { const m = emo.exec(x.label); return `<button data-a="${x.id}" class="${DANGER.has(x.id) ? "danger" : x.id === "baby" && !x.dis ? "hot" : ""}" ${x.dis ? "disabled" : ""}><span class="ic">${m ? m[1] : "•"}</span><span>${m ? m[2] : x.label}</span></button>`; };
+  const love = Math.round((r.v + 100) / 2);
+  const gcls = p.g === "feminine" ? "f" : p.g === "masculine" ? "m" : "";
+  const first = String(p.name).trim().charAt(0).toUpperCase();
+  const ageTxt = p.age < 2 ? Math.max(0, Math.floor(p.age * 12)) + " mo" : Math.floor(p.age) + " yrs";
+  const chips = [relLabel(p), ageTxt, p.role === "walker" ? "resident" : p.role, mood, whereText(p)];
+  if (p.preg) chips.push("🤰 expecting");
+  if (kids.length) chips.push("👶 " + kids.length + " kid" + (kids.length > 1 ? "s" : ""));
+  panelEl.innerHTML = `<div class="hd"><div class="av ${gcls}">${first}</div>
+      <div class="nm"><b>${p.name}</b><span>${p.g === "feminine" ? "♀" : "♂"} ${p.spouse ? (p.spouse === "player" ? "Married to you" : "Married to " + ((byId(p.spouse) || {}).name || "someone")) : relLabel(p)}</span></div>
+      <button class="x" data-a="close" aria-label="Close">✕</button></div>
+    <div class="chips">${chips.filter(Boolean).map((c) => `<i>${c}</i>`).join("")}</div>
+    <div class="meter"><div class="ml"><span>${r.v >= 0 ? "♥ RELATIONSHIP" : "💢 RELATIONSHIP"}</span><span>${love}%</span></div><div class="bar"><i style="width:${love}%"></i>${isSp ? "<u></u>" : ""}</div></div>
     ${isKid ? "" : stageBar(stage)}
-    <div class="bar"><i style="width:${(r.v + 100) / 2}%"></i></div>
-    ${note ? `<div class="note">${note}</div>` : ""}
-    <div class="g">${acts}</div><div id="lv-say"></div>`;
-  panelEl.querySelectorAll("button").forEach((b) => (b.onclick = () => act(b.dataset.a)));
+    ${order.length > 1 ? `<div class="tabs">${order.map((t) => `<button data-tab="${t}" class="${t === panelTab ? "on" : ""}">${TABS[t]}</button>`).join("")}</div>` : ""}
+    <div class="bd">${note ? `<div class="note">${note}</div>` : ""}<div class="g">${items.filter((x) => x.tab === panelTab).map(cell).join("")}</div></div>
+    <div id="lv-say">${_lastSay || ""}</div>`;
+  panelEl.classList.add("on");
+  panelEl.querySelectorAll("button").forEach((b) => {
+    if (b.dataset.tab) b.onclick = () => { panelTab = b.dataset.tab; renderPanel(); };
+    else b.onclick = () => act(b.dataset.a);
+  });
 }
 function act(a) {
   const npc = curNpc, p = npc && npc._life; if (!p) return closePanel();
@@ -1047,7 +1100,7 @@ export const Lives = {
       secAcc = 0;
       try { secondPass(px, pz); } catch (e) { console.warn("[lives]", e); }
       const _T = window.__ph3d_talkchat, _chatOn = !!(_T && _T._current && _T._current === curNpc);
-      if (curNpc && ((panelEl && panelEl.style.display !== "none") || _chatOn)) {
+      if (curNpc && ((panelEl && panelEl.classList.contains("on")) || _chatOn)) {
         const d = Math.hypot(curNpc.ctl.pos.x - px, curNpc.ctl.pos.z - pz);
         if (d > 7 || curNpc.dead || performance.now() - openedAt > 120000) closePanel();
       }
