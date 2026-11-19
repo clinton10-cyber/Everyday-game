@@ -553,6 +553,7 @@
 "js/ui/property-panel.js",
 "js/ui/robbery-ui.js",
 "js/ui/settings.js",
+"js/ui/hud-edit.js",
 "js/ui/social-panel.js",
 "js/ui/story-panel.js",
 "js/ui/talk-chat.js",

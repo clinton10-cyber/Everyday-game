@@ -4,6 +4,7 @@ import "./core/family.js";
 import { Settings } from "./ui/settings.js";
 Settings.applyAll();
 window.__ph3d_settings = Settings;
+import("./ui/hud-edit.js").catch((e) => console.warn("[hud-edit]", e));   /* applies the saved control layout */
 
 import { Sfx } from "./core/sfx.js";
 window.__ph3d_sfx = Sfx;

@@ -289,6 +289,14 @@ export const SettingsUI = {
           items: [
             this._sliderItem({ key: "hudOpacity", label: "HUD opacity", icon: "menu", min: 0.4,  max: 1,    step: 0.05 }),
             this._sliderItem({ key: "hudScale",   label: "HUD size",    icon: "aim",  min: 0.85, max: 1.15, step: 0.05 }),
+            {
+              icon: "menu", label: "Edit controls", sub: "Drag & resize",
+              onClick: () => { import("./hud-edit.js").then((m) => setTimeout(() => m.HudEdit.start(), 120)).catch(() => {}); },
+            },
+            {
+              icon: "reload", label: "Reset layout", sub: "Controls back to default",
+              onClick: () => { import("./hud-edit.js").then((m) => m.HudEdit.resetAll()).catch(() => {}); },
+            },
             this._toggle("showFps",           "Show FPS",   "phone"),
             this._toggle("hideOnScreenHints", "Hide hints", "talk"),
           ],
