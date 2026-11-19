@@ -955,14 +955,15 @@ Object.assign(EMOTE_FN, {
     const k = sstep(t / 0.7), sway = Math.sin(t * 1.6) * 0.025;
     const sq = 0.5 + 0.5 * Math.sin(Math.max(0, t - 0.7) * 2.2);       /* slow squeeze */
     standAt(P, 0.805);
-    /* arms come up and round: upper arm forward + across, forearm folded onto the back */
-    P.aL.sh = [lerp(0, -1.05, k), lerp(0, 0.85, k), lerp(0.09, 0.28, k)];
-    P.aR.sh = [lerp(0, -1.05, k), lerp(0, -0.85, k), lerp(-0.09, -0.28, k)];
-    P.aL.el = [lerp(-0.2, -1.05 - 0.10 * sq, k), 0, 0];
-    P.aR.el = [lerp(-0.2, -1.05 - 0.10 * sq, k), 0, 0];
-    P.aL.wr = [0, lerp(RELAX_WRIST, 0.2, k), 0];
-    P.aR.wr = [0, lerp(-RELAX_WRIST, -0.2, k), 0];
-    P.spine[0] = 0.16 * k + 0.02 * sq * k;                              /* lean in */
+    /* arms come up and round the partner's back — angles solved against two real rigs at 0.48 m apart so the
+       hands land on the partner's back (not in mid-air beside them) */
+    P.aL.sh = [lerp(0, -1.9, k), lerp(0, 1.6, k), lerp(0.09, 0.52, k)];
+    P.aR.sh = [lerp(0, -1.9, k), lerp(0, -1.6, k), lerp(-0.09, -0.52, k)];
+    P.aL.el = [lerp(-0.2, -0.33 - 0.05 * sq, k), 0, 0];
+    P.aR.el = [lerp(-0.2, -0.33 - 0.05 * sq, k), 0, 0];
+    P.aL.wr = [0, lerp(RELAX_WRIST, -0.05, k), 0];
+    P.aR.wr = [0, lerp(-RELAX_WRIST, 0.05, k), 0];
+    P.spine[0] = 0.04 * k + 0.02 * sq * k;                              /* lean in */
     P.spine[1] = -0.05 * k;
     P.head[0] = 0.05 * k;
     P.head[1] = -0.42 * k;                                              /* look past partner's shoulder */
@@ -978,9 +979,10 @@ Object.assign(EMOTE_FN, {
     const grip = sstep((t - 0.45) / 0.15);
     const pump = (t > 0.6 && t < 2.4) ? Math.sin((t - 0.6) * 8.0) * 0.11 * k : 0;
     standAt(P, 0.812);
-    P.aR.sh = [lerp(0, -0.80, k), lerp(0, 0.28, k), lerp(-0.09, -0.10, k)];
-    P.aR.el = [lerp(-0.12, -0.95, k) + pump, 0, 0];
-    P.aR.wr = [0, lerp(-RELAX_WRIST, -0.35, k), 0];
+    /* solved against two real rigs facing each other 1.0 m apart: right hands meet mid-way at chest height (gap < 2 mm) */
+    P.aR.sh = [lerp(0, -0.862, k), lerp(0, 0.065, k), lerp(-0.09, 0.382, k)];
+    P.aR.el = [lerp(-0.12, -0.629, k) + pump, 0, 0];
+    P.aR.wr = [0, lerp(-RELAX_WRIST, 0.729, k), 0];
     P.aL.sh = [0.04, 0, 0.09]; P.aL.el = [-0.18, 0, 0];                 /* free arm stays relaxed */
     P.spine[0] = 0.06 * k;                                              /* slight lean toward them */
     P.spine[1] = lerp(0, -0.10, k);

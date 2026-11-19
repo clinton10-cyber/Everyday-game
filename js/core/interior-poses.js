@@ -43,7 +43,7 @@ function _face(npc, x, z) {
 }
 /* centre-to-centre distance at which the pair pose looks right:
    hug = bodies nearly touching, handshake = one extended arm each */
-const STOP_DIST = { hug: 0.58, handshake: 1.0 };
+const STOP_DIST = { hug: 0.48, handshake: 1.0 };
 const _stopFor = (name) => STOP_DIST[name] || 0.85;
 function _busy(n) { return n.state === "pose" || n.state === "meet"; }
 function _available(n) {
