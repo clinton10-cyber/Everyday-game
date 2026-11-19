@@ -991,15 +991,28 @@ export class ThirdPersonControls {
     else ceil = lh + 80;
     if (this.jet.on && !this.onGround && ((this._rcFrame = (this._rcFrame + 1) % 3) === 0)) {
       const h = this._meshRay(this.pos.x, this.floorY + 1.7, this.pos.z, 0, 1, 0, 90);
-      this._jetCeilY = h ? h.point.y : Infinity;
+      const rawC = h ? h.point.y : Infinity;
+      /* accept a new ceiling only when two samples in a row agree (ignores beams / lights flickering past) */
+      if (this._jetCeilRaw === rawC || (isFinite(rawC) && isFinite(this._jetCeilRaw) && Math.abs(rawC - this._jetCeilRaw) < 0.25)) this._jetCeilTgt = rawC;
+      this._jetCeilRaw = rawC;
       if (!ceilingHeight) {
         const d = this._meshRay(this.pos.x, this.floorY + 0.6, this.pos.z, 0, -1, 0, 4);
-        this._jetFloorY = d && d.point.y > gi.y + 0.05 ? d.point.y : -Infinity;
+        const rawF = d && d.point.y > gi.y + 0.05 ? d.point.y : -Infinity;
+        if (this._jetFloorRaw === rawF || (isFinite(rawF) && isFinite(this._jetFloorRaw) && Math.abs(rawF - this._jetFloorRaw) < 0.12)) this._jetFloorY = rawF;
+        this._jetFloorRaw = rawF;
       }
     }
-    if (!this.jet.on) { this._jetCeilY = Infinity; this._jetFloorY = -Infinity; }
+    if (!this.jet.on) { this._jetCeilY = Infinity; this._jetFloorY = -Infinity; this._jetCeilTgt = Infinity; this._jetCeilRaw = undefined; this._jetFloorRaw = undefined; this._atCeil = false; }
+    else {
+      /* ease the ceiling toward its target every frame so it never jumps */
+      const tg = this._jetCeilTgt === undefined ? Infinity : this._jetCeilTgt;
+      if (!isFinite(this._jetCeilY)) this._jetCeilY = tg;
+      else if (!isFinite(tg)) this._jetCeilY = Math.min(this._jetCeilY + 8 * dt, lh + 80);
+      else this._jetCeilY += (tg - this._jetCeilY) * Math.min(1, dt * 8);
+    }
     ceil = Math.min(ceil, this._jetCeilY - 0.1);
     const maxFloor = ceil - 1.95;
+    this._atCeil = this.jet.on && this.floorY >= maxFloor - 0.02;
     if (this.floorY > maxFloor) { this.floorY = maxFloor; if (this.vel.y > 0) this.vel.y = 0; }
     if (this._jetFloorY > gi.y && this.vel.y <= 0 && this.floorY <= this._jetFloorY) {
       gi.y = this._jetFloorY;
@@ -1245,8 +1258,9 @@ this.moving = this._movingTimer > 0;
       if (_jt.on && (_want || !this.onGround)) {
         if (_want) {
           if (this.onGround) { this.onGround = false; this.floorY += 0.05; this.vel.y = Math.max(this.vel.y, 2); }
-          this.vel.y = _wings ? Math.min(WING_FLIGHT.climb, this.vel.y + WING_FLIGHT.accel * dt) : Math.min(12, this.vel.y + 46 * dt);
-          if (!_wings) _jt.fuel = Math.max(0, _jt.fuel - dt * 0.2);
+          if (this._atCeil) this.vel.y = 0;        /* pinned at the ceiling: hold, don't vibrate against the clamp */
+          else this.vel.y = _wings ? Math.min(WING_FLIGHT.climb, this.vel.y + WING_FLIGHT.accel * dt) : Math.min(12, this.vel.y + 46 * dt);
+          if (!_wings && !this._atCeil) _jt.fuel = Math.max(0, _jt.fuel - dt * 0.2);
         } else {
           this.vel.y = Math.max(-7, this.vel.y - 14 * dt);
           _jt.fuel = Math.min(1, _jt.fuel + dt * 0.04);
@@ -1504,7 +1518,13 @@ _updateCamera(dt, snap) {
       const t = rayAABB(ox, oy, oz, dx, dy, dz, c.minX, y0, c.minZ, c.maxX, y1, c.maxZ, nearest);
       if (t > 0 && t < nearest) nearest = t;
     }
-    if (flyCam) { const mh = this._meshRay(ox, oy, oz, dx, dy, dz, desiredDist + 0.3); if (mh && mh.point.y > baseY + 1.2 && mh.distance < nearest) nearest = mh.distance; }
+    if (flyCam) {
+      if (((this._camRc = (this._camRc || 0) + 1) % 3) === 0 || this._camHitD === undefined) {
+        const mh = this._meshRay(ox, oy, oz, dx, dy, dz, desiredDist + 0.3);
+        this._camHitD = (mh && mh.point.y > baseY + 1.2) ? mh.distance : Infinity;
+      }
+      if (this._camHitD < nearest) nearest = this._camHitD;
+    } else this._camHitD = undefined;
     if (nearest <= desiredDist + 0.25) allowedDist = Math.max(CAM_MIN_DIST, nearest - 0.18);
   }
   const camPos = targetPos.clone().addScaledVector(dir, allowedDist);
@@ -1573,7 +1593,7 @@ _updateCamera(dt, snap) {
   }
   const currentDist = this.camera.position.distanceTo(targetPos);
   const pullingIn = allowedDist < currentDist;
-  const lerpRate = pullingIn ? 14 : 6;
+  const lerpRate = flyCam ? 8 : (pullingIn ? 14 : 6);   /* same speed in and out while flying: no pumping */
 
   if (snap || this._forceCamSnap) {
     this.camera.position.copy(camPos);

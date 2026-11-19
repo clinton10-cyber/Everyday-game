@@ -500,6 +500,7 @@ function buildTerminal(router) {
     uses,
     platforms: [],
     levelHeight: () => 0,
+    ceilingHeight: H,
     bounds: { minX: -HW + 1.0, maxX: HW - 1.0, minZ: -HL + 1.2, maxZ: HL - 1.2 },
   };
 
