@@ -34,7 +34,7 @@ export async function buildInterior(router){
    for(const dx of [-0.78,0.78]) seats.push({type:"sit",label:"SIT IN PUBLIC GALLERY",x:x+dx,z,yaw:Math.PI,h:0.78,level:0,taken:false});
  }}
  // clerk station near entrance and evidence desk
- box(4,1.1,1.3,-8,.55,12,0x68452d,true);box(3,.95,1.2,8,.48,12,0x6e5238,true);
+ box(4,1.1,1.3,-8,.55,14.3,0x68452d,true);box(3,.95,1.2,8,.48,14.4,0x6e5238,true);
  // main entrance door (front wall) and exit
  box(2.6,3.4,.12,0,1.7,D/2-.25,0x3b2a1f);box(2.9,.2,.2,0,3.5,D/2-.25,0xc8a85c);
  // lights
@@ -43,7 +43,7 @@ export async function buildInterior(router){
  human(-8, -8,0x1c2e49,"prosecutor");human(8,-8,0x253c32,"defence");human(0,-14,0x241f1c,"judge");human(-4,3,0x4a2830,"court officer");human(4,5,0x263a58,"visitor");
  uses.push({kind:"hearing",label:"APPROACH THE BAR · START COURT HEARING",x:0,z:-4.2,y:0,level:0,r:2.4});
  uses.push({kind:"exit",label:"LEAVE COURTHOUSE",x:0,z:14.4,y:0,level:0,r:2.0});
- uses.push({kind:"clerk",label:"COURT REGISTRY · CHECK CASE",x:-8,z:10.2,y:0,level:0,r:2.0});
+ uses.push({kind:"clerk",label:"COURT REGISTRY · CHECK CASE",x:-8,z:13.0,y:0,level:0,r:2.2});
  for(const b of [{x:0,z:-D/2+.25,hw:W/2,hd:.4},{x:0,z:D/2-.25,hw:W/2,hd:.4},{x:-W/2+.25,z:0,hw:.4,hd:D/2},{x:W/2-.25,z:0,hw:.4,hd:D/2}])solid.push(b);
  const cols=solid.map(b=>({minX:b.x-b.hw,maxX:b.x+b.hw,minZ:b.z-b.hd,maxZ:b.z+b.hd,y0:0,y1:60,level:0}));
  const bounds={minX:-W/2+.5,maxX:W/2-.5,minZ:-D/2+.5,maxZ:D/2-.5};

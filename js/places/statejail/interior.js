@@ -179,8 +179,9 @@ export async function buildInterior(router) {
       const width = b - a;
       B(width, h, 0.2, (a + b) / 2, h / 2, z, m || MAT.wall);
       addColBox((a + b) / 2, z, width / 2, 0.1, 0, h, 0);
-      if (h > WH) addColBox((a + b) / 2, z, width / 2, 0.1, 0, h, 1);
     }
+    /* tall walls also separate the upper level; door gaps only exist on the ground floor */
+    if (h > WH) addColBox((xa + xb) / 2, z, (xb - xa) / 2, 0.1, 0, h, 1);
     for (const d of (doors_ || [])) if (h - 2.4 > 0 && d.w > 0)
       B(Math.min(d.w, xb - xa), h - 2.4, 0.2, Math.max(xa, Math.min(xb, d.at)), (h + 2.4) / 2, z, m || MAT.wall);
   }
@@ -190,8 +191,8 @@ export async function buildInterior(router) {
       const depth = b - a;
       B(0.2, h, depth, x, h / 2, (a + b) / 2, m || MAT.wall);
       addColBox(x, (a + b) / 2, 0.1, depth / 2, 0, h, 0);
-      if (h > WH) addColBox(x, (a + b) / 2, 0.1, depth / 2, 0, h, 1);
     }
+    if (h > WH) addColBox(x, (za + zb) / 2, 0.1, (zb - za) / 2, 0, h, 1);
     for (const d of (doors_ || [])) if (h - 2.4 > 0 && d.w > 0)
       B(0.2, h - 2.4, Math.min(d.w, zb - za), x, (h + 2.4) / 2, Math.max(za, Math.min(zb, d.at)), m || MAT.wall);
   }
@@ -343,14 +344,14 @@ export async function buildInterior(router) {
      ═══════════════════════════════════════════════════════════════════ */
 
   /* z=8 boundary: atrium ←→ intake / corridor / medical (FIXED: no gaps) */
-  wallX(8, -8, -2, [{ at: -5, w: 2.0 }], MAT.wall);    // intake door
-  wallX(8, -2, 2, [{ at: 0, w: 2.4 }], MAT.wall);      // corridor door
-  wallX(8, 2, 8, [{ at: 5, w: 2.0 }], MAT.wall);       // medical door
+  wallX(8, -8, -2, [{ at: -5, w: 2.0 }], MAT.wall, WH2);    // intake door
+  wallX(8, -2, 2, [{ at: 0, w: 2.4 }], MAT.wall, WH2);      // corridor door
+  wallX(8, 2, 8, [{ at: 5, w: 2.0 }], MAT.wall, WH2);       // medical door
 
   /* z=-8 boundary: atrium ←→ mess hall */
-  wallX(-8, -8, -2, [{ at: -5, w: 2.4 }], MAT.wall);   // W mess door
-  wallX(-8, -2, 2, [{ at: 0, w: 2.4 }], MAT.wall);     // centre mess door
-  wallX(-8, 2, 8, [{ at: 5, w: 2.4 }], MAT.wall);      // E mess door
+  wallX(-8, -8, -2, [{ at: -5, w: 2.4 }], MAT.wall, WH2);   // W mess door
+  wallX(-8, -2, 2, [{ at: 0, w: 2.4 }], MAT.wall, WH2);     // centre mess door
+  wallX(-8, 2, 8, [{ at: 5, w: 2.4 }], MAT.wall, WH2);      // E mess door
 
   /* corridor walls — FIXED to close z=15..18 gap */
   wallZ(-2, 8, 17.8, [{ at: 11, w: 2.0 }], MAT.wall);
@@ -757,7 +758,13 @@ export async function buildInterior(router) {
     railing(2, 6, 5, 6);         // S catwalk edge (east of stairs)
     railing(-5, 2, -5, 6);       // west edge (W catwalk)
     railing(5, 2, 5, 6);         // east edge (E catwalk)
-    // Stair railings are already part of the stair mesh
+    // Stair railings are already part of the stair mesh, but had no collision:
+    // players could step off the flight into the void, or walk into the side of
+    // it from the ground floor and get snapped to the top of the stairs.
+    for (const sx of [-2.08, 2.08]) for (const lv of [0, 1])
+      addColBox(sx, 4, 0.08, 2.0, 0, WH2, lv);
+    addColBox(0, 1.92, 2.0, 0.08, 0, WH2, 0);   // ground-floor players may only enter from the bottom step
+    railing(-2, 6, 2, 6);                        // upper level: S catwalk edge above the bottom step
 
     // Corner posts at railing intersections
     for (const [px, pz] of [[-5, -6], [5, -6], [-5, -2], [5, -2], [-5, 2], [5, 2], [-5, 6], [5, 6], [-2, 2], [2, 2], [-2, 6], [2, 6]])
@@ -859,7 +866,7 @@ export async function buildInterior(router) {
       { level: 1, minX: -5, maxX: 5, minZ: 6, maxZ: 8, h: WH },       // S catwalk
       { level: 1, minX: -5, maxX: 5, minZ: -2, maxZ: 2, h: WH },      // bridge
     ],
-    levelHeight: () => WH,
+    levelHeight: (lv) => (lv >= 1 ? WH : 0),   /* was () => WH: put the whole ground floor at upper-floor height */
     ceilingHeight: (level) => level === 1 ? WH : WH2,
     bounds: { minX: X0 + 0.9, maxX: X1 - 0.9, minZ: Z0 + 0.9, maxZ: Z1 - 0.9 },
   };
