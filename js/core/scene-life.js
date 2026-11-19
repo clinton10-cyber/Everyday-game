@@ -49,7 +49,7 @@ function anchorOf(sc) {
 
 function reset() {
   try { Cats.despawn(); } catch (e) {}
-  if ((_st && _st.mountedTalk) || NpcTalk.isMounted()) { try { NpcTalk.unmount(); } catch (e) {} }
+  if (_st && _st.mountedTalk) { try { NpcTalk.unmount(); } catch (e) {} }
   _st = { t: 0, done: false, mountedTalk: false, populationTimer: 0 };
 }
 

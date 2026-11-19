@@ -198,8 +198,8 @@ export async function interiorScene(params, router) {
     const talkKeyHandler = (e) => {
       if (e.code !== "KeyE" || e.repeat) return;
       if (!_wc2) return;
-      const npc = NPCs.nearest(_wc2.pos.x, _wc2.pos.z, 2.5);
-      if (npc) { NPCs.talk(npc); e.preventDefault(); }
+      const npc = NPCs.nearest(_wc2.pos.x, _wc2.pos.z, 2.5) || NpcTalk.familyNear(_wc2.pos.x, _wc2.pos.z, 2.5);
+      if (npc) { NpcTalk.talkTo(npc); e.preventDefault(); }
     };
     window.addEventListener("keydown", talkKeyHandler, { capture: true });
 

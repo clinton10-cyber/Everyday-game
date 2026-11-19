@@ -36,6 +36,24 @@ function actOn(npc, role) {
   if (cfg.talk) NPCs.talk(npc);
 }
 
+/* Your spouse / children in interiors are own avatars (core/family.js), not street NPCs — find the one beside you. */
+function familyNear(x, z, r) {
+  const live = window.__ph3d_famLive; if (!live) return null;
+  let best = null, bd = r * r;
+  for (const a of live.values()) {
+    if (!a || !a.p || !a.ctl || a.p.dead) continue;
+    const dx = a.ctl.pos.x - x, dz = a.ctl.pos.z - z, d = dx * dx + dz * dz;
+    if (d < bd) { bd = d; best = a; }
+  }
+  if (!best) return null;
+  return { _life: best.p, _fam: true, ctl: best.ctl, groupLabel: String(best.p.name || "Family").split(" ")[0], role: "family" };
+}
+function talkTo(npc) {
+  if (!npc) return;
+  if (npc._fam) { try { window.__ph3d_lives.openPanelFor(npc); } catch (e) {} return; }
+  NPCs.talk(npc);
+}
+
 function build() {
   if (_wrap && document.body.contains(_wrap)) return;
   const styleId = "ph3d-npc-talk-css";
@@ -64,7 +82,7 @@ function build() {
   document.body.appendChild(_wrap);
   _talk.addEventListener("pointerdown", (e) => {
     e.preventDefault(); e.stopPropagation();
-    if (_current) NPCs.talk(_current);
+    if (_current) talkTo(_current);
   }, { passive: false });
   _action.addEventListener("pointerdown", (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -73,13 +91,14 @@ function build() {
 }
 
 export const NpcTalk = {
+  familyNear, talkTo,
   mount(opts) { S = opts || {}; build(); },
 
   tick(_dt) {
     if (!S || !_wrap) return;
     const p = S.getPos && S.getPos();
     if (!p) { _current = null; _wrap.classList.remove("on"); return; }
-    const npc = NPCs.nearest(p.x, p.z, 2.7);
+    const npc = NPCs.nearest(p.x, p.z, 2.7) || familyNear(p.x, p.z, 2.7);
     if (!npc) { _current = null; _wrap.classList.remove("on"); return; }
     _current = npc;
     const role = roleOf(npc);
