@@ -162,6 +162,7 @@ function attracted(a, b) {
 }
 /* You can only date the opposite gender (masculine ↔ feminine). A "neutral" avatar has no limit. */
 function gCompat(g, q) { return g === "masculine" ? q.g === "feminine" : g === "feminine" ? q.g === "masculine" : true; }
+function playerGender() { try { return Wardrobe.config.gender || "neutral"; } catch (e) { return "neutral"; } }
 function compatible(p) { let g = "neutral"; try { g = Wardrobe.config.gender; } catch (e) {} return gCompat(g, p); }
 function log(txt) { S.log.unshift({ d: S.day, h: Math.floor(DayNight.hour), t: txt }); if (S.log.length > 60) S.log.length = 60; }
 
@@ -772,7 +773,7 @@ function renderPanel() {
     friend: t === "acquaintance" && r.v >= 20 && !isKid,
     ask: adult && single && r.v >= 40 && r.met >= 3 && compatible(p),
     prop: isPt && !isFi,
-    baby: isSp && r.v >= 65 && !P.preg && P.kids.length < 5,
+    baby: isSp && r.v >= 65 && !P.preg && !p.preg && P.kids.length < 5,
   };
   const mood = p.mood > 0.7 ? "😄 happy" : p.mood > 0.4 ? "🙂 okay" : "😕 low";
   const kids = p.kids.map(byId).filter(Boolean);
@@ -800,11 +801,13 @@ function renderPanel() {
       + btn("date_beach", "🌊 Beach ₦3,000", 0) + btn("prop", "💍 Propose", !can.prop) + btn("breakup", "💔 Break up", 0);
     if (stage === "engaged") acts += btn("date_dinner", "🍽 Dinner ₦6,000", 0) + btn("plan", "⛪ Plan wedding", 0) + btn("breakup", "💔 Call off", 0);
     if (isSp) {
-      acts += btn("baby", p.g === "feminine" ? "👶 Try for a baby" : "👶 Adopt a child", !can.baby);
+      const youCarry = playerGender() === "feminine" && p.g !== "feminine";
+      acts += btn("baby", (p.g === "feminine" || youCarry) ? (youCarry ? "🤰 Try for a baby (you)" : "👶 Try for a baby") : "👶 Adopt a child", !can.baby);
       if (p.preg) acts += btn("cookfor", "🍲 Cook ₦2,500", 0) + btn("massage", "🦶 Foot rub", 0) + btn("ante", "🏥 Check-up ₦8,000", pst < 2);
       acts += btn("along", p.preg ? "🏠 Resting at home" : P.companion ? "🏠 Stay home" : "🚶 Come along", !!p.preg) + btn("divorce", "⚖ Divorce", 0);
     }
     acts += btn("insult", "😠 Insult", 0) + (r.v < -10 ? btn("sorry", "🙏 Apologise", 0) : "");
+    if (isSp && !can.baby && !p.preg && !P.preg) note = P.kids.length >= 5 ? "Your home is full — five children is the limit." : r.v < 65 ? "A baby needs a stronger bond: chat, compliment, gift and spend time together (love 65%+)." : "";
     if (isFi) note = "Engaged! Plan the wedding, invite guests, then hold it at the church.";
     else if (isSp && p.preg) note = ["", "First trimester — she's still active.", "Second trimester — she rests at home more.", "Third trimester — she stays home, resting."][pst];
     else if (stage === "dating") note = "Dating unlocks outings and proposals.";
@@ -873,7 +876,15 @@ function act(a) {
       try { const L = LSim(); L && L.onEngaged && L.onEngaged(p); } catch (e) {}
     } else { bump(p, -6); hear("I… need more time."); }
   } else if (a === "baby") {
-    if (p.g === "feminine") {
+    if (p.g !== "feminine" && playerGender() === "feminine") {              /* you carry the baby */
+      if (rnd() < 0.7) {
+        const st0 = S.day + DayNight.hour / 24;
+        P.preg = { due: S.day + PREG_DAYS, start: st0 };
+        hear("We're having a baby! 🤰");
+        toast("🤰 You're pregnant! Due in ~" + PREG_DAYS + " game days");
+        log("You're expecting " + p.name + "'s baby 🤰");
+      } else hear("Not this time, love.");
+    } else if (p.g === "feminine") {
       if (rnd() < 0.7) {
         const st0 = S.day + DayNight.hour / 24;
         P.preg = { due: S.day + PREG_DAYS, start: st0 }; p.preg = { due: S.day + PREG_DAYS, start: st0, by: "player" };

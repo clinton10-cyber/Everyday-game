@@ -18,6 +18,7 @@ import * as THREE from "three";
 import { Lives } from "./npc-lives.js";
 import { buildCharacter, liveApplyConfig } from "../characters/lowpoly.js";
 import * as Animator from "../characters/animator.js";
+import { Belly } from "./body-attach.js";
 import {
   Wardrobe, SHIRT_COLORS, withPlayerLook,
   TOP_STYLES, BOTTOM_STYLES, SHOE_STYLES, PATTERNS, DRESS_SHAPES, HAT_STYLES, GLASS_STYLES,
@@ -324,6 +325,7 @@ function seatStep(a, dt, free) {
 
 /* ═══ main loop (independent of any scene) ══════════════════════ */
 let _last = 0, _tpSeen = null;
+let _bellyT = 0;
 function loop(now) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.05, _last ? (now - _last) / 1000 : 0.016); _last = now;
@@ -334,6 +336,13 @@ function loop(now) {
   const tp = window.__ph3d_walkCtrl || window.__ph3d_tp;
   const root = tp && tp.avatar && rootOf(tp.avatar);
   const live = !!(tp && tp.pos && tp.avatar && tp.avatar.visible !== false && root && root.isScene);
+
+  /* your own pregnancy (when you carry the baby): belly on your avatar, growing with the trimesters */
+  _bellyT -= dt;
+  if (_bellyT <= 0 && tp && tp.rig) {
+    _bellyT = 1;
+    try { const pr = pl.preg ? Lives.pregProgress(pl) : 0; if (pr > 0.04) Belly.ensure(tp.rig, pr); else if (tp.rig.belly) Belly.remove(tp.rig); } catch (e) {}
+  }
 
   /* scene id → auto outfits */
   const sid = (window.__ph3d_router && window.__ph3d_router.current && window.__ph3d_router.current.sceneId) || "city";
