@@ -1020,9 +1020,9 @@ function holdLayer(P, arms) {
       A.el = [-0.16 - 0.25 * up, 0, 0];
       A.wr = [0, 0, 0];
     } else if (h.kind === "linker") {
-      A.sh = [-0.62, sg * 0.55, sg * 0.06];
-      A.el = [-1.30, 0, 0];
-      A.wr = [0, 0, 0];
+      A.sh = [0.40, sg * 0.637, sg * 0.039];            /* solved against the real rig: hand lands in the partner's elbow crook (≈2 mm) */
+      A.el = [-1.585, 0, 0];
+      A.wr = [0, sg * 0.484, 0];
     } else if (h.kind === "linked") {
       A.sh = [-0.20, 0, sg * 0.20];
       A.el = [-0.85, 0, 0];
