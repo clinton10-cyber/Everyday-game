@@ -529,6 +529,7 @@
 "js/scenes/interior.js",
 "js/scenes/minimap.js",
 "js/scenes/prison.js",
+"js/scenes/range-terrain.js",
 "js/scenes/shootingrange.js",
 "js/scenes/showroom.js",
 "js/scenes/travel.js",

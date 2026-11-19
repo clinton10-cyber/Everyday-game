@@ -42,6 +42,8 @@ const SPEC = {
   "ph3d-drop-item":        { z: "item", cls: "h-ctx", ico: "get",  o: 1 },
   "ph3d-throw-item":       { z: "item", cls: "h-ctx", ico: "hand", o: 2 },
   "ph3d-act-btn":          { z: "ctx",  cls: "h-ctx h-act", ico: "hand", o: 0 },
+  "ph3d-city-drive":       { z: "ctx",  cls: "h-ctx h-always h-city", ico: "car",  o: 20 },
+  "ph3d-city-walk":        { z: "ctx",  cls: "h-ctx h-always h-city", ico: "walk", o: 21 },
   "ph3d-walk-enter":       { z: "ctx",  cls: "h-ctx h-always", ico: "enter", o: 1 },
   "ph3d-zonedrive-enter":  { z: "ctx",  cls: "h-ctx h-always", ico: "enter", o: 1 },
   "ph3d-walk-pick":        { z: "ctx",  cls: "h-ctx", ico: "get", o: 3, live: "obj" },

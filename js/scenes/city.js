@@ -147,6 +147,16 @@ async function _citySceneInner(params, router) {
   document.body.appendChild(menuBtn);
 
   const goTo = (name, params) => () => router.go(name, params);
+
+  /* Drive + Walk sit on the HUD all the time — no need to open the menu first */
+  const quickBtns = [["ph3d-city-drive", "Drive", "drive"], ["ph3d-city-walk", "Walk", "walk"]].map(([id, label, scene]) => {
+    const b = document.createElement("button");
+    b.id = id; b.type = "button"; b.textContent = label;
+    b.setAttribute("aria-label", label + " mode");
+    b.addEventListener("click", (ev) => { ev.stopPropagation(); router.go(scene); });
+    document.body.appendChild(b);
+    return b;
+  });
   menuBtn.addEventListener("click", (ev) => {
     ev.stopPropagation();
     HUD.sheet({
@@ -564,6 +574,7 @@ async function _citySceneInner(params, router) {
     hint: "",
     dispose: () => {
       try { menuBtn.remove(); } catch (e) {}
+      quickBtns.forEach((b) => { try { b.remove(); } catch (e) {} });
       try { cmDispose(); } catch (e) {}
       canvas.removeEventListener("pointerdown", onPD);
       canvas.removeEventListener("pointermove", onPM);

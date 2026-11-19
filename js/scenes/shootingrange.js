@@ -19,10 +19,13 @@ import { buildCharacter } from "../characters/lowpoly.js";
 import { withPlayerLook } from "../core/wardrobe.js";
 import * as Animator from "../characters/animator.js";
 import { pickFall, poseFall, restY } from "../core/death-pose.js";
+import { buildTerrainArena } from "./range-terrain.js";
 
 /* ── layout ─────────────────────────────────────────────────── */
-const ARENA_W = 44, ARENA_D = 44, ARENA_H = 7;
-const PLAYER_SPAWN = { x: 0, z: 16 };
+let ARENA_W = 44, ARENA_D = 44, ARENA_H = 7;
+let PLAYER_SPAWN = { x: 0, z: 16 };
+let GROUND = () => 0;            /* terrain height at (x, z); 0 in the flat neon arena */
+let BIG_ARENA = false;           /* open terrain: enemies hop between cover to close the distance */
 const MAX_ALIVE = 6;                     /* enemies on the field at once */
 
 const SOLDIER_CONFIGS = [
@@ -151,11 +154,11 @@ class TacticalEnemy {
 
     const built = buildCharacter(withPlayerLook(cfg));
     this.rig = built.rig; this.group = built.root;
-    this.group.position.set(spawn.x, 0, spawn.z);
+    this.group.position.set(spawn.x, GROUND(spawn.x, spawn.z), spawn.z);
     game.three.add(this.group);
 
     this.ctl = {
-      rig: this.rig, pos: { x: spawn.x, y: 0, z: spawn.z }, yaw: 0, state: "standing", onGround: true, level: 0, vel: { y: 0 },
+      rig: this.rig, pos: { x: spawn.x, y: GROUND(spawn.x, spawn.z), z: spawn.z }, yaw: 0, state: "standing", onGround: true, level: 0, vel: { y: 0 },
       _intentSpeed: 0, _ul: () => {}, _emoteTimer: 0, _emoteName: null, _emotePhase: 0, _useTimer: 0, _useBend: 0.3,
       weapons: null, held: null, phoneHold: false, sitTarget: null, aimPitch: 0, _overlay: null,
     };
@@ -165,7 +168,7 @@ class TacticalEnemy {
 
     const self = this;
     this.target = {                              /* what the player's gun sees */
-      get x() { return self.pos.x; }, get z() { return self.pos.z; }, y: 0,
+      get x() { return self.pos.x; }, get z() { return self.pos.z; }, get y() { return GROUND(self.pos.x, self.pos.z); },
       get alive() { return !self.dead; },
       onHit(dmg, type, part) { self.takeHit(dmg, part); },
     };
@@ -193,7 +196,7 @@ class TacticalEnemy {
     this.game.onKill(this, part);
   }
 
-  hasLOS(px, pz) { return !blocked(this.game.colliders, this.pos.x, 1.4, this.pos.z, px, 1.2, pz); }
+  hasLOS(px, pz) { return !blocked(this.game.colliders, this.pos.x, GROUND(this.pos.x, this.pos.z) + 1.4, this.pos.z, px, GROUND(px, pz) + 1.2, pz); }
 
   _stepToward(tx, tz, speed, dt) {
     const dx = tx - this.pos.x, dz = tz - this.pos.z, dist = Math.hypot(dx, dz);
@@ -219,10 +222,12 @@ class TacticalEnemy {
     for (const b of this.game.coverBoxes) {
       const s = coverSpotFor(b, px, pz);
       const d = Math.hypot(s.x - this.pos.x, s.z - this.pos.z);
-      if (d > 26 || d >= bd) continue;
+      if (d > 26) continue;
+      const cost = d + (BIG_ARENA ? 1.3 * Math.hypot(s.x - px, s.z - pz) : 0);       /* open field: prefer cover that closes the distance */
+      if (cost >= bd) continue;
       if (Math.hypot(s.x - px, s.z - pz) < 5) continue;                       /* not right on top of the player */
-      if (!blocked([b], px, 1.2, pz, s.x, 1.4, s.z)) continue;                /* the box must actually hide the spot */
-      best = s; bd = d;
+      if (!blocked([b], px, GROUND(px, pz) + 1.2, pz, s.x, GROUND(s.x, s.z) + 1.4, s.z)) continue;                /* the box must actually hide the spot */
+      best = s; bd = cost;
     }
     return best || { x: clamp(this.pos.x + (rnd() - 0.5) * 8, this.game.bounds.minX, this.game.bounds.maxX), z: clamp(this.pos.z - 3, this.game.bounds.minZ, this.game.bounds.maxZ) };
   }
@@ -233,7 +238,7 @@ class TacticalEnemy {
       const p = Math.min(1, this.dying / 0.75), ef = p * p;
       const bounce = p > 0.8 ? Math.sin((p - 0.8) / 0.2 * Math.PI) * 0.06 : 0;
       poseFall(this.group, this.fall, this.yaw, ef, this.roll);
-      this.group.position.set(this.pos.x, restY(0, ef) + 0.10 * Math.sin(Math.PI * Math.min(1, p * 1.2)) * (1 - ef) + bounce, this.pos.z);
+      this.group.position.set(this.pos.x, restY(GROUND(this.pos.x, this.pos.z), ef) + 0.10 * Math.sin(Math.PI * Math.min(1, p * 1.2)) * (1 - ef) + bounce, this.pos.z);
       try { Limp.step(this.rig, this.group, dt); } catch (e) {}
       return;
     }
@@ -272,7 +277,7 @@ class TacticalEnemy {
         if (this.burstLeft <= 0 || !los) { this.state = "reload"; this.stateT = 0; this.reloadT = 1.1 + rnd() * 0.6; }
         break;
       case "reload":
-        if (this.stateT > this.reloadT) { this.state = los ? "peek" : "seek_cover"; this.stateT = 0; this.coverPos = null; this.burstShots = 3 + Math.floor(rnd() * 3); }
+        if (this.stateT > this.reloadT) { this.state = los && !(BIG_ARENA && d > 26) ? "peek" : "seek_cover"; this.stateT = 0; this.coverPos = null; this.burstShots = 3 + Math.floor(rnd() * 3); }
         break;
       case "retreat":
         if (this.stateT > 3) { this.state = "seek_cover"; this.stateT = 0; this.coverPos = null; }
@@ -303,7 +308,8 @@ class TacticalEnemy {
     this.ctl._intentSpeed = moved ? sp : 0;
     this.ctl.aiming = aiming;
     this.ctl._overlay = aiming ? (R) => { try { this.gun.applyArmPose(R); } catch (e) {} } : null;
-    this.group.position.set(this.pos.x, 0, this.pos.z);
+    this.group.position.set(this.pos.x, GROUND(this.pos.x, this.pos.z), this.pos.z);
+    this.ctl.pos.y = this.group.position.y;
     this.group.rotation.y = this.yaw;
     try { this.gun.update(dt, []); } catch (e) {}
     try { Animator.animate(this.ctl, dt); } catch (e) {}
@@ -322,19 +328,34 @@ class TacticalEnemy {
 /* ── main scene ─────────────────────────────────────────────── */
 export async function shootingRangeScene(params, router) {
   const three = new THREE.Scene();
-  three.background = new THREE.Color(0x0e1018);
-  three.fog = new THREE.Fog(0x0e1018, 30, 100);
-  const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.08, 200);
+  const terrainMode = !(params && params.arena === "neon");       /* default: open Vast Terrain; pass {arena:"neon"} for the old indoor arena */
+  if (terrainMode) {
+    ARENA_W = 100; ARENA_D = 110; ARENA_H = 60; PLAYER_SPAWN = { x: 0, z: ARENA_D / 2 - 8 }; BIG_ARENA = true;
+    three.background = new THREE.Color(0x9ec4e8);
+    three.fog = new THREE.Fog(0xb4cde0, 55, 190);
+  } else {
+    ARENA_W = 44; ARENA_D = 44; ARENA_H = 7; PLAYER_SPAWN = { x: 0, z: 16 }; BIG_ARENA = false;
+    three.background = new THREE.Color(0x0e1018);
+    three.fog = new THREE.Fog(0x0e1018, 30, 100);
+  }
+  const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.08, terrainMode ? 320 : 200);
 
-  three.add(new THREE.HemisphereLight(0x9fb8e0, 0x30302e, 1.2));
-  three.add(new THREE.AmbientLight(0xffffff, 0.4));
-  const sun = new THREE.DirectionalLight(0xfff2d6, 1.1); sun.position.set(15, 22, 10); three.add(sun);
   const stripGeo = new THREE.BoxGeometry(30, 0.15, 0.5), stripMat = new THREE.MeshBasicMaterial({ color: 0xd8e8ff });
-  for (const z of [-12, 0, 12]) { const s = new THREE.Mesh(stripGeo, stripMat); s.position.set(0, ARENA_H - 0.2, z); three.add(s); }
-
-  const arena = buildArena(three);
+  let arena;
+  if (terrainMode) {
+    three.add(new THREE.HemisphereLight(0xcfe3ff, 0x4a4436, 1.35));
+    const sun = new THREE.DirectionalLight(0xfff0d2, 2.0); sun.position.set(40, 70, 30); three.add(sun);
+    arena = buildTerrainArena(three, ARENA_W, ARENA_D); GROUND = arena.groundAt;
+  } else {
+    three.add(new THREE.HemisphereLight(0x9fb8e0, 0x30302e, 1.2));
+    three.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const sun = new THREE.DirectionalLight(0xfff2d6, 1.1); sun.position.set(15, 22, 10); three.add(sun);
+    for (const z of [-12, 0, 12]) { const s = new THREE.Mesh(stripGeo, stripMat); s.position.set(0, ARENA_H - 0.2, z); three.add(s); }
+    arena = buildArena(three); GROUND = () => 0;
+  }
   const bounds = { minX: -ARENA_W / 2 + 0.8, maxX: ARENA_W / 2 - 0.8, minZ: -ARENA_D / 2 + 0.8, maxZ: ARENA_D / 2 - 0.8 };
   const world = { colliders: arena.colliders, seats: [], uses: [], platforms: [], levelHeight: () => 0, ceilingHeight: ARENA_H,
+    groundAt: terrainMode ? (x, z) => GROUND(x, z) : undefined,
     bounds: { minX: bounds.minX - 0.4, maxX: bounds.maxX + 0.4, minZ: bounds.minZ - 0.4, maxZ: bounds.maxZ + 0.4 } };
 
   /* ── HUD ── */
@@ -384,7 +405,7 @@ export async function shootingRangeScene(params, router) {
     .rg-skills button:disabled{opacity:.45;filter:grayscale(.6)}
     .rg-skill-msg{position:absolute;left:50%;bottom:calc(var(--h-bottom,12px) + 74px);transform:translateX(-50%);font:800 12px Inter,system-ui;color:#d9f2ff;text-shadow:0 2px 8px #000;opacity:0;transition:opacity .2s;white-space:nowrap}
     /* range = combat only: hide the life-sim chips + torch, keep the combat utilities (crouch / view / aim / shoulder) */
-    body.rg-active #hud-ctx .h-ctx:not(.h-combat-util):not(#ph3d-crouch-btn){display:none!important}
+    body.rg-active #hud-ctx .h-ctx:not(.h-combat-util):not(#ph3d-crouch-btn):not(#ph3d-act-btn){display:none!important}
     body.rg-active #ph3d-torch-btn{display:none!important}
     #ph3d-range-exit-btn{position:fixed;right:var(--h-right,14px);top:calc(env(safe-area-inset-top,0px) + 46px);z-index:27;height:30px;padding:0 14px;border-radius:10px;background:rgba(12,20,31,.88);border:1px solid rgba(255,255,255,.3);color:#fff;font:800 10px Inter,system-ui,sans-serif;letter-spacing:.12em;pointer-events:auto;cursor:pointer}
   `;
@@ -415,13 +436,13 @@ export async function shootingRangeScene(params, router) {
   function useGlowWall() {
     if (!G.alive || skills.shield > 0 || skills.wall) return;
     const dir = new THREE.Vector3(Math.sin(ctl.yaw), 0, Math.cos(ctl.yaw));
-    const pos = new THREE.Vector3(ctl.pos.x, 0, ctl.pos.z).addScaledVector(dir, 3.0);
+    const pos = new THREE.Vector3(ctl.pos.x, 0, ctl.pos.z).addScaledVector(dir, 3.0); const gy = GROUND(pos.x, pos.z);
     const geo = new THREE.BoxGeometry(5.2, 3.2, .28);
     const mat = new THREE.MeshStandardMaterial({ color: 0x16cfff, emissive: 0x008cff, emissiveIntensity: 2.2, transparent: true, opacity: .34, metalness: .3, roughness: .2, side: THREE.DoubleSide });
-    const wall = new THREE.Mesh(geo, mat); wall.position.set(pos.x, 1.6, pos.z); wall.rotation.y = ctl.yaw; three.add(wall);
+    const wall = new THREE.Mesh(geo, mat); wall.position.set(pos.x, gy + 1.6, pos.z); wall.rotation.y = ctl.yaw; three.add(wall);
     const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x8ffaff, transparent: true, opacity: .95 })); wall.add(edge);
     skills.wall = wall; skills.wallLife = 6; skills.shield = 18;
-    skills.wallCollider = { minX: pos.x - 2.6, maxX: pos.x + 2.6, minZ: pos.z - .22, maxZ: pos.z + .22, y0: 0, y1: 3.2, level: 0, _glowWall: true };
+    skills.wallCollider = { minX: pos.x - 2.6, maxX: pos.x + 2.6, minZ: pos.z - .22, maxZ: pos.z + .22, y0: gy, y1: gy + 3.2, level: 0, _glowWall: true };
     /* oriented wall collision approximation, adequate for the arena's near-axis tactical cover */
     if (Math.abs(Math.sin(ctl.yaw)) > .7) { const c = skills.wallCollider; c.minX = pos.x - .22; c.maxX = pos.x + .22; c.minZ = pos.z - 2.6; c.maxZ = pos.z + 2.6; }
     G.colliders.push(skills.wallCollider); G.coverBoxes.push(skills.wallCollider);
@@ -433,7 +454,7 @@ export async function shootingRangeScene(params, router) {
     const target = new THREE.Vector3(ctl.pos.x, 0, ctl.pos.z).addScaledVector(dir, 5.5);
     target.x = clamp(target.x, bounds.minX, bounds.maxX); target.z = clamp(target.z, bounds.minZ, bounds.maxZ);
     const hit = arena.colliders.some(c => !c._glowWall && target.x > c.minX - .45 && target.x < c.maxX + .45 && target.z > c.minZ - .45 && target.z < c.maxZ + .45);
-    if (!hit) { ctl.pos.set(target.x, 0, target.z); player.x = target.x; player.z = target.z; }
+    if (!hit) { ctl.pos.set(target.x, GROUND(target.x, target.z), target.z); player.x = target.x; player.z = target.z; }
     skills.dash = 12; skills.dashGlow = .45; skillToast("BLINK DASH");
   }
   function useMedkit() {
@@ -481,7 +502,7 @@ export async function shootingRangeScene(params, router) {
     const chance = clamp(en.skill * (1.1 - dist / 30), 0.08, 0.7) * moving * (ctl.state === "crouching" ? 0.75 : 1);
     const hit = player.alive && Math.random() < chance;
     const jx = hit ? 0 : (rnd() - 0.5) * 1.6, jz = hit ? 0 : (rnd() - 0.5) * 1.6;
-    tracer(mz.x, mz.y, mz.z, player.x + jx, 1.2 + (hit ? 0 : (rnd() - 0.5)), player.z + jz);
+    tracer(mz.x, mz.y, mz.z, player.x + jx, GROUND(player.x, player.z) + 1.2 + (hit ? 0 : (rnd() - 0.5)), player.z + jz);
     flash(mz.x, mz.y, mz.z);
     if (hit) hurt(5 + Math.round(G.wave * 0.8) + Math.floor(rnd() * 4), en);
   };
@@ -502,7 +523,7 @@ export async function shootingRangeScene(params, router) {
 
   function respawn() {
     G.hp = 100; G.alive = true; player.alive = true;
-    ctl.pos.set(PLAYER_SPAWN.x, 0, PLAYER_SPAWN.z); ctl.vel.set(0, 0, 0); ctl.yaw = Math.PI; ctl.camYaw = Math.PI * 2;
+    ctl.pos.set(PLAYER_SPAWN.x, GROUND(PLAYER_SPAWN.x, PLAYER_SPAWN.z), PLAYER_SPAWN.z); ctl.vel.set(0, 0, 0); ctl.yaw = Math.PI; ctl.camYaw = Math.PI * 2;
     elDead.style.opacity = "0";
     for (const e of G.enemies) e.dispose();                          /* restart the current wave */
     G.enemies.length = 0; G.spawned = 0; G.waveLeft = waveSize(G.wave); G.breakT = 2.0;
@@ -515,7 +536,7 @@ export async function shootingRangeScene(params, router) {
     try { Sfx.play("bell", { vol: 0.5 }); } catch (e) {}
   }
   function spawnOne() {
-    const x = clamp((rnd() - 0.5) * 30, -16, 16), z = -17 - rnd() * 2;
+    const x = clamp((rnd() - 0.5) * ARENA_W * 0.7, -ARENA_W * 0.36, ARENA_W * 0.36), z = -(ARENA_D / 2 - 5) - rnd() * 2;
     const cfg = SOLDIER_CONFIGS[Math.floor(rnd() * SOLDIER_CONFIGS.length)];
     G.enemies.push(new TacticalEnemy(G, cfg, { x, z }, G.nextId++, G.wave));
     G.spawned++;
@@ -531,7 +552,7 @@ export async function shootingRangeScene(params, router) {
       const out = [];
       for (const e of G.enemies) {
         if (e.dead) continue;
-        if (!blocked(arena.colliders, ox, oy, oz, e.pos.x, 1.2, e.pos.z)) out.push(e.target);
+        if (!blocked(arena.colliders, ox, oy, oz, e.pos.x, GROUND(e.pos.x, e.pos.z) + 1.2, e.pos.z)) out.push(e.target);
       }
       return out;
     },

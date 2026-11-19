@@ -204,13 +204,31 @@
   #ph3d-torch-btn{top:calc(env(safe-area-inset-top,0px) + 84px)!important;right:var(--h-right)!important;padding:0 10px!important;height:28px!important;
     border-radius:10px!important;font-size:10px!important;z-index:31}
   #ph3d-npc-actions{top:calc(env(safe-area-inset-top,0px) + 46px)!important;right:var(--h-right)!important;max-width:min(40vw,300px)!important}
-  body.gun-out #hud-ctx{display:grid!important;grid-template-columns:repeat(2,84px)!important;width:auto!important;gap:5px!important;
+  body.gun-out #hud-ctx{display:grid!important;grid-template-columns:repeat(2,96px)!important;width:auto!important;gap:5px!important;
     bottom:calc(var(--h-bottom) + var(--row-h) + 14px)!important;right:var(--h-right)!important}
-  body.gun-out #hud-ctx .h-ctx:not(.h-combat-util):not(#ph3d-crouch-btn):not(.is-live){display:none!important}
-  body.gun-out #hud-ctx .h-ctx{width:84px!important;height:30px!important;min-height:0!important;line-height:30px!important;padding:0 6px!important;
+  body.gun-out #hud-ctx .h-ctx:not(.h-combat-util):not(#ph3d-crouch-btn):not(#ph3d-act-btn):not(.is-live){display:none!important}
+  body.gun-out #hud-ctx .h-ctx{width:96px!important;height:30px!important;min-height:0!important;line-height:30px!important;padding:0 6px!important;
     font-size:10px!important;border-radius:10px!important;text-align:center!important;background:rgba(9,14,20,.78)!important}
   body.gun-out #hud-ctx .h-ctx::before{display:none!important}
   body.gun-out #hud-item{display:none!important}
   body.gun-out #ph3d-gun-hud{left:auto!important;right:calc(var(--h-right) + 96px)!important;bottom:calc(var(--h-bottom) + 6px)!important}
   body.gun-out #ph3d-gun-ammo{font-size:22px!important}
+}
+
+/* FIRE: with a gun drawn the context "Fire" chip becomes a big round thumb button beside Jump */
+@media (orientation:landscape){
+  body.gun-out #hud-ctx #ph3d-act-btn{position:fixed!important;right:calc(var(--h-right) + var(--row-h) + 64px)!important;bottom:calc(var(--h-bottom) - 2px)!important;
+    width:66px!important;height:66px!important;min-height:0!important;line-height:66px!important;padding:0!important;border-radius:50%!important;
+    text-align:center!important;font-size:12px!important;font-weight:900!important;letter-spacing:.08em!important;z-index:80!important;
+    background:rgba(190,32,24,.92)!important;border:2px solid rgba(255,160,140,.85)!important;color:#fff!important;box-shadow:0 8px 22px rgba(0,0,0,.45),0 0 18px rgba(255,70,50,.35)!important}
+  body.gun-out #hud-ctx #ph3d-act-btn:active{transform:scale(.93);background:#ff3b2a!important}
+}
+
+body.rg-active #hud-bl{display:none!important}   /* range: the weapon slots already show what you hold */
+
+/* city: Drive / Walk chips are always shown, a touch bigger than the other chips */
+@media (orientation:landscape){
+  #hud-ctx .h-city{width:96px!important;height:38px!important;line-height:38px!important;font-size:12px!important;font-weight:800!important;
+    background:rgba(255,198,43,.95)!important;color:#241800!important;border-color:transparent!important}
+  #hud-ctx #ph3d-city-walk{background:rgba(9,14,20,.88)!important;color:#f4f6f8!important;border:1px solid rgba(255,255,255,.3)!important}
 }
