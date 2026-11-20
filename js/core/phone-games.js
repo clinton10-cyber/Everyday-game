@@ -84,6 +84,7 @@ export const PhoneGames = {
     three.background = new THREE.Color(SKIES[0]);
     three.fog = new THREE.Fog(SKIES[0], 25, 78);
     const camera = new THREE.PerspectiveCamera(68, 1, 0.1, 200);
+    camera.userData.noFovOverride = true;
     const CAM_Y = 4.2;
     camera.position.set(0, CAM_Y, 7.5); camera.lookAt(0, 1.2, -6);
     three.add(new THREE.HemisphereLight(0xffffff, 0x30303f, 1.7));

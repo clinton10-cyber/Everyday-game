@@ -94,6 +94,7 @@ class Viewer {
     this.scene.background = new THREE.Color(0x0a0c12);
     this.scene.fog = new THREE.Fog(0x0a0c12, 9, 22);
     this.camera = new THREE.PerspectiveCamera(this.fov, 1, 0.05, 60);
+    this.camera.userData.noFovOverride = true;
     this.scene.add(new THREE.HemisphereLight(0xfff4e0, 0x1a1e2a, 1.1));
     const key = new THREE.DirectionalLight(0xffffff, 1.15); key.position.set(2, 6, 9); this.scene.add(key);
     this.spot = new THREE.SpotLight(0xfff0d8, 0, 9, 0.7, 0.5); this.scene.add(this.spot, this.spot.target);

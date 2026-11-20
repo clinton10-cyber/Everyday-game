@@ -2,6 +2,7 @@ import { Limp } from "./characters/limp.js";
 import { pickFall, poseFall, restY, playerFree } from "./core/death-pose.js";
 import "./core/family.js";
 import { Settings } from "./ui/settings.js";
+import "./core/fov.js";   /* CoD-style horizontal FOV (Settings → Field of view) */
 Settings.applyAll();
 window.__ph3d_settings = Settings;
 import("./ui/hud-edit.js").catch((e) => console.warn("[hud-edit]", e));   /* applies the saved control layout */

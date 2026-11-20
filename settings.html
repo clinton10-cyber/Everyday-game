@@ -28,6 +28,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const el = (h) => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstChild; };
 
 const pct = (v) => Math.round(v * 100) + "%";
+const deg = (v) => Math.round(v) + "°";
 const mult = (v) => (+v).toFixed(2).replace(/0$/, "") + "x";
 const QUALITY = [["auto", "Auto"], ["potato", "Minimum"], ["low", "Low"], ["medium", "Medium"], ["high", "High"]];
 const THEMES = [["dark", "Dark"], ["sunset", "Sunset"], ["forest", "Forest"]];
@@ -42,8 +43,8 @@ const ICON = {
 };
 const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
 
-function slider({ key, label, min, max, step, fmt }) {
-  const row = el(`<div class="row row-slider"><div class="row-h"><span class="row-l">${label}</span><span class="row-v"></span></div>
+function slider({ key, label, min, max, step, fmt, hint }) {
+  const row = el(`<div class="row row-slider"><div class="row-h"><span class="row-l">${label}</span><span class="row-v"></span></div>${hint ? `<span class="row-s">${hint}</span>` : ""}
     <input type="range" min="${min}" max="${max}" step="${step}"></div>`);
   const input = $("input", row), val = $(".row-v", row);
   input.value = S.get(key); val.textContent = fmt(S.get(key));
@@ -143,6 +144,7 @@ function build() {
   body.appendChild(card("run", "Movement & camera", [
     slider({ key: "moveSpeed", label: "Walk / run speed", min: 0.5, max: 2, step: 0.05, fmt: mult }),
     slider({ key: "lookSens", label: "Look sensitivity", min: 0.4, max: 2.5, step: 0.05, fmt: mult }),
+    slider({ key: "fov", label: "Field of view (CoD style)", min: 60, max: 120, step: 1, fmt: deg, hint: "Lower = less fish-eye, more zoomed in. 90° is the default." }),
   ]));
   body.appendChild(card("hud", "Interface", [
     slider({ key: "hudOpacity", label: "HUD opacity", min: 0.4, max: 1, step: 0.05, fmt: pct }),

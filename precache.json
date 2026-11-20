@@ -215,6 +215,7 @@
 "js/core/fight-skills.js",
 "js/core/freezer.js",
 "js/core/furnishings.js",
+"js/core/fov.js",
 "js/core/furniture-editor.js",
 "js/core/furniture-interactions.js",
 "js/core/furniture.js",

@@ -27,6 +27,7 @@ const DEFAULTS = {
   confirmDangerActions: true,
   moveSpeed:            1.0,
   lookSens:             1.0,
+  fov:                  90,      /* horizontal degrees, CoD style */
 };
 
 function load() {
@@ -69,6 +70,10 @@ export const Settings = {
           break;
         case "moveSpeed":
           window.__ph3d_moveSpeed = Math.max(0.4, Math.min(2.5, +value || 1));
+          break;
+        case "fov":
+          window.__ph3d_fovH = Math.max(60, Math.min(120, +value || 90));
+          if (window.__ph3d_fov) window.__ph3d_fov.set(value);
           break;
         case "lookSens":
           window.__ph3d_lookSens = Math.max(0.3, Math.min(3, +value || 1));
@@ -281,6 +286,7 @@ export const SettingsUI = {
           items: [
             this._sliderItem({ key: "moveSpeed", label: "Walk / run speed",   icon: "run",  min: 0.5, max: 2.0, step: 0.05 }),
             this._sliderItem({ key: "lookSens",  label: "Look sensitivity",   icon: "aim",  min: 0.4, max: 2.5, step: 0.05 }),
+            this._sliderItem({ key: "fov",       label: "Field of view",      icon: "aim",  min: 60,  max: 120, step: 1 }),
           ],
         },
         {
@@ -345,7 +351,7 @@ export const SettingsUI = {
   _sliderItem({ key, label, icon, min, max, step }) {
     return {
       icon, label,
-      sub: (key === "moveSpeed" || key === "lookSens") ? (+Settings.get(key)).toFixed(2).replace(/0$/, "") + "x" : this._fmtPct(Settings.get(key)),
+      sub: key === "fov" ? Math.round(Settings.get(key)) + "°" : (key === "moveSpeed" || key === "lookSens") ? (+Settings.get(key)).toFixed(2).replace(/0$/, "") + "x" : this._fmtPct(Settings.get(key)),
       keep: true,
       isSlider: true, sliderKey: key,
       sliderMin: min, sliderMax: max, sliderStep: step,
@@ -362,6 +368,7 @@ export const SettingsUI = {
       "HUD size":      { key: "hudScale",     min: 0.85, max: 1.15, step: 0.05 },
       "Walk / run speed": { key: "moveSpeed", min: 0.5, max: 2.0, step: 0.05, mult: true },
       "Look sensitivity": { key: "lookSens",  min: 0.4, max: 2.5, step: 0.05, mult: true },
+      "Field of view":    { key: "fov",       min: 60,  max: 120, step: 1, deg: true },
     };
     document.querySelectorAll(".h-tile").forEach((tile) => {
       const lbl = tile.querySelector(".h-tile-l");
@@ -381,7 +388,7 @@ export const SettingsUI = {
         background: "transparent", height: "20px",
       });
       const num = document.createElement("span");
-      const fmt = (v) => def.mult ? (+v).toFixed(2).replace(/0$/, "") + "x" : this._fmtPct(v);
+      const fmt = (v) => def.deg ? Math.round(v) + "°" : def.mult ? (+v).toFixed(2).replace(/0$/, "") + "x" : this._fmtPct(v);
       num.textContent = fmt(S.get(def.key));
       Object.assign(num.style, {
         font: "800 11px var(--h-font,Inter,system-ui,sans-serif)",
