@@ -239,12 +239,22 @@ function stepAvatar(a, tp, slot, dt, free) {
   let sp = 0;
   const holding = !!slot.hold;
   const air = tp.onGround === false || ((tp.pos.y || 0) - (tp.floorY || 0) > 0.3);
-  if (air && a.snapped) {                                                  /* you jumped / fly: stay on the ground, no dragging */
+  if (air && a.snapped && !holding) {                                      /* you jumped / fly: stay on the ground, no dragging */
     ctl._intentSpeed = 0; g.position.set(ctl.pos.x, ctl.pos.y, ctl.pos.z); g.rotation.y = ctl.yaw; return;
   }
-  if (holding && a.snapped && d < 5 && free(bx, bz)) {                    /* hands stay together at any speed */
-    const k = 1 - Math.exp(-dt * 16);
-    ctl.pos.x += dx * k; ctl.pos.z += dz * k; sp = clamp(d * 8, 0, 6); a.stuck = 0;
+  if (holding && a.snapped && d < 12) {                                    /* hands stay together at any speed, turn, jump or tight spot */
+    let tx = bx, tz = bz;
+    if (!free(tx, tz)) {
+      let ok = false;
+      for (const f of [0.7, 0.45]) { const x2 = tp.pos.x + cy * slot.side * f - sy * slot.back * f, z2 = tp.pos.z - sy * slot.side * f - cy * slot.back * f; if (free(x2, z2)) { tx = x2; tz = z2; ok = true; break; } }
+      if (!ok) { tx = tp.pos.x + cy * slot.side * 0.4; tz = tp.pos.z - sy * slot.side * 0.4; }
+    }
+    const hx = tx - ctl.pos.x, hz = tz - ctl.pos.z, hd = Math.hypot(hx, hz);
+    const k = hd < 1.5 ? 1 : 1 - Math.exp(-dt * 16);
+    ctl.pos.x += hx * k; ctl.pos.z += hz * k; a.stuck = 0;
+    const lead = a._lx != null ? Math.hypot(tp.pos.x - a._lx, tp.pos.z - a._lz) / Math.max(dt, 0.001) : 0;
+    a._lx = tp.pos.x; a._lz = tp.pos.z;
+    sp = clamp(Math.max(lead, hd * 8), 0, 8);
   } else if (d > 40 || a.stuck > 1.6 || !a.snapped) {                     /* lost, stuck, or just arrived: stand beside you */
     let tx = bx, tz = bz;
     if (!free(tx, tz)) { tx = tp.pos.x - sy * 0.9; tz = tp.pos.z - cy * 0.9; }
@@ -258,6 +268,7 @@ function stepAvatar(a, tp, slot, dt, free) {
     else if (free(ctl.pos.x, nz)) { ctl.pos.z = nz; a.stuck += dt * 0.5; }
     else { sp = 0; a.stuck += dt; }
   }
+  if (!holding) a._lx = null;
   /* facing: walk direction while moving, your direction while standing / holding hands */
   let want = (sp > 0.6 && !holding) ? Math.atan2(dx, dz) : yaw;
   let da = Math.atan2(Math.sin(want - ctl.yaw), Math.cos(want - ctl.yaw));
@@ -282,7 +293,7 @@ function releaseSeat(a) {
   a.seat = null; a.seated = false;
   a.ctl.state = "standing"; a.ctl.sitTarget = null;
 }
-function chooseSeat(a, tp, post, side) {
+function chooseSeat(a, tp, post, side, gi) {
   const seats = (tp.world && tp.world.seats) || [];
   const ps = post.seat;
   const wantLie = post.kind === "lie";
@@ -295,7 +306,7 @@ function chooseSeat(a, tp, post, side) {
     if (d < bd) { bd = d; best = s; }
   }
   if (best) { best._famTaken = a.p.id; best.taken = true; return best; }
-  const yaw = tp.yaw || 0, rx = Math.cos(yaw) * side, rz = -Math.sin(yaw) * side;
+  const yaw = tp.yaw || 0, sd = side * (1 + 0.65 * Math.floor((gi || 0) / 2)), rx = Math.cos(yaw) * sd, rz = -Math.sin(yaw) * sd;
   if (wantLie && (ps.w === undefined || ps.w >= 1.4)) {                     /* share the bed: other side */
     return Object.assign({}, ps, { x: ps.x + rx * 0.45, z: ps.z + rz * 0.45 });
   }
@@ -382,12 +393,12 @@ function loop(now) {
   }
   const free = playerFree(tp);
   const post = postureOf(tp);
-  let side = 1;
+  let side = 1, gi = 0;
   for (const m of list) {
     const a = _live.get(m.p.id); if (!a) continue;
     const s = plan.get(m.p.id); if (!s) continue;
     if (post) {
-      if (!a.seat) { a.seat = chooseSeat(a, tp, post, side); a.seated = false; side = -side; }
+      if (!a.seat) { a.seat = chooseSeat(a, tp, post, side, gi); a.seated = false; if (a.seat.label === "GROUND" || a.seat.type === "lie" && !a.seat._famTaken) { side = -side; gi++; } }
       seatStep(a, dt, free);
     } else {
       if (a.seat) releaseSeat(a);

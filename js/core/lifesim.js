@@ -233,7 +233,7 @@ function renderApp() {
       const st = Lives.stageOf(partner), r = Lives.rel(partner);
       h += card(`<b>${partner.name}</b> · ${Lives.STAGE_LABEL[st]}<br><div style="height:8px;border-radius:6px;background:#26302b;margin:8px 0"><i style="display:block;height:100%;width:${(r.v + 100) / 2}%;background:linear-gradient(90deg,#ff5a4d,#ffd23a,#7dff9a);border-radius:6px"></i></div>
         <span style="opacity:.75">${{ dating: "Unlocks: outings, selfies together, proposal.", engaged: "Unlocks: wedding planning, guest list, church ceremony.", married: "Unlocks: shared home, babies, family life." }[st] || ""}</span>`);
-      if (partner.preg) { const pr = Lives.pregProgress(partner), s = Belly.stage(pr); h += card(`🤰 <b>Expecting</b> — ${["", "1st", "2nd", "3rd"][s]} trimester · ${Math.round(pr * 100)}%<br><span style="opacity:.7">She rests at home while pregnant.</span>`); }
+      if (partner.preg) { const pr = Lives.pregProgress(partner), s = Belly.stage(pr); h += card(`🤰 <b>Expecting</b> — ${["", "1st", "2nd", "3rd"][s]} trimester · ${Math.round(pr * 100)}%<br>📅 <b>Delivery date:</b> ${(Lives.dueInfo(partner) || {}).when || ""} <span style="opacity:.7">(in ${(Lives.dueInfo(partner) || {}).left || ""})</span><br><span style="opacity:.7">She rests at home while pregnant.</span>`); }
     }
   } else if (tab === "wedding") h += Wedding.renderTab(card, btn);
   else if (tab === "family") {

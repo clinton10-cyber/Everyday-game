@@ -57,6 +57,15 @@ function pregProgress(p) {
   const start = p.preg.start != null ? p.preg.start : (p.preg.due - PREG_DAYS);
   return clamp((nowAbsDays() - start) / Math.max(0.5, due - start), 0, 1);
 }
+/* delivery date: the baby arrives at 06:00 on the due day; game clock = wall clock, so this maps to a real date */
+function dueInfo(p) {
+  if (!p || !p.preg || !S) return null;
+  const left = Math.max(0, p.preg.due + 0.25 - nowAbsDays());          /* game days left */
+  const at = new Date(Date.now() + left * 86400000);
+  const dd = Math.floor(left), hh = Math.round((left - dd) * 24);
+  const when = at.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) + ", 6:00 AM";
+  return { day: p.preg.due + 1, when, left: dd > 0 ? dd + "d " + hh + "h" : hh + "h", at };
+}
 /* stranger → acquaintance → dating → engaged → married */
 function stageOf(p) {
   const P = S.player;
@@ -460,6 +469,25 @@ function leaderPos(npc) {
   return { ok: false };
 }
 let _px = 0, _pz = 0;
+/* open city, you sat down: the closest free spot around you (nearest ring first, no overlap with family already sat) */
+function pickSitSpot(npc, L) {
+  const taken = host.list.filter((n) => n !== npc && !n.dead && n._companion && n._sitSpot).map((n) => n._sitSpot);
+  const want = npc._lifeOff && npc._lifeOff[0] < 0 ? -1 : 1;
+  const sy = Math.sin(L.yaw), cy = Math.cos(L.yaw);
+  let best = null, bs = 1e9;
+  for (const r of [0.85, 1.25, 1.7, 2.2]) {
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2, ox = Math.cos(a) * r, oz = Math.sin(a) * r;
+      const x = L.x + cy * ox + sy * oz, z = L.z - sy * ox + cy * oz;
+      if (!host._free(x, z, 0.35)) continue;
+      if (taken.some((t) => Math.hypot(t.x - x, t.z - z) < 0.75)) continue;
+      const sc = r * 10 + Math.hypot(x - npc.ctl.pos.x, z - npc.ctl.pos.z) * 0.4 + (ox * want < 0 ? 0.8 : 0) + (oz > 0.6 ? 0.8 : 0);
+      if (sc < bs) { bs = sc; best = { x, z }; }
+    }
+    if (best) break;                                                 /* nearest ring that has room wins */
+  }
+  return best || { x: L.x + cy * 0.95 * want, z: L.z - sy * 0.95 * want };
+}
 function drive(npc, dt) {
   const st = npc.state;
   if (st === "life_chat") {
@@ -490,12 +518,12 @@ function drive(npc, dt) {
   if (st === "life_sit") {
     const L = leaderPos(npc);
     if (!L.ok || !L.sit) {                           /* you stood up: they stand too */
-      npc.ctl._emoteTimer = Math.min(npc.ctl._emoteTimer || 0, 0.4); npc._sitting = false;
+      npc.ctl._emoteTimer = Math.min(npc.ctl._emoteTimer || 0, 0.4); npc._sitting = false; npc._sitSpot = null;
       npc.state = "life_follow"; npc.stateT = 999; return;
     }
     npc.stateT = 999;
-    const off = npc._lifeOff || [0.9, 0.3], sy = Math.sin(L.yaw), cy = Math.cos(L.yaw);
-    const bx = L.x + cy * (off[0] > 0 ? 0.95 : -0.95), bz = L.z - sy * (off[0] > 0 ? 0.95 : -0.95);
+    if (!npc._sitSpot) npc._sitSpot = pickSitSpot(npc, L);          /* the free spot closest to you, one each */
+    const bx = npc._sitSpot.x, bz = npc._sitSpot.z;
     const dx = bx - npc.ctl.pos.x, dz = bz - npc.ctl.pos.z, d = Math.hypot(dx, dz);
     if (!npc._sitting) {
       if (d > 0.5) host._stepToward(npc, dx, dz, 2.6, dt);
@@ -515,7 +543,7 @@ function drive(npc, dt) {
     const dx = bx - npc.ctl.pos.x, dz = bz - npc.ctl.pos.z, d = Math.hypot(dx, dz);
     npc.stateT = Math.max(npc.stateT, 1);
     /* you sat down → they sit beside you (on the ground when there is no seat) */
-    if (L.sit && npc._lifeLead === "player" && npc._companion && !(npc._life && npc._life.preg)) { npc.state = "life_sit"; npc._sitting = false; return; }
+    if (L.sit && npc._lifeLead === "player" && npc._companion && !(npc._life && npc._life.preg)) { npc.state = "life_sit"; npc._sitting = false; npc._sitSpot = null; return; }
     /* a fight you started → partner / spouse jump in */
     if (npc._lifeLead === "player" && npc._companion && npc._life && npc._life.age >= 16 && (npc._fcd = (npc._fcd || 0) - dt) <= 0) {
       npc._fcd = 0.6;
@@ -528,14 +556,27 @@ function drive(npc, dt) {
       if (best) { npc.state = "life_fight"; npc._fightT = best; npc.stateT = 12; npc._hitCd = 0.4; return; }
     }
     /* you jumped / are flying: they stay on the ground — never pulled up, dragged or teleported along */
-    if (L.air && npc._lifeLead === "player") { npc.moveSpeed = 0; npc.yawTarget = L.yaw; return; }
-    /* holding hands: locked to your side so the hands never come apart, even when you run */
-    if (npc._holding && npc._lifeLead === "player" && d < 6 && host._free(bx, bz, 0.4)) {
-      const k = 1 - Math.exp(-dt * 16);
-      npc.ctl.pos.x += dx * k; npc.ctl.pos.z += dz * k;
-      npc.moveSpeed = clamp(d * 8, 0, 6); npc.yawTarget = L.yaw;
+    if (L.air && npc._lifeLead === "player" && !npc._holding) { npc.moveSpeed = 0; npc.yawTarget = L.yaw; return; }
+    /* holding hands: locked to your side so the hands never come apart — running, turning, jumping, tight spots */
+    if (npc._holding && npc._lifeLead === "player" && d < 14) {
+      let tx = bx, tz = bz;
+      if (!host._free(tx, tz, 0.4)) {                                  /* blocked: slide in closer instead of letting go */
+        let ok = false;
+        for (const f of [0.7, 0.45]) {
+          const x2 = L.x + cy * off[0] * f - sy * off[1] * f, z2 = L.z - sy * off[0] * f - cy * off[1] * f;
+          if (host._free(x2, z2, 0.4)) { tx = x2; tz = z2; ok = true; break; }
+        }
+        if (!ok) { tx = L.x + cy * off[0] * 0.4; tz = L.z - sy * off[0] * 0.4; }
+      }
+      const hx = tx - npc.ctl.pos.x, hz = tz - npc.ctl.pos.z, hd = Math.hypot(hx, hz);
+      const k = hd < 1.5 ? 1 : 1 - Math.exp(-dt * 16);                /* rigid lock when close: zero lag at any speed */
+      npc.ctl.pos.x += hx * k; npc.ctl.pos.z += hz * k;
+      const lead = npc._hLx != null ? Math.hypot(L.x - npc._hLx, L.z - npc._hLz) / Math.max(dt, 0.001) : 0;
+      npc._hLx = L.x; npc._hLz = L.z;
+      npc.moveSpeed = clamp(Math.max(lead, hd * 8), 0, 8); npc.yawTarget = L.yaw;   /* legs match your pace */
       return;
     }
+    npc._hLx = null;
     if (d > 0.5) {
       const sp = clamp(1.1 + d * 1.0, 1.2, d > 6 ? 8 : 4.6);
       if (d > 40) { npc.ctl.pos.x = bx; npc.ctl.pos.z = bz; }          /* only if truly lost */
@@ -1018,8 +1059,8 @@ function renderApp() {
   if (appTab === "family") {
     const sp = byId(P.spouse), pt = byId(P.partner), kids = P.kids.map(byId).filter(Boolean);
     html += `<div class="card"><b>Your household</b><br><span style="opacity:.7">Day ${S.day + 1} · ${P.companion ? "family comes along when you walk the city" : "family stays at home"}</span></div>`;
-    if (sp) html += row(sp, sp.preg ? "🤰 expecting" : "") ; else if (pt) html += row(pt, "dating"); else html += `<div class="card" style="opacity:.7">No partner yet. Chat, be friends, flirt and ask someone out — talk to a person on the street.</div>`;
-    if (P.preg) html += `<div class="card">🤰 A baby is on the way (due day ${P.preg.due + 1}).</div>`;
+    if (sp) html += row(sp, sp.preg ? "🤰 expecting · due " + dueInfo(sp).when : "") ; else if (pt) html += row(pt, "dating"); else html += `<div class="card" style="opacity:.7">No partner yet. Chat, be friends, flirt and ask someone out — talk to a person on the street.</div>`;
+    if (P.preg) html += `<div class="card">🤰 A baby is on the way.${(() => { const d = dueInfo(P); return d ? `<br>📅 <b>Delivery date:</b> ${d.when}<br><span style="opacity:.7">Day ${d.day} · in ${d.left}</span>` : ""; })()}</div>`;
     for (const k of kids) html += row(k, "age " + Math.floor(k.age));
   } else if (appTab === "friends") {
     const list = known.filter((p) => ["friend", "best friend"].includes(relType(p.rel.player, null, null))).sort((a, b) => b.rel.player.v - a.rel.player.v);
@@ -1135,6 +1176,7 @@ export const Lives = {
   byId: (id) => byId(id),
   stageOf: (p) => (S && p ? stageOf(p) : "stranger"),
   pregProgress: (p) => pregProgress(p),
+  dueInfo: (p) => dueInfo(p),
   infantOf: (p) => infantOf(p),
   player: () => (S ? S.player : null),
   rel: (p) => pRel(p),
