@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070b12">
+<title>Everyday · Settings</title>
+<link rel="stylesheet" href="css/settings-page.css">
+</head><body>
+<div class="sp" id="sp">
+  <header class="sp-top">
+    <button class="sp-back" id="back" type="button" aria-label="Back to game">‹ <span>Back</span></button>
+    <div class="sp-title"><b>SETTINGS</b><small>Changes apply instantly</small></div>
+    <button class="sp-reset" id="resetAll" type="button">Reset all</button>
+  </header>
+
+  <main class="sp-body" id="body"></main>
+</div>
+
+<script type="module">
+import { Settings as LocalSettings } from "./js/ui/settings.js";
+
+/* Inside the game (iframe) use the game's own Settings object so changes apply live;
+   standalone, use this page's copy (the game reads the same localStorage on next load). */
+const inGame = window.parent !== window;
+let S = LocalSettings;
+try { if (inGame && window.parent.__ph3d_settings) S = window.parent.__ph3d_settings; } catch (e) {}
+
+const $ = (s, r = document) => r.querySelector(s);
+const el = (h) => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstChild; };
+
+const pct = (v) => Math.round(v * 100) + "%";
+const mult = (v) => (+v).toFixed(2).replace(/0$/, "") + "x";
+const QUALITY = [["auto", "Auto"], ["potato", "Minimum"], ["low", "Low"], ["medium", "Medium"], ["high", "High"]];
+const THEMES = [["dark", "Dark"], ["sunset", "Sunset"], ["forest", "Forest"]];
+
+const ICON = {
+  audio: "M3 10v4h4l5 4V6L7 10H3zm13.5 2a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z",
+  eye: "M12 5C7 5 2.7 8.1 1 12c1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z",
+  pad: "M6 9h2V7h2v2h2v2h-2v2H8v-2H6V9zm10 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z",
+  run: "M13.5 5.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM9.8 8.9 7 22h2.1l1.8-7 2.1 2v5h2v-6.5l-2.1-2 .6-3A7.3 7.3 0 0 0 18 13v-2c-1.9 0-3.4-1-4.2-2.3l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7z",
+  hud: "M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 3h7v4h-7v-4z",
+  tool: "M22.7 19 13.6 9.9a5.4 5.4 0 0 0-1.3-5.7 5.5 5.5 0 0 0-5.7-1.3l3.2 3.2-2.8 2.8L3.8 5.7A5.5 5.5 0 0 0 8 13.6a5.4 5.4 0 0 0 1.9.3l9.1 9.1 3.7-3z",
+};
+const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+
+function slider({ key, label, min, max, step, fmt }) {
+  const row = el(`<div class="row row-slider"><div class="row-h"><span class="row-l">${label}</span><span class="row-v"></span></div>
+    <input type="range" min="${min}" max="${max}" step="${step}"></div>`);
+  const input = $("input", row), val = $(".row-v", row);
+  input.value = S.get(key); val.textContent = fmt(S.get(key));
+  const paint = () => { const p = (input.value - min) / (max - min) * 100; input.style.setProperty("--p", p + "%"); };
+  paint();
+  input.addEventListener("input", () => { const v = parseFloat(input.value); S.set(key, v); val.textContent = fmt(v); paint(); });
+  return row;
+}
+function toggle({ key, label, hint }) {
+  const row = el(`<button type="button" class="row row-toggle" role="switch"><span class="row-t"><span class="row-l">${label}</span>${hint ? `<span class="row-s">${hint}</span>` : ""}</span><span class="sw"><i></i></span></button>`);
+  const paint = () => { const on = !!S.get(key); row.setAttribute("aria-checked", on); row.classList.toggle("on", on); };
+  paint();
+  row.addEventListener("click", () => {
+    const next = !S.get(key); S.set(key, next); paint();
+    if (key === "haptics" && next) { try { navigator.vibrate && navigator.vibrate(12); } catch (e) {} }
+  });
+  return row;
+}
+function choice({ key, label, options }) {
+  const row = el(`<div class="row row-choice"><span class="row-l">${label}</span><div class="seg"></div></div>`);
+  const seg = $(".seg", row);
+  options.forEach(([val, text]) => {
+    const b = el(`<button type="button" data-v="${val}">${text}</button>`);
+    b.addEventListener("click", () => { S.set(key, val); paint(); });
+    seg.appendChild(b);
+  });
+  const paint = () => seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.v === String(S.get(key))));
+  paint();
+  return row;
+}
+function card(icon, title, rows) {
+  const c = el(`<section class="card"><h2><span class="ci">${svg(ICON[icon])}</span>${title}</h2><div class="rows"></div></section>`);
+  rows.forEach((r) => $(".rows", c).appendChild(r));
+  return c;
+}
+
+/* ── Edit controls: pinned at the very top of the page ─────────────── */
+function editHero() {
+  const c = el(`<section class="hero"><div class="hero-t"><span class="ci big">${svg(ICON.tool)}</span>
+      <div><b>Edit controls</b><small>Drag any on-screen button to a new spot and resize it</small></div></div>
+    <div class="hero-b"><button type="button" class="btn primary" id="editGo">Start editing</button>
+    <button type="button" class="btn ghost" id="editReset">Reset layout</button></div></section>`);
+  $("#editGo", c).addEventListener("click", startEdit);
+  $("#editReset", c).addEventListener("click", async () => {
+    try {
+      const m = inGame && window.parent.__ph3d_hudedit ? window.parent.__ph3d_hudedit : (await import("./js/ui/hud-edit.js")).HudEdit;
+      m.resetAll();
+    } catch (e) {}
+    try { localStorage.removeItem("ph3d.hudLayout.v1"); } catch (e) {}
+    flash("Control layout reset");
+  });
+  return c;
+}
+function startEdit() {
+  if (inGame) {
+    try {
+      const he = window.parent.__ph3d_hudedit;
+      closePage();
+      setTimeout(() => { try { he && he.start(); } catch (e) {} }, 180);
+      return;
+    } catch (e) {}
+  }
+  location.href = "index.html?edit=1";
+}
+function closePage() {
+  if (inGame) { try { window.parent.postMessage({ type: "ph3d:close-settings" }, "*"); } catch (e) {} }
+  else { location.href = "index.html"; }
+}
+function flash(t) {
+  const n = el(`<div class="toast">${t}</div>`); document.body.appendChild(n);
+  setTimeout(() => n.classList.add("in"), 10); setTimeout(() => { n.classList.remove("in"); setTimeout(() => n.remove(), 250); }, 1600);
+}
+
+function build() {
+  const body = $("#body"); body.innerHTML = "";
+  body.appendChild(editHero());
+  body.appendChild(card("audio", "Audio", [
+    slider({ key: "musicVolume", label: "Music", min: 0, max: 1, step: 0.05, fmt: pct }),
+    slider({ key: "sfxVolume", label: "Sound effects", min: 0, max: 1, step: 0.05, fmt: pct }),
+    toggle({ key: "npcVoice", label: "NPC & player voices" }),
+    toggle({ key: "voiceEnabled", label: "Voice chat", hint: "Uses the microphone" }),
+  ]));
+  body.appendChild(card("eye", "Visual", [
+    choice({ key: "quality", label: "Quality", options: QUALITY }),
+    choice({ key: "theme", label: "Theme", options: THEMES }),
+    toggle({ key: "shadows", label: "Shadows" }),
+    toggle({ key: "reduceMotion", label: "Reduce motion" }),
+    toggle({ key: "bigText", label: "Big text" }),
+    toggle({ key: "highContrast", label: "High contrast" }),
+  ]));
+  body.appendChild(card("pad", "Controls", [
+    choice({ key: "joystickSide", label: "Joystick side", options: [["left", "Left"], ["right", "Right"]] }),
+    toggle({ key: "autoRun", label: "Auto-run" }),
+    toggle({ key: "haptics", label: "Haptics" }),
+    toggle({ key: "confirmDangerActions", label: "Confirm dangerous actions" }),
+  ]));
+  body.appendChild(card("run", "Movement & camera", [
+    slider({ key: "moveSpeed", label: "Walk / run speed", min: 0.5, max: 2, step: 0.05, fmt: mult }),
+    slider({ key: "lookSens", label: "Look sensitivity", min: 0.4, max: 2.5, step: 0.05, fmt: mult }),
+  ]));
+  body.appendChild(card("hud", "Interface", [
+    slider({ key: "hudOpacity", label: "HUD opacity", min: 0.4, max: 1, step: 0.05, fmt: pct }),
+    slider({ key: "hudScale", label: "HUD size", min: 0.85, max: 1.15, step: 0.05, fmt: pct }),
+    toggle({ key: "showFps", label: "Show FPS" }),
+    toggle({ key: "hideOnScreenHints", label: "Hide on-screen hints" }),
+  ]));
+  body.appendChild(el(`<div class="foot">Everyday · Port Harcourt</div>`));
+}
+
+$("#back").addEventListener("click", closePage);
+$("#resetAll").addEventListener("click", () => { S.reset(); build(); flash("Settings reset to defaults"); });
+addEventListener("keydown", (e) => { if (e.key === "Escape") closePage(); });
+build();
+</script>
+</body></html>

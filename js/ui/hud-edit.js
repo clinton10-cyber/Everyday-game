@@ -69,6 +69,16 @@ export const HudEdit = {
     let q = 0;
     new MutationObserver(() => { if (q) return; q = requestAnimationFrame(() => { q = 0; this.apply(); }); }).observe(document.body, { childList: true, subtree: true });
     addEventListener("resize", () => this.apply());
+    /* opened from settings.html → index.html?edit=1 : start once the HUD is on screen */
+    try {
+      if (new URLSearchParams(location.search).get("edit") === "1") {
+        history.replaceState(null, "", location.pathname);
+        let tries = 0;
+        const t = setInterval(() => {
+          if (document.querySelector("#hud-rail, #player-panel") || ++tries > 80) { clearInterval(t); if (tries <= 80) setTimeout(() => HudEdit.start(), 400); }
+        }, 500);
+      }
+    } catch (e) {}
   },
   hasLayout() { return !!(data.L && Object.keys(data.L).length) || !!(data.P && Object.keys(data.P).length); },
   resetAll() { data = {}; save(); document.querySelectorAll("[style*='translate'],[style*='scale']").forEach((el) => { el.style.translate = ""; el.style.scale = ""; el.style.transformOrigin = ""; }); },
@@ -142,9 +152,10 @@ export const HudEdit = {
       st.textContent = `
         body.hud-editing .hud-edit-target{outline:2px dashed rgba(255,198,43,.85)!important;outline-offset:2px;cursor:grab}
         body.hud-editing .hud-edit-sel{outline:3px solid #ffc62b!important;box-shadow:0 0 0 4px rgba(255,198,43,.25)!important}
-        #hud-edit-bar{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 8px);transform:translateX(-50%);z-index:100000;display:flex;align-items:center;gap:8px;
-          padding:7px 10px;border-radius:16px;background:rgba(10,14,20,.94);border:1px solid rgba(255,198,43,.55);color:#f4f6f8;font:700 11px/1.1 Inter,system-ui,sans-serif;
-          box-shadow:0 10px 30px rgba(0,0,0,.55);max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center;touch-action:manipulation}
+        #hud-edit-bar{position:fixed;left:0;right:0;top:0;z-index:100000;display:flex;align-items:center;gap:8px;
+          padding:calc(env(safe-area-inset-top,0px) + 6px) 10px 7px;background:rgba(7,11,18,.96);backdrop-filter:blur(10px);
+          border-bottom:2px solid #ffc62b;color:#f4f6f8;font:700 11px/1.1 Inter,system-ui,sans-serif;
+          box-shadow:0 8px 24px rgba(0,0,0,.5);flex-wrap:wrap;justify-content:center;touch-action:manipulation}
         #hud-edit-bar b{color:#ffc62b;letter-spacing:.12em;font-size:10px}
         #hud-edit-bar #he-name{min-width:104px;text-align:center}
         #hud-edit-bar input[type=range]{width:120px;accent-color:#ffc62b}

@@ -400,12 +400,34 @@ function buildSettings() {
   b.title = "Settings"; b.setAttribute("aria-label", "Settings");
   b.addEventListener("click", async (ev) => {
     ev.stopPropagation();
-    try {
-      const { SettingsUI } = await import("./settings.js");
-      SettingsUI.open();
-    } catch (e) { console.warn("[hud] settings open failed:", e); }
+    try { openSettingsPage(); }
+    catch (e) {
+      console.warn("[hud] settings page failed, using sheet:", e);
+      try { const { SettingsUI } = await import("./settings.js"); SettingsUI.open(); } catch (e2) {}
+    }
   });
   zones.rail.appendChild(b);
+}
+
+/* Full-page Settings (settings.html) shown over the running game, so nothing is lost. */
+function openSettingsPage() {
+  let ov = document.getElementById("ph3d-settings-overlay");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "ph3d-settings-overlay";
+    ov.style.cssText = "position:fixed;inset:0;z-index:99990;background:#070b12;display:none";
+    window.addEventListener("message", (e) => {
+      if (e.origin === location.origin && e.data && e.data.type === "ph3d:close-settings") closeSettingsPage();
+    });
+  }
+  /* fresh iframe each time so the page re-reads current values */
+  ov.innerHTML = '<iframe src="settings.html" title="Settings" style="width:100%;height:100%;border:0;display:block"></iframe>';
+  document.body.appendChild(ov);
+  ov.style.display = "block";
+}
+function closeSettingsPage() {
+  const ov = document.getElementById("ph3d-settings-overlay");
+  if (ov) { ov.style.display = "none"; ov.innerHTML = ""; }
 }
 
 function boot() {
