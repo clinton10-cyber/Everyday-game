@@ -118,6 +118,31 @@ function flash(t) {
   setTimeout(() => n.classList.add("in"), 10); setTimeout(() => { n.classList.remove("in"); setTimeout(() => n.remove(), 250); }, 1600);
 }
 
+
+/* ── Fullscreen: works from inside the settings iframe by driving the parent (game) page ── */
+function fsDoc() { try { if (inGame && window.parent.document) return window.parent.document; } catch (e) {} return document; }
+function fsOn() { return !!fsDoc().fullscreenElement; }
+async function toggleFullscreen() {
+  const d = fsDoc();
+  try {
+    if (d.fullscreenElement) await d.exitFullscreen();
+    else {
+      const el = d.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!req) { flash("Full screen isn't supported here"); return; }
+      await req.call(el, { navigationUI: "hide" });
+    }
+  } catch (e) { flash("Couldn't change full screen"); }
+}
+function fullscreenRow() {
+  const row = el(`<button type="button" class="row row-toggle" role="switch"><span class="row-t"><span class="row-l">Full screen</span><span class="row-s">Tap to enter or leave full screen</span></span><span class="sw"><i></i></span></button>`);
+  const paint = () => { const on = fsOn(); row.setAttribute("aria-checked", on); row.classList.toggle("on", on); };
+  paint();
+  row.addEventListener("click", async () => { await toggleFullscreen(); paint(); });
+  try { fsDoc().addEventListener("fullscreenchange", paint); } catch (e) {}
+  return row;
+}
+
 function build() {
   const body = $("#body"); body.innerHTML = "";
   body.appendChild(editHero());
@@ -127,6 +152,7 @@ function build() {
     toggle({ key: "npcVoice", label: "NPC & player voices" }),
     toggle({ key: "voiceEnabled", label: "Voice chat", hint: "Uses the microphone" }),
   ]));
+  body.appendChild(card("eye", "Display", [fullscreenRow()]));
   body.appendChild(card("eye", "Visual", [
     choice({ key: "quality", label: "Quality", options: QUALITY }),
     choice({ key: "theme", label: "Theme", options: THEMES }),

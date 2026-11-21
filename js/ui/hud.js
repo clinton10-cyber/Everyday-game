@@ -421,7 +421,7 @@ function openSettingsPage() {
     });
   }
   /* fresh iframe each time so the page re-reads current values */
-  ov.innerHTML = '<iframe src="settings.html" title="Settings" style="width:100%;height:100%;border:0;display:block"></iframe>';
+  ov.innerHTML = '<iframe src="settings.html" title="Settings" allow="fullscreen" style="width:100%;height:100%;border:0;display:block"></iframe>';
   document.body.appendChild(ov);
   ov.style.display = "block";
 }
