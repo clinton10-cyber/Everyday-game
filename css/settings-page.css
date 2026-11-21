@@ -26,7 +26,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
 /* body */
 .sp-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding:14px 14px calc(env(safe-area-inset-bottom,0px) + 28px);
-  display:grid;gap:12px;align-content:start;max-width:760px;width:100%;margin:0 auto}
+  display:grid;gap:12px;align-content:start;grid-auto-rows:max-content;max-width:760px;width:100%;margin:0 auto}
 @media (min-width:760px){.sp-body{grid-template-columns:1fr 1fr}.hero,.foot{grid-column:1/-1}}
 
 /* edit-controls hero (always first) */
