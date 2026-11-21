@@ -415,7 +415,7 @@ function openSettingsPage() {
   if (!ov) {
     ov = document.createElement("div");
     ov.id = "ph3d-settings-overlay";
-    ov.style.cssText = "position:fixed;inset:0;z-index:99990;background:#070b12;display:none";
+    ov.style.cssText = "position:fixed;inset:0;z-index:100001;background:#070b12;display:none";
     window.addEventListener("message", (e) => {
       if (e.origin === location.origin && e.data && e.data.type === "ph3d:close-settings") closeSettingsPage();
     });
