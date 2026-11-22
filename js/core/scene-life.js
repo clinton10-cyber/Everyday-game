@@ -16,10 +16,10 @@ const SCENE_PROFILES = {
   village:    { target: 20, gap: 15, grid: 44, roles: ["mamas", "trader", "walker", "school_kids", "walker", "taxi"] },
   citypark:   { target: 15, gap: 13, grid: 34, roles: ["walker", "couple", "school_kids", "trader"] },
   boropark:   { target: 15, gap: 13, grid: 34, roles: ["walker", "couple", "school_kids", "trader"] },
-  beach:      { target: 13, gap: 14, grid: 36, roles: ["walker", "couple", "trader", "taxi"] },
-  forest:     { target: 10, gap: 16, grid: 40, roles: ["walker", "walker", "couple"] },
+  beach:      { target: 13, gap: 14, grid: 36, roles: ["walker", "couple", "trader", "school_kids", "taxi"] },
+  forest:     { target: 10, gap: 16, grid: 40, roles: ["walker", "walker", "couple", "school_kids"] },
   market:     { target: 16, gap: 12, grid: 30, roles: ["mamas", "trader", "walker", "taxi", "school_kids"] },
-  airport:    { target: 12, gap: 15, grid: 38, roles: ["walker", "banker", "taxi", "student"] },
+  airport:    { target: 12, gap: 15, grid: 38, roles: ["walker", "banker", "taxi", "student", "school_kids"] },
 };
 
 const LOCAL_MIN = 6;
@@ -100,7 +100,7 @@ function getProfile(key, ctl) {
   const area = Math.max(0, b.maxX - b.minX) * Math.max(0, b.maxZ - b.minZ);
   /* Large public destinations without a hand-authored profile also get a
      dispersed crowd, while small building interiors stay locally populated. */
-  if (area >= 52000) return { target: 14, gap: 15, grid: 42, roles: ["walker", "walker", "trader", "student", "couple"] };
+  if (area >= 52000) return { target: 14, gap: 15, grid: 42, roles: ["walker", "walker", "trader", "student", "couple", "school_kids"] };
   return null;
 }
 function roleMixFor(key) {
@@ -226,6 +226,51 @@ function spawnLocal(sc, ctl, A, key, count) {
   return made;
 }
 
+
+/* ---- Children: guaranteed on every public scene, on every quality tier ----
+   Kids used to appear only in a few scene profiles and were skipped on
+   low-tier phones. Now every scene that gets ambient NPCs also keeps a
+   minimum number of children (they get a child identity from npc-lives via
+   _wantKid, the same way interior kids do). */
+const KIDS_MIN = { potato: 2, low: 3, mid: 4, high: 5 };
+function kidsTarget() {
+  if (Quality.isPotato) return KIDS_MIN.potato;
+  if (Quality.isLow) return KIDS_MIN.low;
+  return Quality.isHigh ? KIDS_MIN.high : KIDS_MIN.mid;
+}
+function isKidNPC(n) {
+  return !!(n && (n._wantKid || n.groupTag === "school_kids" || (n._life && n._life.age < 17)));
+}
+function ensureKids(sc, A) {
+  const ctl = A.ctl;
+  if (!ctl) return 0;
+  const name = routeName(sc), key = sceneKey(sc);
+  if (NO_NPC_FILL.has(name) || NO_NPC_FILL.has(key) || NO_NPC_FILL.has(sc.sceneId)) return 0;
+  const present = sceneNPCs(sc);
+  const have = present.filter(isKidNPC).length;
+  const want = Math.min(kidsTarget() - have, 2);          /* top up at most 2 per pass */
+  if (want <= 0) return 0;
+  const placed = present.map(n => ({ x: n.ctl.pos.x, z: n.ctl.pos.z }));
+  let made = 0;
+  for (let i = 0; i < want * 40 && made < want; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 7 + Math.random() * 20;                 /* close enough to actually be seen */
+    const x = A.x + Math.cos(angle) * radius;
+    const z = A.z + Math.sin(angle) * radius;
+    const ground = validSpot(ctl, x, z, 0.75);
+    if (!ground || placed.some(p => Math.hypot(p.x - x, p.z - z) < 3)) continue;
+    const npc = NPCs.spawnRole(sc.three, "walker", x, z, { yOffset: ground.y });
+    if (!npc) continue;
+    npc._wantKid = true;
+    npc.maxDist = 125;
+    npc._scenePopulation = key;
+    npc._sceneLifeSpawned = true;
+    placed.push({ x, z });
+    made++;
+  }
+  return made;
+}
+
 function fillNPCs(sc, A) {
   const ctl = A.ctl;
   const name = routeName(sc), key = sceneKey(sc);
@@ -243,6 +288,7 @@ function fillNPCs(sc, A) {
     const desired = Math.max(0, Math.min(LOCAL_TARGET - nearby, cap - current.length));
     if (desired > 0) spawnLocal(sc, ctl, A, key, desired);
   }
+  ensureKids(sc, A);
   /* Mount independently of population count. Previously an early return
      could leave a scene full of NPCs but with no proximity-talk interface. */
   mountTalk(sc, ctl);
@@ -257,8 +303,10 @@ function maintainPopulation(sc, A) {
   if (profile) {
     const target = Math.max(Quality.isPotato ? 7 : 9, Math.round(profile.target * scale));
     if (current.length < target) spawnDispersed(sc, ctl, A, profile, target, key);
+    ensureKids(sc, A);
     return;
   }
+  ensureKids(sc, A);
   const cap = Math.max(LOCAL_MIN, Math.round(LOCAL_CAP * scale));
   if (current.length >= cap) return;
   const nearby = current.filter(n => Math.hypot(n.ctl.pos.x - A.x, n.ctl.pos.z - A.z) < 78).length;

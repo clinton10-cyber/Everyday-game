@@ -524,7 +524,7 @@ export const NPCs = {
         jobs.push(() => this._spawnGroupOnPath(path, chosen.type, chosen.count));
       }
       /* kids are part of every street, not only the school routes */
-      if (!Quality.isPotato) jobs.push(() => this._spawnGroupOnPath(path, "school_kids", Quality.isLow ? 1 : 2));
+      jobs.push(() => this._spawnGroupOnPath(path, "school_kids", Quality.isPotato ? 1 : Quality.isLow ? 2 : 3));
       perPath.push(jobs);
     }
     /* round-robin over the routes so the first people to appear are spread over the whole map */
