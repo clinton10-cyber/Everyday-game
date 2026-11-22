@@ -1197,6 +1197,15 @@ export const Lives = {
   },
   /* give the in-home family member the same relationship panel the street NPCs get */
   openPanelFor(npcLike) { try { openPanel(npcLike); } catch (e) {} },
+  /* separate RELATIONSHIP button (npc-talk.js HUD): claims the NPC if needed and opens the full panel, never via the chat */
+  openRelationship(npc) {
+    if (!S || !npc) return;
+    if (!npc._life) { try { claim(npc, !cityOn); } catch (e) {} }
+    if (!npc._life) return;
+    try { const T = window.__ph3d_talkchat; if (T && T._current) T.close(); } catch (e) {}
+    curNpc = npc; openedAt = performance.now();
+    openPanel(npc);
+  },
   closePanel,
 };
 if (typeof window !== "undefined") window.__ph3d_lives = Lives;

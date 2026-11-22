@@ -117,7 +117,11 @@ export async function buildInterior(router) {
   }
 
   /* ---------- MATERIALS ---------- */
-  const S = (o) => new THREE.MeshStandardMaterial(o);
+  /* weaker tiers (Quality.useLambert) get cheap Lambert shading instead of full PBR; same colours/maps/transparency */
+  const S = (o) => {
+    if (Quality.current.useLambert) { const { roughness, metalness, ...rest } = o; return new THREE.MeshLambertMaterial(rest); }
+    return new THREE.MeshStandardMaterial(o);
+  };
   const MAT = {
     grass: S({ map: TEX.grass, roughness: 1 }),
     asphalt: S({ map: TEX.asphalt, roughness: 0.95 }),
@@ -153,7 +157,16 @@ export async function buildInterior(router) {
       this.groups.get(material).push(g);
     }
     flush(maxVerts = 40000) {
-      for (const [mat, geos] of this.groups) {
+      for (const [mat, geos0] of this.groups) {
+        /* group by 90 m ground cell first: a merged chunk then covers one area, so three.js can skip chunks that are off-screen
+           (insertion order mixed far-apart objects into one chunk whose bounding sphere was the whole campus) */
+        const CELL = 90, cells = new Map();
+        for (const g of geos0) {
+          if (!g.boundingSphere) g.computeBoundingSphere();
+          const c = g.boundingSphere ? g.boundingSphere.center : { x: 0, z: 0 };
+          const key = Math.floor(c.x / CELL) + "," + Math.floor(c.z / CELL);
+          let arr = cells.get(key); if (!arr) cells.set(key, arr = []); arr.push(g);
+        }
         let chunk = [], verts = 0;
         const push = () => {
           if (!chunk.length) return;
@@ -166,12 +179,14 @@ export async function buildInterior(router) {
           chunk.forEach(g => g.dispose());
           chunk = []; verts = 0;
         };
-        for (const g of geos) {
-          chunk.push(g);
-          verts += g.attributes.position.count;
-          if (verts > maxVerts) push();
+        for (const geos of cells.values()) {
+          for (const g of geos) {
+            chunk.push(g);
+            verts += g.attributes.position.count;
+            if (verts > maxVerts) push();
+          }
+          push();   /* never let one chunk span two cells */
         }
-        push();
       }
       this.groups.clear();
     }
@@ -867,7 +882,8 @@ export async function buildInterior(router) {
   }
 
   let treeCount = 0;
-  for (let i = 0; i < 700 && treeCount < 260; i++) {
+  const TREE_MAX = Math.min(260, (Quality.current.treeCount || 130) * 2);   /* potato 40 / low 80 / medium 160 / high 260 */
+  for (let i = 0; i < 700 && treeCount < TREE_MAX; i++) {
     const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * 195;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (nearRoad(x, z, 9) || insideBuilding(x, z, 5)) continue;

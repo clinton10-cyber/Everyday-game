@@ -6,13 +6,15 @@ import * as THREE from "three";
 import { ThirdPersonControls } from "../../core/thirdperson.js";
 import { addStreetLamp } from "../../core/scene-lamps.js";
 import { addNightGlow } from "../../core/night-glow.js";
+import { Quality } from "../../core/quality.js";
 
 export async function buildInterior(router) {
   const CORES = navigator.hardwareConcurrency || 4, MEM_GB = navigator.deviceMemory || 8;
-  const LOW = CORES <= 4 || MEM_GB <= 2;
+  const LOW = CORES <= 4 || MEM_GB <= 2 || Quality.current.tier === "low";   /* also follows the game's own quality tier */
+  const HIGH = Quality.current.tier === "high";
   const Q = {
     terrainSeg: LOW ? 112 : 168, grass: LOW ? 650 : 1500, rocks: LOW ? 26 : 58, pebbles: LOW ? 110 : 320,
-    palms: LOW ? 9 : 16, logs: LOW ? 4 : 7, clouds: LOW ? 5 : 8, waterSeg: LOW ? 40 : 64,
+    palms: LOW ? 9 : 16, logs: LOW ? 4 : 7, clouds: LOW ? 3 : HIGH ? 8 : 5,   /* big transparent sprites = fill-rate overdraw */ waterSeg: LOW ? 40 : 64,
   };
 
   const scene = new THREE.Scene();
@@ -288,7 +290,7 @@ export async function buildInterior(router) {
     geo.setAttribute("color", new THREE.BufferAttribute(colors, 3)); geo.computeVertexNormals();
     const sandTex = makeSandTexture(512); sandTex.repeat.set(WORLD / 2.2, WORLD / 2.2);
     sandTex.anisotropy = Math.min(4, router.renderer.capabilities.getMaxAnisotropy());
-    const terrain = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ map: sandTex, bumpMap: sandTex, bumpScale: 0.16, vertexColors: true, shininess: 22, specular: new THREE.Color(0x151513) }));
+    const terrain = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ map: sandTex, ...(HIGH ? { bumpMap: sandTex, bumpScale: 0.16 } : {}), vertexColors: true, shininess: 22, specular: new THREE.Color(0x151513) }));
     terrain.frustumCulled = false; scene.add(terrain);
 
     const wGeo = new THREE.PlaneGeometry(700, 700, Q.waterSeg, Q.waterSeg); wGeo.rotateX(-Math.PI / 2);

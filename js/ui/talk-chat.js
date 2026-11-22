@@ -6,8 +6,8 @@
    Bubbles (white = NPC, green = you), timestamps, ✓✓ ticks, typing dots,
    per-message emoji reactions (long-press / right-click a bubble), emoji
    picker next to the input, and the relationship bar + mood under the header.
-   Quick-reply chips run the existing Lives.act() actions; "⋯ More" opens the
-   full relationship panel for everything else (dates, baby, carry, etc.). */
+   Quick-reply chips run the existing Lives.act() actions; the full relationship panel (dates, baby, carry, etc.)
+   has its own RELATIONSHIP button in the NPC action HUD (npc-talk.js), not here. */
 
 import { ChatBrain } from "../core/chat-brain.js";
 import { NpcMoney } from "../core/npc-money.js";
@@ -367,14 +367,6 @@ export const TalkChat = {
     say("🤝 Borrow", "can you lend me money");
     say("🛠 Need work", "i need work");
     try { if (NpcMoney.hasDebt(npc)) say("💵 Repay", "take your money"); } catch (e) {}
-    const more = document.createElement("button");
-    more.textContent = "⋯ More";
-    more.classList.add("more-btn");
-    more.onclick = () => {
-      this.close();
-      lives().then(m => m.Lives && m.Lives.openPanel && m.Lives.openPanel(npc)).catch(() => {});
-    };
-    this._quick.appendChild(more);
     const closeBtn = document.createElement("button");
     closeBtn.textContent = "✕ Close";
     closeBtn.classList.add("close-btn");

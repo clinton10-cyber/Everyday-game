@@ -5,6 +5,7 @@ let S = null;
 let _wrap = null;
 let _talk = null;
 let _action = null;
+let _rel = null;
 let _current = null;
 let _actionKey = "";
 
@@ -69,6 +70,7 @@ function build() {
         letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-sizing:border-box;}
       #ph3d-npc-talk{background:linear-gradient(135deg,#86efac,#4ade80);color:#052e16;}
       #ph3d-npc-action{background:linear-gradient(135deg,#ffd36a,#f59e0b);color:#241400;}
+      #ph3d-npc-rel{background:linear-gradient(135deg,#fda4af,#f43f5e);color:#2a0610;}
       #ph3d-npc-actions button:active{transform:scale(.96)}
       @media(max-width:600px){#ph3d-npc-actions{right:10px;top:calc(env(safe-area-inset-top,0px) + 94px);max-width:calc(100vw - 20px)}#ph3d-npc-actions button{height:34px;min-height:34px;padding:0 9px;font-size:9px}}
     `;
@@ -78,11 +80,20 @@ function build() {
   _wrap.id = "ph3d-npc-actions";
   _talk = document.createElement("button"); _talk.id = "ph3d-npc-talk"; _talk.type = "button";
   _action = document.createElement("button"); _action.id = "ph3d-npc-action"; _action.type = "button";
-  _wrap.append(_talk, _action);
+  _rel = document.createElement("button"); _rel.id = "ph3d-npc-rel"; _rel.type = "button"; _rel.textContent = "❤ RELATIONSHIP";
+  _wrap.append(_talk, _action, _rel);
   document.body.appendChild(_wrap);
   _talk.addEventListener("pointerdown", (e) => {
     e.preventDefault(); e.stopPropagation();
     if (_current) talkTo(_current);
+  }, { passive: false });
+  _rel.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!_current) return;
+    try {
+      const L = window.__ph3d_lives;
+      if (_current._fam) L.openPanelFor(_current); else L.openRelationship(_current);
+    } catch (err) { console.warn("[npc-talk] relationship", err); }
   }, { passive: false });
   _action.addEventListener("pointerdown", (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -118,7 +129,7 @@ export const NpcTalk = {
 
   unmount() {
     if (_wrap && _wrap.parentNode) _wrap.parentNode.removeChild(_wrap);
-    _wrap = _talk = _action = null;
+    _wrap = _talk = _action = _rel = null;
     _current = null; _actionKey = ""; S = null;
   },
 };
