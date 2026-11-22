@@ -1062,6 +1062,19 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     }
   }, { passive: false });
 
+  /* RELATIONSHIP chip: sits beside TALK whenever someone is in reach, opens the full relationships panel */
+  const walkRelBtn = document.createElement("button");
+  walkRelBtn.id = "ph3d-walk-rel";
+  walkRelBtn.textContent = "RELATIONSHIP";
+  walkRelBtn.style.cssText = "display:none;cursor:pointer;pointer-events:auto;touch-action:manipulation;";
+  document.body.appendChild(walkRelBtn);
+  walkRelBtn.addEventListener("pointerdown", e => {
+    e.preventDefault(); e.stopPropagation();
+    const npc = walkRelBtn._npc;
+    if (!npc) return;
+    try { window.__ph3d_lives.openRelationship(npc); } catch (err) { console.warn("[drive] relationship", err); }
+  }, { passive: false });
+
   /* ── GRAB button (kidnap a downed NPC) ─────────────────── */
   const grabBtn = document.createElement("button");
   grabBtn.id = "ph3d-walk-grab";
@@ -1354,7 +1367,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   /* ── Social reactions, world events, job objectives ─────────── */
   window.__ph3d_social = Social;
   try { WorldEvents.init(three); } catch (e) { console.warn("[drive] WorldEvents:", e); }
-  try { JobObjectives.init(three, compounds.map((c) => c.lm), roads); } catch (e) { console.warn("[drive] JobObjectives:", e); }
+  try { JobObjectives.init(three, compounds.map((c) => c.lm), city.roads); } catch (e) { console.warn("[drive] JobObjectives:", e); }
   try { ObjectiveHUD.mount(); } catch (e) { console.warn("[drive] ObjectiveHUD:", e); }
 
   /* Any new crime event (not the periodic decay ping) draws a reaction.
@@ -1411,6 +1424,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       try { walkJumpBtn.remove(); } catch (e) {}
       try { walkEnterBtn.remove(); } catch (e) {}
       try { walkTalkBtn.remove(); } catch (e) {}
+      try { walkRelBtn.remove(); } catch (e) {}
       try { pickBtn.remove(); } catch (e) {}
       try { useBtn.remove(); } catch (e) {}
       try { joyBaseEl.remove(); } catch (e) {}
@@ -1721,6 +1735,7 @@ try {
           character.position.set(walker.x, walker.y, walker.z);
           character.rotation.y = walker.yaw;
           try { Animator.animate(walker, dt); } catch (err) { console.error("[sit animate]", err); }
+          try { window.__ph3d_playerActions && window.__ph3d_playerActions.tick(walker, dt); } catch (e) {}   /* held items stay posed while seated */
         } else {
           walker.sitTarget = null;
           if (charRig.hips) { charRig.hips.rotation.set(0, 0, 0); charRig.hips.position.y = HIP_HEIGHT; }
@@ -1931,9 +1946,11 @@ try {
             walkTalkBtn._npc = carNpc;
             walkTalkBtn.textContent = "CHAT";
             walkTalkBtn.style.display = "block";
+            walkRelBtn._npc = carNpc; walkRelBtn.style.display = "block";
           } else {
             walkTalkBtn._npc = null;
             walkTalkBtn.style.display = "none";
+            walkRelBtn._npc = null; walkRelBtn.style.display = "none";
           }
         }
         let best = null, bd = 22 * 22;
@@ -1974,11 +1991,13 @@ try {
         if (npcNear) {
           walkTalkBtn._npc = npcNear;
           walkTalkBtn.style.display = "block";
+          walkRelBtn._npc = npcNear; walkRelBtn.style.display = "block";
           if (walkEnterBtn) walkEnterBtn.style.display = "none";
           nearGate = null;
         } else {
           walkTalkBtn._npc = null;
           walkTalkBtn.style.display = "none";
+          walkRelBtn._npc = null; walkRelBtn.style.display = "none";
 
           let wbest = null, wbd = 28 * 28;
           for (const c of compounds) {

@@ -32,91 +32,91 @@ const CATALOGUE = {
     label: "Street Food",
     color: 0xe8a840,
     use: "Restores +20 health.",
-    icon: "🍖",
+    icon: "",
     build(pos) { return _buildFood(pos); },
   },
   junkfood: {
     label: "Junk Food",
     color: 0xff6644,
     use: "Restores +10 health, -1 stamina.",
-    icon: "🍔",
+    icon: "",
     build(pos) { return _buildJunk(pos); },
   },
   water: {
     label: "Water Bottle",
     color: 0x88ccff,
     use: "Restores +5 health.",
-    icon: "💧",
+    icon: "",
     build(pos) { return _buildWater(pos); },
   },
   money: {
     label: "Money",
     color: 0x44cc44,
     use: "Adds ₦500 to your wallet.",
-    icon: "💵",
+    icon: "",
     build(pos) { return _buildMoney(pos); },
   },
   phone: {
     label: "Mobile Phone",
     color: 0x222222,
     use: "Open your phone.",
-    icon: "📱",
+    icon: "",
     build(pos) { return _buildPhone(pos); },
   },
   bag: {
     label: "Shopping Bag",
     color: 0xddcc88,
     use: "Carry more items.",
-    icon: "🛍",
+    icon: "",
     build(pos) { return _buildBag(pos); },
   },
   bat: {
     label: "Wooden Bat",
     color: 0x8b5e3c,
     use: "Melee weapon — deals 40 damage.",
-    icon: "🏏",
+    icon: "",
     build(pos) { return _buildBat(pos); },
   },
   bottle: {
     label: "Glass Bottle",
     color: 0x55aa44,
     use: "Throw to stun. Melee deals 20 dmg.",
-    icon: "🍾",
+    icon: "",
     build(pos) { return _buildBottle(pos); },
   },
   book: {
     label: "Textbook",
     color: 0x4466cc,
     use: "+5 XP (study).",
-    icon: "📚",
+    icon: "",
     build(pos) { return _buildBook(pos); },
   },
   cigarettes: {
     label: "Cigarettes",
     color: 0xeeddcc,
     use: "Reduces stress. -1 health long-term.",
-    icon: "🚬",
+    icon: "",
     build(pos) { return _buildCigarettes(pos); },
   },
   dumbbell: {
     label: "Dumbbell",
     color: 0x555566,
     use: "+2 strength.",
-    icon: "🏋",
+    icon: "",
     build(pos) { return _buildDumbbell(pos); },
   },
   crate: {
     label: "Wooden Crate",
     color: 0xaa8855,
     use: "Heavy lift obstacle or weapon.",
-    icon: "📦",
+    icon: "",
     build(pos) { return _buildCrate(pos); },
   },
   spray_can: {
     label: "Spray Paint",
     color: 0xff4488,
     use: "Tag buildings. Increases heat.",
-    icon: "🎨",
+    icon: "",
     build(pos) { return _buildSprayCan(pos); },
   },
 };
@@ -212,8 +212,8 @@ function _buildCrate(pos) {
   g.add(Object.assign(M(G(0.36,0.28,0.36),0xaa8855), {}).translateY(0.14));
   // slats
   for(let i=-1;i<=1;i++) {
-    g.add(Object.assign(M(G(0.38,0.02,0.02),0x8a6633), {}).translateY(0.14+i*0.09).translateZ(0.18));
-    g.add(Object.assign(M(G(0.38,0.02,0.02),0x8a6633), {}).translateY(0.14+i*0.09).translateZ(-0.18));
+    g.add(Object.assign(M(G(0.38,0.02,0.02),0x8a6633), {}).translateY(0.06+i*0.1).translateZ(0.18));
+    g.add(Object.assign(M(G(0.38,0.02,0.02),0x8a6633), {}).translateY(0.06+i*0.1).translateZ(-0.18));
   }
   return g;
 }
@@ -305,7 +305,8 @@ export const WorldObjects = {
   /** Highlight item for player proximity */
   setHighlight(item, on) {
     if (!item || !item.glow) return;
-    item.glow.visible = on;
+    /* a prop in the hand never shows the ground ring */
+    item.glow.visible = on && !(item.mesh && item.mesh.userData && item.mesh.userData._inHand) && !item.taken;
   },
 
   /** Pick up an item — returns true on success */
@@ -321,7 +322,7 @@ export const WorldObjects = {
     if (holder && holder === window.__ph3d_player) {
       try { window.__ph3d_pocket?.add(item.type, 1); } catch(e) {}
       // Toast
-      try { window.__ph3d_phone?._toast(`${item.icon} Picked up ${item.label}`); } catch(e) {}
+      try { window.__ph3d_phone?._toast(`Picked up ${item.label}`); } catch(e) {}
     }
     return true;
   },
@@ -335,12 +336,12 @@ export const WorldObjects = {
       case "water":
         try { window.__ph3d_sfx?.play(item.type === "water" ? "drink" : "eat"); } catch(e) {}
         try { window.__ph3d_player_combat?.heal(item.type === "food" ? 20 : item.type === "junkfood" ? 10 : 5); } catch(e) {}
-        try { window.__ph3d_phone?._toast(`${item.icon} Used ${item.label} — ${item.use}`); } catch(e) {}
+        try { window.__ph3d_phone?._toast(`Used ${item.label}. ${item.use}`); } catch(e) {}
         this.consume(item);
         break;
       case "money":
         try { window.__ph3d_economy?.receive("pickup", 500); } catch(e) {}
-        try { window.__ph3d_phone?._toast("💵 Found ₦500!"); } catch(e) {}
+        try { window.__ph3d_phone?._toast("Found ₦500"); } catch(e) {}
         this.consume(item);
         break;
       case "phone":
@@ -350,18 +351,18 @@ export const WorldObjects = {
       case "bottle":
         // Equip as melee weapon
         try { window.__ph3d_weapons?.equip(item.type); } catch(e) {}
-        try { window.__ph3d_phone?._toast(`${item.icon} Equipped ${item.label}`); } catch(e) {}
+        try { window.__ph3d_phone?._toast(`Equipped ${item.label}`); } catch(e) {}
         break;
       case "cigarettes":
-        try { window.__ph3d_phone?._toast("🚬 You lit a cigarette…"); } catch(e) {}
+        try { window.__ph3d_phone?._toast("You lit a cigarette"); } catch(e) {}
         this.consume(item);
         break;
       case "dumbbell":
-        try { window.__ph3d_phone?._toast("🏋 You worked out! +2 strength"); } catch(e) {}
+        try { window.__ph3d_phone?._toast("You worked out. +2 strength"); } catch(e) {}
         this.consume(item);
         break;
       default:
-        try { window.__ph3d_phone?._toast(`${item.icon} ${item.use}`); } catch(e) {}
+        try { window.__ph3d_phone?._toast(`${item.use}`); } catch(e) {}
     }
   },
 
@@ -580,10 +581,7 @@ function _showPickupPrompt(item) {
     });
     document.body.appendChild(_promptEl);
   }
-  /* touch screens have no E key: point at the PICK UP chip instead of showing a key hint */
-  let _pickHint = "[E] Pick up";
-  try { if (window.matchMedia("(pointer:coarse)").matches) _pickHint = "Tap PICK UP"; } catch (e) {}
-  _promptEl.innerHTML = `${item.icon} <b>${item.label}</b><br><span style="font-weight:400;opacity:.7;font-size:10px">${_pickHint} &nbsp;·&nbsp; ${item.use}</span>`;
+  _promptEl.innerHTML = `<b>${item.label}</b><br><span style="font-weight:400;opacity:.7;font-size:10px">Pick up &nbsp;·&nbsp; ${item.use}</span>`;
   _promptEl.style.opacity = "1";
   _promptEl.style.display = "block";
   // Register the nearby item globally so the walk controls can trigger pickup on E
