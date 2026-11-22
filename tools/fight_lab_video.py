@@ -32,7 +32,7 @@ with sync_playwright() as p:
         fps = 60.0 / slow
         mp4 = os.path.join(out, f"{name}.mp4")
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(fps), "-i", os.path.join(d, "%04d.png"), "-pix_fmt", "yuv420p", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", mp4], check=True)
-        clips.append(mp4); print("recorded", name, n, "frames")
+        clips.append(os.path.abspath(mp4)); print("recorded", name, n, "frames")
     b.close()
 lst = os.path.join(out, "_list.txt"); open(lst, "w").write("".join(f"file '{c}'\n" for c in clips))
 subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", os.path.join(out, "ALL-MOVES-reel.mp4")], check=True)
