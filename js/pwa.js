@@ -95,7 +95,7 @@ function _toast(text, actionLabel, actionFn) {
   el.id = "ph3d-pwa-toast";
   Object.assign(el.style, {
     position: "fixed", left: "50%",
-    bottom: "calc(env(safe-area-inset-bottom, 0px) + 100px)",
+    top: "calc(env(safe-area-inset-top, 0px) + 10px)",   /* top-centre lane: the bottom was on top of the action buttons */
     transform: "translateX(-50%)", zIndex: "9997",
     padding: "10px 16px", borderRadius: "14px",
     background: "rgba(10,16,13,.94)", border: "1px solid rgba(94,224,255,.45)",

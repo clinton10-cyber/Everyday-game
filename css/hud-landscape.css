@@ -86,6 +86,12 @@
     padding:0 8px!important;font-size:11.5px!important;border-radius:10px!important;
     white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;text-align:left}
   .h-ctx.h-lead::before{margin-right:.4em!important}
+  /* hud.css (older rule) turns the stack into a 2-column grid of full-width chips (~214px each = 434px wide), which reaches the screen
+     centre and covers the player. Keep it a compact grid of fixed-width chips on the right lane instead. */
+  #hud-ctx{display:grid!important;grid-template-columns:repeat(var(--ctx-cols),var(--chip-w))!important;justify-content:end!important;
+    align-content:end!important;width:auto!important;gap:6px!important}
+  #hud-ctx .h-ctx,#hud-ctx .h-combat-util{width:var(--chip-w)!important;height:var(--chip-h)!important;min-height:0!important;
+    line-height:var(--chip-h)!important;padding:0 8px!important;font-size:11px!important}
 
   /* ── RIGHT LANE · bottom: jump + dock, same spots every scene ── */
   #hud-pad{width:var(--row-h)!important;height:var(--row-h)!important;right:var(--h-right)!important;bottom:var(--h-bottom)!important}
@@ -120,7 +126,8 @@
 }
 
 /* wider phones / tablets: a 4-wide chip block keeps it shorter */
-@media (orientation:landscape) and (min-width:800px){ :root{--ctx-cols:4} }
+/* (was 4 columns on >=800px wide screens: that block reached the screen centre and covered the player) */
+@media (orientation:landscape) and (min-width:800px){ :root{--ctx-cols:3} }
 
 /* very short landscape screens (small phones): slightly smaller chips, same lanes */
 @media (orientation:landscape) and (max-height:380px){
@@ -201,9 +208,9 @@
    combat chips shrink to a slim 2x2 block above the thumb buttons, and the torch / talk
    buttons get their own slots under the wallet instead of sitting on the chips. */
 @media (orientation:landscape){
-  #ph3d-torch-btn{top:calc(env(safe-area-inset-top,0px) + 84px)!important;right:var(--h-right)!important;padding:0 10px!important;height:28px!important;
+  #ph3d-torch-btn{top:calc(env(safe-area-inset-top,0px) + 104px)!important;right:var(--h-right)!important;padding:0 10px!important;height:28px!important;
     border-radius:10px!important;font-size:10px!important;z-index:31}
-  #ph3d-npc-actions{top:calc(env(safe-area-inset-top,0px) + 46px)!important;right:var(--h-right)!important;max-width:min(40vw,300px)!important}
+  #ph3d-npc-actions{top:calc(env(safe-area-inset-top,0px) + 46px)!important;right:var(--h-right)!important;max-width:min(50vw,340px)!important}
   body.gun-out #hud-ctx{display:grid!important;grid-template-columns:repeat(2,96px)!important;width:auto!important;gap:5px!important;
     bottom:calc(var(--h-bottom) + var(--row-h) + 14px)!important;right:var(--h-right)!important}
   body.gun-out #hud-ctx .h-ctx:not(.h-combat-util):not(#ph3d-crouch-btn):not(#ph3d-act-btn):not(.is-live){display:none!important}
