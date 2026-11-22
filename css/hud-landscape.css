@@ -34,7 +34,7 @@
     --joy:150px;
     --ctx-cols:3;
     --lane-l:calc(var(--h-left) + var(--joy) + 10px);          /* centre lane starts after the joystick */
-    --stack-bottom:calc(var(--h-bottom) + var(--row-h) + 10px);
+    --stack-bottom:calc(var(--h-bottom) + var(--row-h) + 20px);   /* +10 more: keeps the 3rd chip row clear of the FIGHT button */
     --dk-gap:calc(var(--h-bottom) + 4px);
   }
 
@@ -92,6 +92,12 @@
     align-content:end!important;width:auto!important;gap:6px!important}
   #hud-ctx .h-ctx,#hud-ctx .h-combat-util{width:var(--chip-w)!important;height:var(--chip-h)!important;min-height:0!important;
     line-height:var(--chip-h)!important;padding:0 8px!important;font-size:11px!important}
+
+  /* ── CENTRE LANE · pickup prompt: sits between the joystick and the chip block, never over the chips ── */
+  #ph3d-pickup-prompt{left:var(--lane-l)!important;right:calc(var(--h-right) + var(--chip-w)*var(--ctx-cols) + (var(--ctx-cols) - 1)*6px + 14px)!important;
+    transform:none!important;width:auto!important;max-width:none!important;bottom:calc(var(--h-bottom) + 70px)!important;
+    padding:7px 12px!important;border-radius:16px!important;box-sizing:border-box!important;white-space:normal!important;line-height:1.25!important}
+  #ph3d-pickup-prompt span{display:block}
 
   /* ── RIGHT LANE · bottom: jump + dock, same spots every scene ── */
   #hud-pad{width:var(--row-h)!important;height:var(--row-h)!important;right:var(--h-right)!important;bottom:var(--h-bottom)!important}

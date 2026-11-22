@@ -909,7 +909,9 @@ function renderPanel() {
     ${order.length > 1 ? `<div class="tabs">${order.map((t) => `<button data-tab="${t}" class="${t === panelTab ? "on" : ""}">${TABS[t]}</button>`).join("")}</div>` : ""}
     <div class="bd">${note ? `<div class="note">${note}</div>` : ""}<div class="g">${items.filter((x) => x.tab === panelTab).map(cell).join("")}</div></div>
     <div id="lv-say">${_lastSay || ""}</div>`;
-  panelEl.classList.add("on");
+  /* renderPanel only REFRESHES the panel's contents. It used to also switch the panel on, so every chat action
+     (Chat, Joke, Flirt, Ask out...) that finished with renderPanel() popped the relationships panel over the
+     WhatsApp chat. openPanel() is the only thing that shows it. */
   panelEl.querySelectorAll("button").forEach((b) => {
     if (b.dataset.tab) b.onclick = () => { panelTab = b.dataset.tab; renderPanel(); };
     else b.onclick = () => act(b.dataset.a);

@@ -48,6 +48,58 @@ function _handling(mesh) {
   } catch (e) {}
   return { hands: 1, move: 1 };
 }
+/* ── IN-HAND PRESENTATION (per item) ──────────────────────────
+   How each prop is actually carried, measured in the lab (tools/carry-lab.html):
+     grip  : point on the model (model units, before scale) that sits in the palm
+             -- a bat is held by its handle, a bag by its strap, a bottle by its body
+     rot   : extra Euler tilt applied to the prop, relative to "upright in the avatar frame"
+             (+x tips the top forward, +y turns it, +z rolls it)
+     scale : in-hand size (some ground props are drawn oversized so they read from a distance)
+     pose  : arm posture: "raised" forearm forward (drink/eat/phone), "hang" arm down at the side
+             (bag, dumbbell, book), "chest" hand up near the chest (phone)
+   Orientation is kept relative to the AVATAR, not the hand, so a bottle stays upright whatever the
+   arm is doing. Unknown types fall back to "centre of the model, upright, raised". */
+const HOLD = {
+  food:       { pose: "raised", scale: 0.6,  grip: [0, 0.12, 0], rot: [-0.30, 0, 0] },
+  junkfood:   { pose: "raised", scale: 0.6,  grip: [0, 0.12, 0], rot: [-0.30, 0, 0] },
+  water:      { pose: "raised", grip: [0, 0.14, 0], rot: [0.12, 0, 0] },
+  bottle:     { pose: "raised", grip: [0, 0.14, 0], rot: [0.12, 0, 0] },
+  money:      { pose: "raised", grip: [0, 0.006, 0], rot: [-1.15, 0, 0] },
+  phone:      { pose: "chest",  grip: [0, 0.10, 0], rot: [-0.25, Math.PI, 0] },
+  cigarettes: { pose: "raised", grip: [0, 0.026, 0], rot: [-Math.PI / 2 + 0.25, 0, 0] },
+  spray_can:  { pose: "raised", grip: [0, 0.12, 0], rot: [0.25, 0, 0] },
+  bat:        { pose: "raised", grip: [0, 0.10, 0], rot: [0.70, 0, 0] },
+  bag:        { pose: "hang",   grip: [0, 0.37, 0], rot: [0, 0, 0] },
+  dumbbell:   { pose: "hang",   grip: [0, 0.06, 0], rot: [0, Math.PI / 2, 0] },
+  book:       { pose: "hang",   grip: [-0.085, 0.02, 0], rot: [0, 0, -Math.PI / 2] },
+};
+const ARM_POSE = {            /* shoulder x/z, elbow x */
+  raised: { sx: -0.45, sz: -0.14, ex: -1.05 },
+  hang:   { sx: -0.10, sz: -0.10, ex: -0.30 },
+  chest:  { sx: -0.70, sz: -0.20, ex: -1.35 },
+};
+const _qA = new THREE.Quaternion(), _qB = new THREE.Quaternion(), _qSpec = new THREE.Quaternion(), _eul = new THREE.Euler(), _v = new THREE.Vector3();
+function _holdSpec(mesh) {
+  const t = mesh && mesh.userData && mesh.userData.itemType;
+  return (t && HOLD[t]) || null;
+}
+/* keep the held prop oriented/positioned from the CURRENT arm pose (called every frame while carried) */
+function _placeInHand(mesh, grip) {
+  const h = mesh.userData && mesh.userData._hold; if (!h || !grip) return;
+  let root = grip; while (root.parent && !root.parent.isScene) root = root.parent;
+  grip.updateWorldMatrix(true, false);
+  grip.getWorldQuaternion(_qA); root.getWorldQuaternion(_qB);
+  _eul.set(h.rot[0], h.rot[1], h.rot[2], "YXZ"); _qSpec.setFromEuler(_eul);
+  _qB.multiply(_qSpec);                              /* desired world orientation */
+  mesh.quaternion.copy(_qA.invert().multiply(_qB));  /* …expressed in the grip's frame */
+  _v.set(h.grip[0] * h.scale, h.grip[1] * h.scale, h.grip[2] * h.scale).applyQuaternion(mesh.quaternion);
+  mesh.position.set(0, -0.006, 0.012).sub(_v);       /* grip point lands in the palm */
+}
+function _restoreWorldScale(mesh) {
+  if (!mesh) return;
+  const u = mesh.userData || {}; if (u._origScale != null) mesh.scale.setScalar(u._origScale);
+  mesh.rotation.set(0, 0, 0); u._hold = null;
+}
 const _lerp = (a, b, k) => a + (b - a) * k;
 function _blendRot(joint, x, y, z, k) {
   if (!joint || !joint.rotation) return;
@@ -156,6 +208,7 @@ export const PlayerActions = {
     mesh.userData._hands = 1;
     this._held = null;
     if (walker) walker._carryMul = 1;
+    _restoreWorldScale(mesh);
     try {
       const W = window.__ph3d_world_objects;
       if (item && W) { W.drop(item, x, z, walker && Number.isFinite(walker.floorY) ? walker.floorY : 0); mesh.rotation.set(0, 0, 0); mesh.scale.setScalar(1); }
@@ -179,6 +232,7 @@ export const PlayerActions = {
     mesh.userData._inHand = false;
     try {
       const ok = W.throw(item, 0, 0, walker);
+      if (ok) _restoreWorldScale(mesh);
       if (!ok) return false;
       try { window.__ph3d_pocket?.remove?.(item.type, 1); } catch (e) {}
       try { window.__ph3d_phone?._toast("Threw " + (item.label || item.type)); } catch (e) {}
@@ -220,7 +274,7 @@ export const PlayerActions = {
          object's ground-origin. This keeps crates/baskets from hovering away. */
       const chest = walker.rig.spine;
       chest.add(mesh);
-      mesh.position.set(0, 0.31, 0.245).sub(scaledCenter);
+      mesh.position.set(0, 0.06, 0.27).sub(scaledCenter);   /* centre at belly/chest height, clear of the body (spine origin = waist, y 0.99) */
       mesh.userData._inHand = true;
       this._held = { mesh, walker };
       return;
@@ -229,10 +283,17 @@ export const PlayerActions = {
     const grip = walker.rig.armR.grip || walker.rig.armR.wrist;
     if (!grip) { walker._carryMul = 1; return; }
     grip.add(mesh);
-    /* The object centre intersects the palm slightly; fingers can close around
-       it without leaving a gap. Keep the original scale so dropped props do not
-       unexpectedly grow when picked up. */
-    mesh.position.set(0, -0.006, 0.012).sub(scaledCenter);
+    const spec = _holdSpec(mesh);
+    const sc = (spec && spec.scale) || 1;
+    if (mesh.userData._origScale == null) mesh.userData._origScale = mesh.scale.x;
+    mesh.scale.setScalar(mesh.userData._origScale * sc);
+    mesh.userData._hold = {
+      pose: (spec && spec.pose) || "raised", scale: mesh.scale.x,
+      rot: (spec && spec.rot) || [0, 0, 0],
+      /* no entry for this type: grip the model's visual centre (old behaviour) */
+      grip: (spec && spec.grip) || [scaledCenter.x / mesh.scale.x, scaledCenter.y / mesh.scale.x, scaledCenter.z / mesh.scale.x],
+    };
+    _placeInHand(mesh, grip);
     mesh.userData._inHand = true;
     this._held = { mesh, walker };
   },
@@ -244,6 +305,7 @@ export const PlayerActions = {
     mesh.userData._hands = 1;
     if (walker) walker._carryMul = 1;
     if (mesh.parent) mesh.parent.remove(mesh);
+    _restoreWorldScale(mesh);
     if (walker && walker.scene) walker.scene.add(mesh);
     this._held = null;
   },
@@ -313,14 +375,15 @@ export const PlayerActions = {
     const k = this._carryBlend, R = walker.rig;
     if (held && held.mesh.userData._hands === 2) {
       /* both arms wrap round the load, back leans against its weight */
-      if (R.armL) { _blendRot(R.armL.shoulder, -1.05, 0.30, 0.22, k); _blendRot(R.armL.elbow, -1.20, 0, 0, k); }
-      if (R.armR) { _blendRot(R.armR.shoulder, -1.05, -0.30, -0.22, k); _blendRot(R.armR.elbow, -1.20, 0, 0, k); }
+      if (R.armL) { _blendRot(R.armL.shoulder, -0.70, 0.0, 0.0, k); _blendRot(R.armL.elbow, -0.80, 0, 0, k); }
+      if (R.armR) { _blendRot(R.armR.shoulder, -0.70, 0.0, 0.0, k); _blendRot(R.armR.elbow, -0.80, 0, 0, k); }
       if (R.spine) _blendRot(R.spine, -0.10, R.spine.rotation.y, R.spine.rotation.z, k);
       if (R.head) _blendRot(R.head, 0.08, R.head.rotation.y, R.head.rotation.z, k);
     } else if (R.armR) {
-      /* one hand: forearm raised, load held at the side-front; left arm keeps swinging */
-      _blendRot(R.armR.shoulder, -0.45, 0, -0.14, k);
-      _blendRot(R.armR.elbow, -1.05, 0, 0, k);
+      /* one hand: arm posture follows the item (raised / hang / chest); left arm keeps swinging */
+      const ap = ARM_POSE[(held && held.mesh.userData._hold && held.mesh.userData._hold.pose) || "raised"] || ARM_POSE.raised;
+      _blendRot(R.armR.shoulder, ap.sx, 0, ap.sz, k);
+      _blendRot(R.armR.elbow, ap.ex, 0, 0, k);
     }
 
     /* Close fingers around the held prop. The old carry pose raised the arm
@@ -343,6 +406,7 @@ export const PlayerActions = {
       curlHand(R.armR, 0);
       curlHand(R.armL, 0);
     }
+    if (held && held.mesh.userData._hands !== 2 && R.armR) _placeInHand(held.mesh, R.armR.grip || R.armR.wrist);
   },
 };
 

@@ -1,0 +1,51 @@
+<!doctype html><meta charset="utf-8"><title>Carry lab</title>
+<script async src="../vendor/es-module-shims.js"></script>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.min.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{margin:0;background:#9aa4b2}canvas{display:block}</style>
+<canvas id="c"></canvas>
+<script type="module">
+/* tools/carry-lab.html -- renders every carryable object held by the real avatar rig, front and side,
+   using the game's own PlayerActions.hold()/tick(). No game scene needed, so it is fast and deterministic.
+   Open  tools/carry-lab.html?types=bat,bag  (default: all). window.__done is set when finished. */
+import * as THREE from "three";
+import { buildCharacter } from "../js/characters/lowpoly.js";
+import { PlayerActions } from "../js/core/player-actions.js";
+import { WorldObjects } from "../js/core/world-objects.js";
+const q = new URLSearchParams(location.search);
+const ALL = ["food","junkfood","water","money","phone","bag","bat","bottle","book","cigarettes","dumbbell","crate","spray_can"];
+const types = (q.get("types") ? q.get("types").split(",") : ALL);
+const CW = 300, COLS = 6, rows = Math.ceil(types.length * 2 / COLS);
+const cv = document.getElementById("c"); cv.width = CW * COLS; cv.height = CW * rows;
+const R = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+R.setPixelRatio(1); R.setSize(cv.width, cv.height, false); R.setScissorTest(true); R.setClearColor(0x9aa4b2);
+const views = [
+  { name: "front", pos: [-1.0, 1.25, 1.6], look: [-0.15, 0.95, 0.1] },
+  { name: "side",  pos: [-2.0, 1.15, 0.15],  look: [0.0, 0.95, 0.15] },
+];
+types.forEach((t, i) => {
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 1.6));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.4); dl.position.set(2, 4, 3); scene.add(dl);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshLambertMaterial({ color: 0x6f7a66 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+  const built = buildCharacter(null); scene.add(built.root);
+  const walker = { rig: built.rig, scene, pos: new THREE.Vector3(), x: 0, z: 0, yaw: 0, _carryMul: 1 };
+  PlayerActions._held = null; PlayerActions._active = null; PlayerActions._carryBlend = 0;
+  const m = WorldObjects.buildMesh(t, 0, 0); m.userData.itemType = t; scene.add(m);
+  { const bb = new THREE.Box3().setFromObject(m); (window.__bb = window.__bb || {})[t] = { min: bb.min.toArray().map(n => +n.toFixed(2)), max: bb.max.toArray().map(n => +n.toFixed(2)) }; }
+  PlayerActions.hold(walker, m);
+  for (let k = 0; k < 60; k++) { built.root.updateMatrixWorld(true); PlayerActions.tick(walker, 0.05, null); }
+  built.root.updateMatrixWorld(true); scene.updateMatrixWorld(true);
+  { const g = built.rig.armR.grip || built.rig.armR.wrist; const e = g.matrixWorld.elements;
+    (window.__axes = window.__axes || {})[t] = { X: [e[0], e[1], e[2]].map(n => +n.toFixed(2)), Y: [e[4], e[5], e[6]].map(n => +n.toFixed(2)), Z: [e[8], e[9], e[10]].map(n => +n.toFixed(2)), pos: [e[12], e[13], e[14]].map(n => +n.toFixed(2)), hasGrip: !!built.rig.armR.grip }; }
+  if (t === "crate") { const w = (o) => { const v = new THREE.Vector3(); o && o.getWorldPosition(v); return v.toArray().map(n => +n.toFixed(2)); }; const r = built.rig;
+    window.__crateDbg = { spine: w(r.spine), hips: w(r.hips), head: w(r.head), shL: w(r.armL.shoulder), shR: w(r.armR.shoulder), elL: w(r.armL.elbow), gripL: w(r.armL.grip || r.armL.wrist), crate: w(m) }; }
+  views.forEach((v, j) => {
+    const cell = i * 2 + j, cx = (cell % COLS) * CW, cy = (rows - 1 - Math.floor(cell / COLS)) * CW;
+    const cam = new THREE.PerspectiveCamera(38, 1, 0.05, 20); cam.position.set(...v.pos); cam.lookAt(...v.look);
+    R.setViewport(cx, cy, CW, CW); R.setScissor(cx, cy, CW, CW); R.render(scene, cam);
+  });
+});
+const ov = document.createElement("div"); ov.style.cssText = "position:fixed;left:0;top:0;font:12px monospace;color:#ff0";
+types.forEach((t, i) => views.forEach((v, j) => { const cell = i * 2 + j; const d = document.createElement("div"); d.textContent = t + " / " + v.name; d.style.cssText = `position:fixed;left:${(cell % COLS) * CW + 4}px;top:${Math.floor(cell / COLS) * CW + 4}px;font:12px monospace;color:#ff0;background:#0008;padding:1px 4px`; document.body.appendChild(d); }));
+window.__done = true;
+</script>

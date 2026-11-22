@@ -1635,6 +1635,7 @@ _updateCamera(dt, snap) {
     this._jumpBtn && this._jumpBtn.parentNode && this._jumpBtn.parentNode.removeChild(this._jumpBtn);
     this._runBtn && this._runBtn.parentNode && this._runBtn.parentNode.removeChild(this._runBtn);
     this._menuBtn && this._menuBtn.parentNode && this._menuBtn.parentNode.removeChild(this._menuBtn);
+    this._flyBtn && this._flyBtn.parentNode && this._flyBtn.parentNode.removeChild(this._flyBtn);   /* was leaking into the next scene -> duplicate Jetpack/Wings chip */
     this._crouchBtn && this._crouchBtn.parentNode && this._crouchBtn.parentNode.removeChild(this._crouchBtn);
     this._lieBtn && this._lieBtn.parentNode && this._lieBtn.parentNode.removeChild(this._lieBtn);
     this._viewBtn && this._viewBtn.parentNode && this._viewBtn.parentNode.removeChild(this._viewBtn);

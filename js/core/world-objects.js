@@ -212,8 +212,8 @@ function _buildCrate(pos) {
   g.add(Object.assign(M(G(0.36,0.28,0.36),0xaa8855), {}).translateY(0.14));
   // slats
   for(let i=-1;i<=1;i++) {
-    g.add(Object.assign(M(G(0.38,0.02,0.02),0x8a6633), {}).translateY(0.06+i*0.1).translateZ(0.18));
-    g.add(Object.assign(M(G(0.38,0.02,0.02),0x8a6633), {}).translateY(0.06+i*0.1).translateZ(-0.18));
+    g.add(Object.assign(M(G(0.38,0.02,0.02),0x8a6633), {}).translateY(0.14+i*0.09).translateZ(0.18));
+    g.add(Object.assign(M(G(0.38,0.02,0.02),0x8a6633), {}).translateY(0.14+i*0.09).translateZ(-0.18));
   }
   return g;
 }
@@ -580,7 +580,10 @@ function _showPickupPrompt(item) {
     });
     document.body.appendChild(_promptEl);
   }
-  _promptEl.innerHTML = `${item.icon} <b>${item.label}</b><br><span style="font-weight:400;opacity:.7;font-size:10px">[E] Pick up &nbsp;·&nbsp; ${item.use}</span>`;
+  /* touch screens have no E key: point at the PICK UP chip instead of showing a key hint */
+  let _pickHint = "[E] Pick up";
+  try { if (window.matchMedia("(pointer:coarse)").matches) _pickHint = "Tap PICK UP"; } catch (e) {}
+  _promptEl.innerHTML = `${item.icon} <b>${item.label}</b><br><span style="font-weight:400;opacity:.7;font-size:10px">${_pickHint} &nbsp;·&nbsp; ${item.use}</span>`;
   _promptEl.style.opacity = "1";
   _promptEl.style.display = "block";
   // Register the nearby item globally so the walk controls can trigger pickup on E
