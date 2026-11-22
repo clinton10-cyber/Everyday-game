@@ -270,12 +270,33 @@ export async function buildPleasurePark(router) {
   outdoorSphere(-82,1.0,12,2.0,0.8,2.0,outdoor.turf2);
   for(let i=0;i<12;i++){const a=i/12*Math.PI*2;outdoorBox(-82+Math.cos(a)*21,0.16,12+Math.sin(a)*21,2.2,0.22,1.1,MAT.marbleDark,a);}
 
+  // Axis-aligned solid: player collision (unrotated group) + camera/NPC occluder when tall.
+  const solidBox = (x, z, hw, hd, h) => {
+    const g = mkGroup(x, z); g.rotation.y = 0; addCollider(g, 0, 0, hw, hd);
+    if (h > 2.0) world.colliders.push({ minX: x - hw, maxX: x + hw, minZ: z - hd, maxZ: z + hd, y0: 0, y1: h, level: 0 });
+    return g;
+  };
+  // Keep-out rectangles so scenery (trees, benches, flowers) never lands inside attractions.
+  const KEEP_OUT = [
+    { x: -82, z: 12, hw: 24, hd: 24 },                       // pond
+    { x: 0, z: -58, hw: 12, hd: 20 },                        // roof garden + ramp
+    { x: 68, z: -58, hw: 18, hd: 12 },                       // ferris wheel
+    { x: -67, z: -48, hw: 30, hd: 28 },                      // coaster track + station
+    { x: 66, z: 57, hw: 15, hd: 15 },                        // carousel
+    { x: -57, z: 63, hw: 32, hd: 20 },                       // splash park
+    { x: 0, z: -112, hw: 24, hd: 16 },                       // amphitheatre
+    { x: 0, z: 103, hw: 48, hd: 8 },                         // food kiosk row
+  ];
+  const keptOut = (x, z, pad = 0) => KEEP_OUT.some(k => Math.abs(x - k.x) < k.hw + pad && Math.abs(z - k.z) < k.hd + pad);
+
   // Ride state: when a player boards, controls pause and the camera rides the moving attraction.
   let rideState = null;
+  const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3();
   const finishRide = () => {
     if (!rideState) return;
     const exit = rideState.exit;
     rideState = null;
+    coaster.riding = false;
     if (ctrl && ctrl.avatar) ctrl.avatar.visible = true;
     if (ctrl) {
       ctrl.pos.set(exit.x, 0, exit.z); ctrl.floorY = 0; ctrl.vel.set(0,0,0);
@@ -287,98 +308,168 @@ export async function buildPleasurePark(router) {
   const startRide = (type, exit) => {
     if (rideState) return;
     if (ctrl && ctrl.avatar) ctrl.avatar.visible = false;
-    rideState = { type, started: performance.now(), duration: type === "ferris" ? 22000 : 16000, exit };
-    if (window.__ph3d_phone) window.__ph3d_phone._toast(type === "ferris" ? "Ferris wheel boarding! Enjoy the view." : "Roller coaster departing! Hold tight.");
+    const rs = { type, elapsed: 0, exit, duration: type === "ferris" ? 28 : 14, cabin: 0 };
+    if (type === "ferris") {
+      // Board the gondola that is currently lowest, like a real loading station.
+      let lowest = Infinity;
+      ferrisCabins.forEach((c, i) => {
+        const y = Math.sin(i / 12 * Math.PI * 2 + ferrisAngle);
+        if (y < lowest) { lowest = y; rs.cabin = i; }
+      });
+    } else if (type === "coaster") {
+      // Train restarts in the station and runs exactly one lap.
+      coaster.riding = true; coaster.t = coaster.gap * 2;
+    }
+    rideState = rs;
+    const msg = { ferris: "Ferris wheel boarding! Enjoy the view.", coaster: "Roller coaster departing! Hold tight.", carousel: "The carousel starts to turn!" };
+    if (window.__ph3d_phone) window.__ph3d_phone._toast(msg[type] || "Ride started.");
   };
 
-  // Properly braced Ferris wheel: rotating rim, paired spokes, cross braces and upright gondolas.
-  let ferrisWheel = null, ferrisCabins = [];
+  // Ferris wheel: braced A-frames either side of the wheel, rotating rim, spokes and upright gondolas.
+  const FERRIS = { x: 68, z: -58, cy: 24, r: 17 };
+  let ferrisWheel = null, ferrisCabins = [], ferrisAngle = 0;
   {
-    const x=68,z=-58,cy=22,r=17;
-    const support = new THREE.Group(); support.position.set(x,0,z); scene.add(support);
-    for (const sx of [-8,8]) {
-      const leg=outdoorBox(x+sx,10,z,1.15,20,1.5,outdoor.white); leg.rotation.z=sx>0?-0.31:0.31;
-      outdoorBox(x+sx*0.62,1.0,z,3.0,1.0,4.2,outdoor.dark);
-    }
-    // A-frame cross ties and rear stabilisers.
-    const brace1=outdoorBox(x,12,z-0.9,1.0,18,0.8,outdoor.steel); brace1.rotation.z=Math.PI/2;
-    outdoorBox(x,4,z-2.0,20,0.65,1.0,outdoor.steel);
-    ferrisWheel = new THREE.Group(); ferrisWheel.position.set(x,cy,z); scene.add(ferrisWheel);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(r,0.62,12,96),outdoor.steel); ferrisWheel.add(rim);
-    const innerRim = new THREE.Mesh(new THREE.TorusGeometry(r-1.1,0.2,8,96),outdoor.yellow); ferrisWheel.add(innerRim);
-    for(let i=0;i<16;i++){
-      const a=i/16*Math.PI*2;
-      const spoke=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.2,r-1,8),outdoor.white);
-      spoke.position.set(Math.cos(a)*(r-1)/2,Math.sin(a)*(r-1)/2,0); spoke.rotation.z=-a+Math.PI/2; ferrisWheel.add(spoke);
-      const tie=new THREE.Mesh(new THREE.BoxGeometry(0.18,2.0,0.22),outdoor.yellow);
-      tie.position.set(Math.cos(a)*(r-1),Math.sin(a)*(r-1),0); tie.rotation.z=a; ferrisWheel.add(tie);
-    }
-    const axle=new THREE.Mesh(new THREE.CylinderGeometry(1.45,1.45,3.2,24),outdoor.yellow); axle.rotation.x=Math.PI/2; ferrisWheel.add(axle);
-    const hubCap=new THREE.Mesh(new THREE.SphereGeometry(1.65,20,16),outdoor.red); hubCap.position.z=1.75; ferrisWheel.add(hubCap);
-    const cabinMats=[outdoor.red,outdoor.yellow,outdoor.blue,outdoor.pink,outdoor.purple,outdoor.white];
-    for(let i=0;i<12;i++){
-      const a=i/12*Math.PI*2, px=Math.cos(a)*r, py=Math.sin(a)*r;
-      const pivot=new THREE.Group(); pivot.position.set(px,py,0); ferrisWheel.add(pivot);
-      const cabin=new THREE.Group(); cabin.position.y=-1.35; pivot.add(cabin);
-      const shell=new THREE.Mesh(new THREE.BoxGeometry(2.3,1.9,2.4),cabinMats[i%cabinMats.length]); shell.position.y=0.95; cabin.add(shell);
-      const floor=new THREE.Mesh(new THREE.BoxGeometry(2.45,0.2,2.5),outdoor.dark); floor.position.y=0.05; cabin.add(floor);
-      const roof=new THREE.Mesh(new THREE.BoxGeometry(2.55,0.22,2.6),outdoor.white); roof.position.y=2.0; cabin.add(roof);
-      for(const side of [-1,1]){
-        const rail=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.85,2.25),outdoor.yellow); rail.position.set(side*1.12,1.05,0); cabin.add(rail);
+    const { x, z, cy, r } = FERRIS;
+    const base = 10, topInset = 0.6;
+    const legH = Math.hypot(base - topInset, cy), legAng = Math.atan2(base - topInset, cy);
+    for (const sz of [-2.4, 2.4]) {
+      for (const s of [-1, 1]) {
+        const leg = outdoorBox(x + s * (base + topInset) / 2, cy / 2, z + sz, 1.15, legH, 1.5, outdoor.white);
+        leg.rotation.z = s * legAng;   // leans inward so both legs meet at the hub
+        outdoorBox(x + s * base, 0.9, z + sz, 3.0, 1.2, 2.2, outdoor.dark);
       }
-      for(const zz of [-0.72,0.72]){
-        const seat=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.18,0.5),outdoor.dark); seat.position.set(0,0.72,zz); cabin.add(seat);
+      for (const h of [5, 12, 18]) {
+        const w = 2 * (base - (base - topInset) * h / cy);
+        outdoorBox(x, h, z + sz, w, 0.5, 0.7, outdoor.steel);
       }
-      const hanger=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,1.2,8),outdoor.steel); hanger.position.y=1.8; pivot.add(hanger);
-      ferrisCabins.push({pivot,cabin});
     }
-    outdoorBox(x,1.0,z,26,1.0,12,outdoor.dark);
-    outdoorBox(x,1.65,z+6.2,18,0.3,4.0,outdoor.yellow);
-    for(let i=0;i<6;i++) outdoorBox(x-7.5+i*3,z*0+2.0,z+8.5,0.22,2.0,0.22,outdoor.steel);
-    flatPath(x,z+17,30,6);
-    world.uses.push({x:x,z:z+12,y:0,level:0,r:8,label:"BOARD FERRIS WHEEL",onUse:()=>startRide("ferris",{x:x+15,z:z+13})});
+    ferrisWheel = new THREE.Group(); ferrisWheel.position.set(x, cy, z); scene.add(ferrisWheel);
+    ferrisWheel.add(new THREE.Mesh(new THREE.TorusGeometry(r, 0.62, 12, 96), outdoor.steel));
+    ferrisWheel.add(new THREE.Mesh(new THREE.TorusGeometry(r - 1.1, 0.2, 8, 96), outdoor.yellow));
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * Math.PI * 2;
+      const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.2, r - 1, 8), outdoor.white);
+      spoke.position.set(Math.cos(a) * (r - 1) / 2, Math.sin(a) * (r - 1) / 2, 0);
+      spoke.rotation.z = a - Math.PI / 2;   // cylinder Y axis -> radial direction
+      ferrisWheel.add(spoke);
+      const tie = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.0, 0.22), outdoor.yellow);
+      tie.position.set(Math.cos(a) * (r - 1), Math.sin(a) * (r - 1), 0); tie.rotation.z = a; ferrisWheel.add(tie);
+    }
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 6.4, 24), outdoor.yellow); axle.rotation.x = Math.PI / 2; ferrisWheel.add(axle);
+    for (const side of [-1, 1]) {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 12), outdoor.red); cap.position.z = side * 3.5; ferrisWheel.add(cap);
+    }
+    const cabinMats = [outdoor.red, outdoor.yellow, outdoor.blue, outdoor.pink, outdoor.purple, outdoor.white];
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * Math.PI * 2, px = Math.cos(a) * r, py = Math.sin(a) * r;
+      const pivot = new THREE.Group(); pivot.position.set(px, py, 0); ferrisWheel.add(pivot);
+      const cabin = new THREE.Group(); cabin.position.y = -3.0; pivot.add(cabin);   // hangs below the rim
+      const shell = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.9, 2.4), cabinMats[i % cabinMats.length]); shell.position.y = 0.95; cabin.add(shell);
+      const floor = new THREE.Mesh(new THREE.BoxGeometry(2.45, 0.2, 2.5), outdoor.dark); floor.position.y = 0.05; cabin.add(floor);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.22, 2.6), outdoor.white); roof.position.y = 2.0; cabin.add(roof);
+      for (const side of [-1, 1]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.85, 2.25), outdoor.yellow); rail.position.set(side * 1.12, 1.05, 0); cabin.add(rail);
+      }
+      for (const zz of [-0.72, 0.72]) {
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.18, 0.5), outdoor.dark); seat.position.set(0, 0.72, zz); cabin.add(seat);
+      }
+      const hanger = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.95, 8), outdoor.steel); hanger.position.y = -0.5; pivot.add(hanger);
+      ferrisCabins.push({ pivot, cabin });
+    }
+    // Boarding platform (sits on the ground), steps and queue rail.
+    outdoorBox(x, 0.75, z, 26, 1.5, 12, outdoor.dark);
+    outdoorBox(x, 0.25, z + 7.3, 18, 0.5, 2.6, outdoor.yellow);
+    outdoorBox(x, 0.5, z + 6.65, 18, 1.0, 1.3, outdoor.yellow);
+    for (let i = 0; i < 6; i++) outdoorBox(x - 7.5 + i * 3, 1.0, z + 9.2, 0.22, 2.0, 0.22, outdoor.steel);
+    outdoorBox(x, 1.9, z + 9.2, 15.5, 0.12, 0.12, outdoor.steel);
+    solidBox(x, z + 1.3, 13, 7.3, 1.6);
+    flatPath(x, z + 17, 30, 6);
+    world.uses.push({ x: x, z: z + 12, y: 0, level: 0, r: 8, label: "BOARD FERRIS WHEEL", onUse: () => startRide("ferris", { x: x + 15, z: z + 13 }) });
   }
 
-  // Roller coaster: twin steel rails, cross sleepers, dense supports and a moving train.
-  let coasterCurve = null, coasterTrain = null;
+  // Roller coaster: twin steel rails, cross sleepers, supports and a three-car train that follows the track.
+  let coasterCurve = null;
+  const coaster = { cars: [], t: 0, riding: false, len: 1, gap: 0.01, lift: 0.3, maxY: 23 };
   {
-    const pts=[new THREE.Vector3(-88,8,-60),new THREE.Vector3(-76,18,-72),new THREE.Vector3(-55,23,-66),new THREE.Vector3(-42,8,-50),new THREE.Vector3(-56,5,-32),new THREE.Vector3(-78,12,-25),new THREE.Vector3(-92,5,-42),new THREE.Vector3(-88,8,-60)];
-    coasterCurve=new THREE.CatmullRomCurve3(pts,true,"catmullrom",0.25);
-    const railOffset=0.95;
-    for(const side of [-1,1]){
-      const railPts=coasterCurve.getPoints(180).map((p,i,arr)=>{const tangent=coasterCurve.getTangent(i/180);const sideVec=new THREE.Vector3(-tangent.z,0,tangent.x).normalize();return p.addScaledVector(sideVec,side*railOffset);});
-      scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(railPts),220,0.22,8,true),side<0?outdoor.red:outdoor.yellow));
-    }
-    for(let i=0;i<100;i++){
-      const t=i/100,p=coasterCurve.getPoint(t),tan=coasterCurve.getTangent(t),cross=new THREE.Vector3(-tan.z,0,tan.x).normalize();
-      const sleeper=outdoorBox(p.x,p.y-0.38,p.z,2.8,0.22,0.42,outdoor.dark,Math.atan2(cross.x,cross.z));
-      if(i%3===0){outdoorCyl(p.x,p.y/2,p.z,0.18,0.22,p.y,outdoor.steel,8);}
-    }
-    outdoorBox(-88,1.3,-60,18,2.6,14,outdoor.blue);
-    outdoorBox(-88,2.8,-60,20,0.35,16,outdoor.yellow);
-    // Multi-car train with visible seats and safety bars.
-    coasterTrain=new THREE.Group(); scene.add(coasterTrain);
-    for(let car=0;car<3;car++){
-      const unit=new THREE.Group(); unit.position.z=car*2.8; coasterTrain.add(unit);
-      const body=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.75,2.65),[outdoor.red,outdoor.red,outdoor.yellow,outdoor.yellow,outdoor.red,outdoor.red]); body.position.y=0.65; unit.add(body);
-      for(let seat=0;seat<2;seat++){
-        const s=new THREE.Mesh(new THREE.BoxGeometry(0.78,0.45,0.75),outdoor.dark); s.position.set(seat?0.5:-0.5,1.15,0); unit.add(s);
-        const bar=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.12,0.18),outdoor.steel); bar.position.set(seat?0.5:-0.5,1.55,0.1); unit.add(bar);
+    const pts = [new THREE.Vector3(-88,3.6,-60), new THREE.Vector3(-76,18,-72), new THREE.Vector3(-55,23,-66), new THREE.Vector3(-42,8,-50), new THREE.Vector3(-56,5,-32), new THREE.Vector3(-78,12,-25), new THREE.Vector3(-92,5,-42)];
+    coasterCurve = new THREE.CatmullRomCurve3(pts, true, "catmullrom", 0.25);
+    coaster.len = coasterCurve.getLength();
+    coaster.gap = 3.1 / coaster.len;
+    let peakY = -1;
+    for (let i = 0; i < 400; i++) { const p = coasterCurve.getPointAt(i / 400); if (p.y > peakY) { peakY = p.y; coaster.lift = i / 400; coaster.maxY = p.y; } }
+    const railOffset = 0.95, N = 180;
+    for (const side of [-1, 1]) {
+      const railPts = [];
+      for (let i = 0; i < N; i++) {
+        const u = i / N, p = coasterCurve.getPointAt(u), tg = coasterCurve.getTangentAt(u);
+        const sideVec = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+        railPts.push(p.addScaledVector(sideVec, side * railOffset));
       }
-      for(const side of [-1,1]) for(const zz of [-0.8,0.8]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.18,10),outdoor.dark);wheel.rotation.z=Math.PI/2;wheel.position.set(side*1.05,0.35,zz);unit.add(wheel);}
+      scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(railPts, true), 240, 0.22, 8, true), side < 0 ? outdoor.red : outdoor.yellow));
     }
-    const q=mkGroup(-88,-60);addCollider(q,0,0,10,8);
-    world.uses.push({x:-88,z:-48,y:0,level:0,r:9,label:"BOARD ROLLER COASTER",onUse:()=>startRide("coaster",{x:-72,z:-48})});
+    // One collider group covers the station and every support column.
+    const cg = mkGroup(-67, -48); cg.rotation.y = 0;
+    for (let i = 0; i < 100; i++) {
+      const u = i / 100, p = coasterCurve.getPointAt(u), tg = coasterCurve.getTangentAt(u), cross = new THREE.Vector3(-tg.z, 0, tg.x).normalize();
+      outdoorBox(p.x, p.y - 0.38, p.z, 2.8, 0.22, 0.42, outdoor.dark, Math.atan2(-cross.z, cross.x));   // sleepers lie across the rails
+      if (i % 3 === 0 && p.y > 1) { outdoorCyl(p.x, p.y / 2, p.z, 0.18, 0.22, p.y, outdoor.steel, 8); addCollider(cg, p.x + 67, p.z + 48, 0.3, 0.3); }
+    }
+    outdoorBox(-88, 1.3, -60, 18, 2.6, 14, outdoor.blue);
+    outdoorBox(-88, 2.8, -60, 20, 0.35, 16, outdoor.yellow);
+    addCollider(cg, -88 + 67, -60 + 48, 9.3, 7.3);
+    world.colliders.push({ minX: -97.3, maxX: -78.7, minZ: -67.3, maxZ: -52.7, y0: 0, y1: 3, level: 0 });
+    // Three separate cars so each one follows the curve instead of a rigid train cutting corners.
+    for (let car = 0; car < 3; car++) {
+      const unit = new THREE.Group(); scene.add(unit); coaster.cars.push(unit);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.75, 2.65), [outdoor.red, outdoor.red, outdoor.yellow, outdoor.yellow, outdoor.red, outdoor.red]); body.position.y = 0.65; unit.add(body);
+      for (let seat = 0; seat < 2; seat++) {
+        const s = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.45, 0.75), outdoor.dark); s.position.set(seat ? 0.5 : -0.5, 1.15, 0); unit.add(s);
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 0.18), outdoor.steel); bar.position.set(seat ? 0.5 : -0.5, 1.55, 0.1); unit.add(bar);
+      }
+      for (const side of [-1, 1]) for (const zz of [-0.8, 0.8]) { const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.18, 10), outdoor.dark); wheel.rotation.z = Math.PI / 2; wheel.position.set(side * 1.05, 0.35, zz); unit.add(wheel); }
+    }
+    world.uses.push({ x: -88, z: -48, y: 0, level: 0, r: 9, label: "BOARD ROLLER COASTER", onUse: () => startRide("coaster", { x: -72, z: -48 }) });
   }
+  const placeCoaster = () => {
+    if (!coasterCurve) return;
+    coaster.cars.forEach((car, i) => {
+      const u = (((coaster.t - i * coaster.gap) % 1) + 1) % 1;
+      const p = coasterCurve.getPointAt(u), tg = coasterCurve.getTangentAt(u);
+      car.position.set(p.x, p.y + 0.5, p.z);
+      car.lookAt(p.x + tg.x, p.y + 0.5 + tg.y, p.z + tg.z);
+    });
+  };
+  const advanceCoaster = (dt) => {
+    const u = ((coaster.t % 1) + 1) % 1;
+    const y = coasterCurve.getPointAt(u).y;
+    // Slow chain lift to the first peak, then speed follows height (energy), like a real coaster.
+    const lifting = coaster.riding ? coaster.t < coaster.lift + coaster.gap * 2 : u < coaster.lift;
+    const v = lifting ? 6.5 : Math.sqrt(36 + 10 * Math.max(0, coaster.maxY - y));
+    coaster.t += dt * v / coaster.len;
+    if (!coaster.riding) coaster.t %= 1;
+  };
 
-  // Outdoor carousel with striped canopy and horses.
+  // Outdoor carousel: the canopy and horses spin and bob; riders board a horse.
+  const carousel = { rot: null, horses: [], ang: 0 };
   {
-    const x=66,z=57;outdoorCyl(x,0.7,z,10,10,1.2,outdoor.yellow,32);
-    outdoorCyl(x,6.4,z,0.55,0.55,11,outdoor.steel,16);
-    const canopy=new THREE.Mesh(new THREE.ConeGeometry(12,5,12),outdoor.pink);canopy.position.set(x,10,z);scene.add(canopy);
-    outdoorCyl(x,7.7,z,11.7,11.7,0.5,outdoor.white,32);
-    for(let i=0;i<10;i++){const a=i/10*Math.PI*2;const px=x+Math.cos(a)*7.3,pz=z+Math.sin(a)*7.3;outdoorCyl(px,4.4,pz,0.12,0.12,5.5,outdoor.yellow,8);outdoorSphere(px,2.1,pz,0.85,1.2,0.38,[outdoor.white,outdoor.blue,outdoor.red][i%3]);}
-    const q=mkGroup(x,z);addCollider(q,0,0,10,10);addUse(q,0,13,7,"CAROUSEL","You took a ride on the carousel.");
+    const x = 66, z = 57;
+    outdoorCyl(x, 0.7, z, 10, 10, 1.2, outdoor.yellow, 32);
+    const rot = new THREE.Group(); rot.position.set(x, 0, z); scene.add(rot); carousel.rot = rot;
+    rot.add(outdoorCyl(0, 6.4, 0, 0.55, 0.55, 11, outdoor.steel, 16));
+    const canopy = new THREE.Mesh(new THREE.ConeGeometry(12, 5, 12), outdoor.pink); canopy.position.set(0, 10, 0); rot.add(canopy);
+    rot.add(outdoorCyl(0, 7.7, 0, 11.7, 11.7, 0.5, outdoor.white, 32));
+    const horseMats = [outdoor.white, outdoor.blue, outdoor.red];
+    for (let i = 0; i < 10; i++) {
+      const a = i / 10 * Math.PI * 2, px = Math.cos(a) * 7.3, pz = Math.sin(a) * 7.3, hm = horseMats[i % 3];
+      rot.add(outdoorCyl(px, 4.4, pz, 0.12, 0.12, 5.5, outdoor.yellow, 8));
+      const holder = new THREE.Group(); holder.position.set(px, 2.1, pz); rot.add(holder);
+      const body = outdoorSphere(0, 0, 0, 0.85, 1.2, 0.38, hm); body.rotation.y = -a - Math.PI / 2; holder.add(body);
+      const head = outdoorSphere(Math.sin(a) * 0.75, 0.6, -Math.cos(a) * 0.75, 0.32, 0.38, 0.32, hm); holder.add(head);   // faces the direction of travel
+      carousel.horses.push({ holder, phase: i % 2 ? Math.PI : 0 });
+    }
+    const q = mkGroup(x, z); q.userData.rings.push({ r: 10.5, t: 0.6, gap: 0 });
+    const d = Math.hypot(x, z), ex = x - x / d * 14, ez = z - z / d * 14;
+    world.uses.push({ x: ex, z: ez, y: 0, level: 0, r: 6, label: "RIDE CAROUSEL", onUse: () => startRide("carousel", { x: ex, z: ez }) });
   }
 
   // Splash park with two pools, slides and colourful shade sails.
@@ -395,14 +486,17 @@ export async function buildPleasurePark(router) {
   // Outdoor performance amphitheatre and food village.
   {
     const x=0,z=-112;
-    for(let i=0;i<5;i++){const radius=9+i*3;const arc=new THREE.Mesh(new THREE.TorusGeometry(radius,0.48,6,48,Math.PI),outdoor.pathEdge);arc.position.set(x,0.55+i*0.48,z);arc.rotation.y=Math.PI;scene.add(arc);}
+    for(let i=0;i<5;i++){const radius=9+i*3;const arc=new THREE.Mesh(new THREE.TorusGeometry(radius,0.48,6,48,Math.PI),outdoor.pathEdge);arc.position.set(x,0.3+i*0.42,z);arc.rotation.x=Math.PI/2;arc.scale.z=0.9;scene.add(arc);}
+    outdoorBox(x,0.45,z-4,17,0.9,10,outdoor.dark);outdoorBox(x,0.95,z-4,17.4,0.1,10.4,outdoor.pathEdge);
+    solidBox(x,z-4,9,5.4,2.5);
     outdoorBox(x,1.2,z-10,26,2.4,2,outdoor.dark);
     outdoorBox(x,2.6,z-10,29,0.45,3,outdoor.purple);
-    const q=mkGroup(x,z);addUse(q,0,-8,12,"OPEN-AIR STAGE","You watched a live performance at the park amphitheatre.");
+    const q=mkGroup(x,z);addUse(q,0,8,12,"OPEN-AIR STAGE","You watched a live performance at the park amphitheatre.");
     for(let i=0;i<5;i++){
       const sx=-40+i*20,sz=103;outdoorBox(sx,1.8,sz,12,3.6,9,[outdoor.red,outdoor.yellow,outdoor.blue,outdoor.pink,outdoor.purple][i]);
       outdoorBox(sx,3.8,sz,13,0.5,10,outdoor.white);
-      outdoorBox(sx,1.7,sz+4.65,5,2.2,0.18,outdoor.dark);
+      outdoorBox(sx,1.7,sz-4.65,5,2.2,0.18,outdoor.dark);
+      solidBox(sx,sz,6.3,4.8,4);
       const stall=mkGroup(sx,sz);addUse(stall,0,6,5,"FOOD KIOSK","You visited a food kiosk at Pleasure Park.");
     }
   }
@@ -415,15 +509,17 @@ export async function buildPleasurePark(router) {
   }
   for(let i=0;i<82;i++){
     const a=i*2.399963,r=48+(i%7)*11,x=Math.cos(a)*r,z=Math.sin(a)*r;
-    if(Math.hypot(x,z)>142 || (Math.abs(x)<28 && Math.abs(z)<45) || (x>45&&z>35&&x<95) || (x<-45&&z>35&&x>-100) || (x>42&&z<-30&&x<100) || (x<-40&&z<-20&&x>-110)) continue;
+    if(keptOut(x,z,3) || Math.hypot(x,z)>142 || (Math.abs(x)<28 && Math.abs(z)<45) || (x>45&&z>35&&x<95) || (x<-45&&z>35&&x>-100) || (x>42&&z<-30&&x<100) || (x<-40&&z<-20&&x>-110)) continue;
     parkTree(x,z,0.75+(i%4)*0.12);
   }
   for(let i=0;i<24;i++){
     const a=i/24*Math.PI*2,x=Math.cos(a)*96,z=Math.sin(a)*96;
+    if(keptOut(x,z,3)) continue;
     for(let k=0;k<5;k++){const fx=x+Math.cos(a+Math.PI/2)*(k-2)*1.2,fz=z+Math.sin(a+Math.PI/2)*(k-2)*1.2;outdoorSphere(fx,0.5,fz,0.35,0.35,0.35,k%2?outdoor.flower:outdoor.flower2);}
   }
   for(let i=0;i<22;i++){
     const a=i/22*Math.PI*2,x=Math.cos(a)*76,z=Math.sin(a)*76;
+    if(keptOut(x,z,3)||keptOut(x+2.3,z,3)) continue;
     outdoorBox(x,0.65,z,3.2,0.35,0.9,MAT.wood,a);
     outdoorBox(x,1.05,z-0.25,3.2,0.35,0.22,MAT.darkWood,a);
     const lamp=outdoorCyl(x+2.3,2.1,z,0.09,0.12,4.2,outdoor.steel,8);
@@ -1106,6 +1202,7 @@ export async function buildPleasurePark(router) {
     x: 0, z: 12, yaw: Math.PI, level: 0,
     speedMult: 1.0,
     onUse: (use) => {
+      if (rideState) return;
       const nearby = NPCs.nearest(ctrl.pos.x, ctrl.pos.z, 2.8);
       if (nearby) { NPCs.talk(nearby); return; }
       if (use.onUse) use.onUse();
@@ -1153,33 +1250,39 @@ export async function buildPleasurePark(router) {
     subtitle: "EXPLORE",
     hint: "",
     update: (dt) => {
-      const now = performance.now();
-      if (ferrisWheel) {
-        ferrisWheel.rotation.z = now * 0.00012;
-        for (const item of ferrisCabins) item.pivot.rotation.z = -ferrisWheel.rotation.z;
-      }
-      if (coasterTrain && coasterCurve) {
-        const t = (now * 0.000035) % 1;
-        const p = coasterCurve.getPointAt(t), tangent = coasterCurve.getTangentAt(t);
-        coasterTrain.position.copy(p); coasterTrain.position.y += 0.5;
-        coasterTrain.rotation.y = Math.atan2(tangent.x, tangent.z);
-        coasterTrain.rotation.x = -Math.atan2(tangent.y, Math.hypot(tangent.x,tangent.z));
-      }
+      const step = Math.min(dt || 0, 0.1);
+      ferrisAngle += step * 0.12;
+      ferrisWheel.rotation.z = ferrisAngle;
+      for (const item of ferrisCabins) item.pivot.rotation.z = -ferrisAngle;
+      carousel.ang += step * 0.5;
+      carousel.rot.rotation.y = carousel.ang;
+      for (const h of carousel.horses) h.holder.position.y = 2.1 + Math.sin(carousel.ang * 3 + h.phase) * 0.35;
+      advanceCoaster(step);
+      placeCoaster();
       if (rideState) {
-        const elapsed = (now - rideState.started) / 1000;
-        const t = Math.min(1, elapsed / (rideState.duration / 1000));
-        if (rideState.type === "ferris") {
-          const a = (now - rideState.started) * 0.00012 - Math.PI/2;
-          const x = 68 + Math.cos(a) * 17, y = 22 + Math.sin(a) * 17;
-          camera.position.set(x, y + 0.65, -58 + 0.2);
-          camera.lookAt(x + Math.cos(a)*5, y + Math.sin(a)*5, -58 - 12);
+        const rs = rideState;
+        rs.elapsed += step;
+        if (rs.type === "ferris") {
+          ferrisWheel.updateMatrixWorld(true);
+          ferrisCabins[rs.cabin].cabin.getWorldPosition(_v1);
+          camera.position.set(_v1.x, _v1.y + 1.45, _v1.z);
+          const look = Math.atan2(-FERRIS.z, -FERRIS.x) + Math.sin(rs.elapsed * 0.35) * 0.9;   // gaze drifts across the park
+          camera.lookAt(_v1.x + Math.cos(look) * 30, _v1.y - 3, _v1.z + Math.sin(look) * 30);
+          if (rs.elapsed >= rs.duration) finishRide();
+        } else if (rs.type === "coaster") {
+          const car = coaster.cars[0];
+          camera.position.set(car.position.x, car.position.y + 1.45, car.position.z);
+          car.getWorldDirection(_v2);
+          camera.lookAt(camera.position.x + _v2.x * 10, camera.position.y + _v2.y * 10, camera.position.z + _v2.z * 10);
+          if (coaster.t >= 1 + coaster.gap * 2) finishRide();
         } else {
-          const u = t;
-          const p = coasterCurve.getPointAt(u), tangent = coasterCurve.getTangentAt(u);
-          camera.position.set(p.x, p.y + 2.6, p.z);
-          camera.lookAt(p.x + tangent.x*8, p.y + tangent.y*8, p.z + tangent.z*8);
+          carousel.rot.updateMatrixWorld(true);
+          carousel.horses[0].holder.getWorldPosition(_v1);
+          camera.position.set(_v1.x, _v1.y + 1.5, _v1.z);
+          const a = carousel.ang;   // horse 0 starts at local angle 0; motion is (-sin a, -cos a)
+          camera.lookAt(_v1.x - Math.sin(a) * 6 + Math.cos(a) * 5, _v1.y + 1.2, _v1.z - Math.cos(a) * 6 - Math.sin(a) * 5);
+          if (rs.elapsed >= rs.duration) finishRide();
         }
-        if (elapsed >= rideState.duration / 1000) finishRide();
       } else {
         ctrl.update(dt);
       }
@@ -1204,4 +1307,4 @@ export async function buildPleasurePark(router) {
       });
     }
   };
-}1
+}
