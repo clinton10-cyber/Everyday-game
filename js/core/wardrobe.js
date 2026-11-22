@@ -92,12 +92,12 @@ export const SHOE_STYLES = [
 ];
 export const PATTERNS      = ["solid","stripes-h","stripes-v","checkers","dots","gradient","plaid","camo","ankara","kente"];
 export const GENDERS       = ["neutral","masculine","feminine"];
-export const HAT_STYLES    = ["cap","beanie","barret","facecap","bucket","fila","gele","headband","durag","hardhat","tophat","cowboy","crown","headscarf"];
+export const HAT_STYLES    = ["cap","beanie","barret","facecap","bucket","fila","gele","headband","durag","hardhat","tophat","cowboy","crown","headscarf","backcap","visor","sunhat","kufi","fez","turban","hijab","bandana","santa","wizard","chef","graduation","police","flowercrown","tiara","catears","bunnyears","halo","helmet"];
 export const GLASS_STYLES  = ["round","square","shades","aviator","cateye","sport"];
 export const TIE_STYLES    = ["none","classic","skinny","bow"];
 export const BEARD_STYLES  = ["stubble","moustache","goatee","chinstrap","full","long"];
-export const NECK_STYLES   = ["chain","pendant","pearls","choker","beads","scarf"];
-export const EAR_STYLES    = ["studs","hoops","drops","headphones"];
+export const NECK_STYLES   = ["chain","pendant","pearls","choker","beads","scarf","cross","heart","locket","layered","dogtag","chunky","lei","shell","bandana","medal","stethoscope"];
+export const EAR_STYLES    = ["studs","hoops","drops","headphones","cuffs","pearls","earmuffs"];
 export const WRIST_STYLES  = ["watch","band","bangles","bracelet"];
 export const BAG_STYLES    = ["backpack","satchel","sling"];
 export const MASK_STYLES   = ["surgical","bandana"];
@@ -384,10 +384,10 @@ export const Wardrobe = {
     cfg.bottomAccent = ri(ACCENT_COLORS.length);
     cfg.shoeStyle = pick(SHOE_STYLES);
     cfg.shoeColor = ri(SHOE_COLORS.length);
-    cfg.hat = Math.random() < 0.30 ? { style: pick(HAT_STYLES), color: ri(SHIRT_COLORS.length) } : null;
+    cfg.hat = Math.random() < 0.30 ? { style: pick(HAT_STYLES.filter((h) => !["halo","bunnyears","catears","wizard","santa","flowercrown","tiara","chef","graduation","police","helmet"].includes(h))), color: ri(SHIRT_COLORS.length) } : null;
     cfg.glasses = Math.random() < 0.40 ? { style: pick(GLASS_STYLES), color: 0 } : null;
     cfg.beard = (cfg.gender !== "feminine" && Math.random() < 0.30) ? { style: pick(BEARD_STYLES), color: null } : null;
-    cfg.neck = Math.random() < 0.25 ? { style: pick(NECK_STYLES), color: ri(GEAR_COLORS.length) } : null;
+    cfg.neck = Math.random() < 0.25 ? { style: pick(NECK_STYLES.filter((n) => !["stethoscope","medal","lei","bandana"].includes(n))), color: ri(GEAR_COLORS.length) } : null;
     cfg.ears = Math.random() < 0.25 ? { style: pick(EAR_STYLES), color: ri(GEAR_COLORS.length) } : null;
     cfg.wrist = Math.random() < 0.25 ? { style: pick(WRIST_STYLES), color: ri(GEAR_COLORS.length) } : null;
     cfg.bag = Math.random() < 0.15 ? { style: pick(BAG_STYLES), color: ri(GEAR_COLORS.length) } : null;

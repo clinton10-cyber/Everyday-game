@@ -325,7 +325,7 @@ function buildHair(rig, B, M, o, rings) {
   mesh(cap, M.hair, head);
 
   /* a swept fringe */
-  if (style === "short" || style === "bob" || style === "long" || style === "ponytail" || style === "bun") {
+  if (!o.hat && (style === "short" || style === "bob" || style === "long" || style === "ponytail" || style === "bun")) {   /* no fringe under a hat: it poked through the crown */
     const sideSign = o.part === "right" ? 1 : -1;
     const f = mesh(boxGeo(0.100, 0.026, 0.040), M.hair, head, 0.010 * -sideSign, 0.188 * hk, rings[9].cz + rings[9].rz * 0.90);
     f.rotation.set(0.45, 0, 0.14 * sideSign);
@@ -835,6 +835,7 @@ export function facetedOptionsFromConfig(cfg, colors) {
   return Object.assign({
     body, build: cfg.build || 0,
     hair: HAIR_MAP[cfg.hairStyle] || "short",
+    hat: !!(cfg.hat && cfg.hat.style),
     top, bottom: BOTTOM_MAP[bs] || "jeans",
     shoeStyle: SHOE_MAP[cfg.shoeStyle] || "sneaker",
     dress: Object.assign({}, DEFAULTS.dress, skirtStyle),
