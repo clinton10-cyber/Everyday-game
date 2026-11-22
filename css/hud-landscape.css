@@ -239,3 +239,27 @@ body.rg-active #hud-bl{display:none!important}   /* range: the weapon slots alre
     background:rgba(255,198,43,.95)!important;color:#241800!important;border-color:transparent!important}
   #hud-ctx #ph3d-city-walk{background:rgba(9,14,20,.88)!important;color:#f4f6f8!important;border:1px solid rgba(255,255,255,.3)!important}
 }
+
+/* ── Pick-up prompt: lives in the centre lane (between the joystick and the action chips) ──
+   It used to be centred on the screen at a fixed height, so it covered the player, the NPC
+   next to them and the Enter / Pick Up / Use chips. Now it is confined to the free lane
+   at the bottom, never wider than the gap, and wraps instead of growing. */
+@media (orientation:landscape){
+  #ph3d-pickup-prompt{
+    left:var(--lane-l)!important;
+    right:calc(var(--h-right) + var(--chip-w)*var(--ctx-cols) + 6px*(var(--ctx-cols) - 1) + 12px)!important;
+    bottom:var(--h-bottom)!important;
+    transform:none!important;
+    width:fit-content!important;max-width:100%!important;margin:0 auto!important;box-sizing:border-box;
+    padding:6px 14px!important;border-radius:16px!important;
+    font-size:11.5px!important;line-height:1.3!important;letter-spacing:.06em!important;
+    white-space:normal!important;
+  }
+  #ph3d-pickup-prompt span{display:block;font-size:10px!important;line-height:1.3}
+}
+
+/* the Relationship chip has the longest label: slightly tighter type so it is not cut off in a 100-104px chip */
+@media (orientation:landscape){
+  #hud-ctx #ph3d-walk-rel{font-size:9.5px!important;letter-spacing:0!important;padding:0 6px!important}
+  #hud-ctx #ph3d-walk-rel.h-lead::before{margin-right:.3em!important}
+}

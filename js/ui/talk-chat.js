@@ -210,10 +210,8 @@ export const TalkChat = {
 
     root.querySelector("#tc-back").onclick = () => this.close();
     this._scrim.onclick = () => this.close();
-    root.querySelector("#tc-menu").onclick = () => {
-      this.close();
-      lives().then(m => m.Lives && m.Lives.openApp && m.Lives.openApp()).catch(() => {});
-    };
+    /* the three-dot menu opens the relationships panel for the person you are chatting with */
+    root.querySelector("#tc-menu").onclick = () => this.openRelationshipPanel();
     root.querySelector("#tc-emoji-btn").onclick = () => this._picker.classList.toggle("on");
     root.querySelector("#tc-send").onclick = () => this._send();
 
@@ -327,8 +325,22 @@ export const TalkChat = {
     const text = (this._input.value || "").trim();
     if (!text || !this._current) return;
     this._input.value = "";
+    /* chat commands: /relationship (or /rel, /relationships, /panel) opens the relationships panel */
+    if (/^\/(rel|relationship|relationships|panel)\b/i.test(text)) { this.openRelationshipPanel(); return; }
     this.pushPlayer(text);
     this._autoReply(text);
+  },
+
+  /* close the chat and open the full relationships panel for the current contact */
+  openRelationshipPanel() {
+    const npc = this._current;
+    this.close();
+    if (!npc) { lives().then(m => m.Lives && m.Lives.openApp && m.Lives.openApp()).catch(() => {}); return; }
+    lives().then(m => {
+      const L = m.Lives; if (!L) return;
+      if (npc._fam && L.openPanelFor) L.openPanelFor(npc);
+      else if (L.openRelationship) L.openRelationship(npc);
+    }).catch((e) => console.warn("[talk-chat] relationship panel", e));
   },
 
   _autoReply(text) {
