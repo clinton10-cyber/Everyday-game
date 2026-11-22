@@ -100,12 +100,11 @@ function editHero() {
 }
 function startEdit() {
   if (inGame) {
-    try {
-      const he = window.parent.__ph3d_hudedit;
-      closePage();
-      setTimeout(() => { try { he && he.start(); } catch (e) {} }, 180);
-      return;
-    } catch (e) {}
+    /* Hand over to the game page: it closes this overlay, then starts the editor itself.
+       (The old code closed the overlay and then waited 180 ms on a timer owned by THIS iframe, but the
+       iframe is removed as soon as the overlay closes, so the timer never fired and "Start editing"
+       just closed Settings and did nothing.) */
+    try { window.parent.postMessage({ type: "ph3d:start-edit" }, "*"); return; } catch (e) {}
   }
   location.href = "index.html?edit=1";
 }

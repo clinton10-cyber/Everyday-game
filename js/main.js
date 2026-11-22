@@ -446,8 +446,10 @@ window.addEventListener("ph3d:player-dead", async () => {
    parsed and evaluated the first time it is visited. Doing that while the
    player is busy in the city makes later scene changes much quicker. */
 (function warmScenes(){
+  /* walk / drive are the most used scenes and the heaviest to load, so they warm up first */
   const mods = [
-    "./scenes/interior.js", "./scenes/drive.js", "./scenes/travel.js",
+    "./scenes/drive.js", "./core/npcs.js", "./core/npc-cars.js",
+    "./scenes/interior.js", "./scenes/travel.js",
     "./scenes/minimap.js", "./scenes/showroom.js", "./scenes/zonewalk.js",
     "./scenes/governor.js", "./scenes/governor-interior.js",
     "./scenes/shootingrange.js", "./scenes/prison.js", "./scenes/airplane.js",
@@ -464,7 +466,7 @@ window.addEventListener("ph3d:player-dead", async () => {
     if (window.requestIdleCallback) requestIdleCallback(next, { timeout: 3000 });
     else setTimeout(next, 300);
   }
-  function start(){ setTimeout(idle, 4000); }
+  function start(){ setTimeout(idle, 2000); }
   if (document.readyState === "complete") start(); else window.addEventListener("load", start);
 })();
 

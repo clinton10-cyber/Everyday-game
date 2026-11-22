@@ -150,6 +150,9 @@ export const HudEdit = {
     if (!document.getElementById("he-style")) {
       const st = document.createElement("style"); st.id = "he-style";
       st.textContent = `
+        /* no browser panning / zooming while editing: otherwise a finger drag is taken over by the browser
+           after a few pixels (pointercancel) and the control only moves a tiny bit */
+        body.hud-editing, body.hud-editing *{touch-action:none!important;-webkit-user-select:none;user-select:none}
         body.hud-editing .hud-edit-target{outline:2px dashed rgba(255,198,43,.85)!important;outline-offset:2px;cursor:grab}
         body.hud-editing .hud-edit-sel{outline:3px solid #ffc62b!important;box-shadow:0 0 0 4px rgba(255,198,43,.25)!important}
         #hud-edit-bar{position:fixed;left:0;right:0;top:0;z-index:100000;display:flex;align-items:center;gap:8px;

@@ -1,18 +1,18 @@
 /* speed-fx.js — "speed blur" for fast travel anywhere in the world (cars, bikes, hoverboard, wing flight).
-   Edge motion-blur (backdrop blur masked to the screen edges) + radial speed streaks + a field-of-view kick.
-   All three scale smoothly with `amt` (0..1) and cost nothing at amt 0. Pure visuals; owns no game state. */
+   Radial speed streaks + a soft dark edge + a field-of-view kick. All scale smoothly with `amt` (0..1)
+   and cost nothing at amt 0. Pure visuals; owns no game state.
+   NOTE: this used to add a masked CSS `backdrop-filter: blur()` over the whole screen. A backdrop filter on top
+   of a WebGL canvas forces the browser to re-blur the full frame every frame, which is what made flying
+   (wing flight blurs constantly) lag so badly. The streaks + dark edge carry the speed feel without it. */
 
 export function createSpeedFx(camera, baseFov) {
   const fov0 = baseFov || (camera && camera.fov) || 62;
   const root = document.createElement("div");
   root.id = "ph3d-speed-fx";
   root.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:4;display:none;overflow:hidden;";
-  const blur = document.createElement("div");
-  const MASK = "radial-gradient(ellipse at center, transparent 38%, #000 100%)";
-  blur.style.cssText = "position:absolute;inset:0;-webkit-mask-image:" + MASK + ";mask-image:" + MASK + ";";
   const cv = document.createElement("canvas");
   cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;";
-  root.appendChild(blur); root.appendChild(cv);
+  root.appendChild(cv);
   document.body.appendChild(root);
 
   const ctx = cv.getContext("2d");
@@ -32,7 +32,7 @@ export function createSpeedFx(camera, baseFov) {
   };
   for (let i = 0; i < N; i++) { const s = {}; spawn(s, true); streaks.push(s); }
 
-  let amt = 0, shown = false, lastBlur = -1, lastFov = fov0;
+  let amt = 0, shown = false, lastFov = fov0, skip = false;
 
   function draw(a, dt) {
     ctx.clearRect(0, 0, W, H);
@@ -65,14 +65,13 @@ export function createSpeedFx(camera, baseFov) {
       const k = Math.min(1, dt * (target > amt ? 3.5 : 2.5));
       amt += (Math.max(0, Math.min(1, target || 0)) - amt) * k;
       if (amt < 0.015) {
-        if (shown) { shown = false; root.style.display = "none"; blur.style.backdropFilter = blur.style.webkitBackdropFilter = "none"; lastBlur = -1; }
+        if (shown) { shown = false; root.style.display = "none"; }
         if (camera && Math.abs(camera.fov - fov0) > 0.02) { camera.fov = fov0; camera.updateProjectionMatrix(); lastFov = fov0; }
         return;
       }
       if (!shown) { shown = true; root.style.display = "block"; }
-      const b = Math.round(Math.pow(amt, 1.3) * 9 * 2) / 2;          /* 0..9px in 0.5px steps */
-      if (b !== lastBlur) { lastBlur = b; const v = b > 0 ? "blur(" + b + "px)" : "none"; blur.style.backdropFilter = v; blur.style.webkitBackdropFilter = v; }
-      draw(amt, dt);
+      skip = !skip;                      /* streaks redraw every other frame: half the 2D canvas work, still smooth */
+      if (!skip) draw(amt, dt * 2);
       if (camera) {
         const f = fov0 + 16 * Math.pow(amt, 1.2);
         if (Math.abs(f - lastFov) > 0.05) { lastFov = f; camera.fov = f; camera.updateProjectionMatrix(); }

@@ -417,7 +417,16 @@ function openSettingsPage() {
     ov.id = "ph3d-settings-overlay";
     ov.style.cssText = "position:fixed;inset:0;z-index:100001;background:#070b12;display:none";
     window.addEventListener("message", (e) => {
-      if (e.origin === location.origin && e.data && e.data.type === "ph3d:close-settings") closeSettingsPage();
+      if (e.origin !== location.origin || !e.data) return;
+      if (e.data.type === "ph3d:close-settings") closeSettingsPage();
+      else if (e.data.type === "ph3d:start-edit") {
+        /* Settings → Edit controls: close the settings page, then start the drag-and-resize editor.
+           Done here (not inside the settings iframe) because closing the overlay destroys the iframe. */
+        closeSettingsPage();
+        import("./hud-edit.js")
+          .then((m) => setTimeout(() => { try { m.HudEdit.start(); } catch (err) { console.warn("[hud-edit] start failed:", err); } }, 220))
+          .catch((err) => console.warn("[hud-edit] load failed:", err));
+      }
     });
   }
   /* fresh iframe each time so the page re-reads current values */

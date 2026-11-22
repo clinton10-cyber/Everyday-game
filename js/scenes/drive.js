@@ -166,6 +166,32 @@ function resolveAABBs(x, z, radius, aabbs, walkerY) {
 }
 
 /* ================================================================
+   CAR vs WORLD
+   The old test used ONE circle of radius 2.4 m around the car centre. A car is only ~2 m wide,
+   so it "hit" things 1.3 m before its bodywork reached them, could not use narrow gaps, and
+   lost 60% of its speed on every frame it was touching anything.
+   Now the car is three small circles (front / middle / rear) that follow its real footprint,
+   low things (kerbs, pads) are driven over, and a hit only removes the speed that was going INTO
+   the obstacle, so grazing a wall or a pole slides instead of stopping dead.
+   ================================================================ */
+const CAR_CLEAR_H = 0.45;   /* colliders lower than this (kerbs, pads) do not stop a car */
+function resolveCarAABBs(x, z, heading, halfW, halfL, aabbs) {
+  const r = Math.max(0.7, halfW * 0.9);
+  const off = Math.max(0, halfL - r);
+  const fx = Math.sin(heading), fz = Math.cos(heading);
+  const offs = off > 0.5 ? [off, 0, -off] : [0];
+  let px = x, pz = z;
+  for (let iter = 0; iter < 2; iter++) {
+    for (let i = 0; i < offs.length; i++) {
+      const cx = px + fx * offs[i], cz = pz + fz * offs[i];
+      const rr = resolveAABBs(cx, cz, r, aabbs, CAR_CLEAR_H);
+      px += rr[0] - cx; pz += rr[1] - cz;
+    }
+  }
+  return [px, pz];
+}
+
+/* ================================================================
    MAIN SCENE ENTRY
    ================================================================ */
 export async function driveScene(params, router) {
@@ -491,10 +517,10 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
         pc.mesh.position.x += fx * pc.speed * step;
         pc.mesh.position.z += fz * pc.speed * step;
 
-        const rr = resolveAABBs(pc.mesh.position.x, pc.mesh.position.z, 1.9, worldAABBs);
+        const rr = resolveAABBs(pc.mesh.position.x, pc.mesh.position.z, 1.4, worldAABBs, CAR_CLEAR_H);
         if (rr[0] !== pc.mesh.position.x || rr[1] !== pc.mesh.position.z) {
           pc.mesh.position.x = rr[0]; pc.mesh.position.z = rr[1];
-          pc.speed *= 0.35;
+          pc.speed *= 0.7;
           pc.stuckTimer += step;
           if (pc.stuckTimer > 12) {
             if (pc.mesh && pc.mesh.parent) pc.mesh.parent.remove(pc.mesh);
@@ -1159,7 +1185,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     carPos.z += dvz * 0.15;
     heading += Math.max(-0.45, Math.min(0.45, lateral * 0.05));
 
-    const dmg = Math.min(80, 8 + Math.abs(forward) * 1.1 + Math.abs(lateral) * 0.7);
+    const dmg = Math.min(60, 3 + Math.abs(forward) * 0.9 + Math.abs(lateral) * 0.5);
     try { Combat.damage(dmg, "car-accident"); } catch (e) {}
     try { Combat.flash && Combat.flash(0.7); } catch (e) {}
     try { Sfx.play(dmg > 35 ? "car_crash_heavy" : "car_crash_light", { x: carPos.x, z: carPos.z }); } catch (_) {}
@@ -1205,6 +1231,8 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
 
   const _cf = new THREE.Vector3(); const _cr = new THREE.Vector3();
   const _camP = new THREE.Vector3(); const _camL = new THREE.Vector3();
+  const _walkCamP = new THREE.Vector3();
+  let _lastWorldHitT = -10;
 
   /* Reuse the historic buildTaxi helper */
   function buildTaxi() {
@@ -1532,9 +1560,36 @@ try {
 
         let nx = carPos.x + Math.sin(heading) * speed * dt;
         let nz = carPos.z + Math.cos(heading) * speed * dt;
-        const carRadius = 2.4;
-        const res = resolveAABBs(nx, nz, carRadius, worldAABBs);
-        if (res[0] !== nx || res[1] !== nz) speed *= 0.4;
+        const res = resolveCarAABBs(nx, nz, heading, carSize.x * 0.5, carSize.z * 0.5, worldAABBs);
+        const pushX = res[0] - nx, pushZ = res[1] - nz;
+        const pushLen = Math.hypot(pushX, pushZ);
+        if (pushLen > 1e-4) {
+          /* contact normal = the way the world pushed the car back out; only the speed going into it is lost */
+          const nxn = pushX / pushLen, nzn = pushZ / pushLen;
+          const fwdX = Math.sin(heading), fwdZ = Math.cos(heading);
+          const fDotN = fwdX * nxn + fwdZ * nzn;
+          const vn = speed * fDotN;                              /* < 0 = driving into the obstacle */
+          if (vn < 0) {
+            /* velocity after the hit = old velocity minus the into-obstacle part (+12% bounce) */
+            const k = 1.12 * vn;
+            const wx = speed * fwdX - k * nxn, wz = speed * fwdZ - k * nzn;
+            const wl = Math.hypot(wx, wz) || 1e-6;
+            const dir = speed >= 0 ? 1 : -1;                      /* driving forwards or reversing */
+            if ((wx * fwdX + wz * fwdZ) * dir / wl > -0.25) {
+              /* angled / glancing hit: keep the sliding speed and swing the car along the obstacle */
+              let dy = Math.atan2(dir * wx, dir * wz) - heading;
+              dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+              heading += dy * 0.6;
+              speed = dir * wl;
+            } else {
+              speed = wx * fwdX + wz * fwdZ;                      /* (nearly) head-on: stops / rolls back a little */
+            }
+            if (-vn > 10 && t - _lastWorldHitT > 0.7) {
+              _lastWorldHitT = t;
+              try { Sfx.play(-vn > 24 ? "car_crash_heavy" : "car_crash_light", { x: carPos.x, z: carPos.z }); } catch (_) {}
+            }
+          }
+        }
         carPos.x = res[0]; carPos.z = res[1];
 
         carPos.x = Math.max(-1900, Math.min(1900, carPos.x));
@@ -1841,7 +1896,11 @@ try {
         const camX = walker.x - Math.sin(walkCameraYaw) * camBack;
         const camZ = walker.z - Math.cos(walkCameraYaw) * camBack;
         const targetY = walker.y + 0.9;
-        camera.position.lerp(new THREE.Vector3(camX, camH, camZ), Math.min(1, dt * 8));
+        /* While flying the avatar moves up to ~64 m/s. A follow rate of 8/s lets the camera trail ~8 m behind
+           (the "lag"), so it follows much tighter in the air. */
+        const _flyCam = jet.on && !walker.onGround;
+        _walkCamP.set(camX, camH, camZ);
+        camera.position.lerp(_walkCamP, Math.min(1, dt * (_flyCam ? 28 : 8)));
         camera.lookAt(walker.x, targetY, walker.z);
 
         if (hudEl) hudEl.textContent = Math.round(horizSpeed * 3.6) + " km/h";

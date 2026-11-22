@@ -197,17 +197,32 @@ export const NPC_Cars = {
       return;
     }
 
+    /* Every AI car is a full vehicle model built from scratch, so 36 of them at once is a big part of the
+       walk/drive loading freeze. Build a few now and the rest in the background. */
     const count = opts.count || 12;
-    let spawned = 0;
-    for (let i = 0; i < count * 8 && spawned < count; i++) {
-      if (this._spawnOne()) spawned++;
-    }
-
-    console.log(
+    const maxTries = count * 8;
+    let spawned = 0, tries = 0;
+    const batch = (n) => {
+      let made = 0;
+      while (made < n && spawned < count && tries < maxTries) {
+        tries++;
+        if (this._spawnOne()) { spawned++; made++; }
+      }
+    };
+    const report = () => console.log(
       "%c[npc-cars]",
       "background:#ff9d5c;color:#2a1400;font-weight:bold;padding:2px 6px;border-radius:4px",
       spawned + " AI cars on " + _edges.length + " roads"
     );
+    batch(Math.min(count, 6));
+    if (spawned >= count || tries >= maxTries) { report(); return; }
+    const token = this._spawnToken = {};
+    const pump = () => {
+      if (this._spawnToken !== token || _scene !== scene) return;   /* scene was left */
+      batch(2);
+      if (spawned < count && tries < maxTries) setTimeout(pump, 120); else report();
+    };
+    setTimeout(pump, 400);
   },
 
   /* weighted random edge: longer roads get more cars */
@@ -475,6 +490,9 @@ export const NPC_Cars = {
           car.hitCd = 2.5;
         }
       } else if (player.mode === "drive" && speed > 4.0 &&
+                 /* closing speed: touching a car that moves the same way you do is not a crash */
+                 Math.hypot(car.vx - Math.sin(player.heading || 0) * (player.speed || 0),
+                            car.vz - Math.cos(player.heading || 0) * (player.speed || 0)) > 6.0 &&
                  boxesOverlap(car.mesh.position.x, car.mesh.position.z, cyaw, CAR_HALF_W, CAR_HALF_L,
                               player.x, player.z, player.heading || 0, (player.halfW || 1.0), (player.halfL || 2.4))) {
 
@@ -524,6 +542,7 @@ export const NPC_Cars = {
   },
 
   despawn() {
+    this._spawnToken = null;          /* stops any still-queued car building */
     for (const car of this.list) {
       if (car.mesh && car.mesh.parent) car.mesh.parent.remove(car.mesh);
       /* frees geometry, materials AND their canvas textures (the plates/lights textures leaked before) */

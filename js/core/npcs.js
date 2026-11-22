@@ -504,6 +504,11 @@ export const NPCs = {
 
     const quality = Quality.isPotato ? 0.3 : Quality.isLow ? 0.45 : Quality.isHigh ? 1.0 : 0.72;
 
+    /* The whole crowd used to be built in one go before the scene could appear (this is the long
+       freeze when you enter walk / drive: 24 street routes x several groups x ~70 meshes each).
+       Now the same crowd is queued and built in short time slices: the first slice runs right now,
+       the rest trickles in while the player is already moving. Same people, no frozen loading. */
+    const perPath = [];
     for (const path of NPC_PATHS) {
       const groupsList = path.groups || [{ type: "solo", count: 1, weight: 1 }];
       const pool = [];
@@ -513,12 +518,21 @@ export const NPCs = {
       const basePerPath = Quality.isPotato ? 2 : Quality.isLow ? 3 : 7;
       const groupCount = Math.max(1, Math.round(basePerPath * quality));
 
+      const jobs = [];
       for (let i = 0; i < groupCount; i++) {
         const chosen = pool[Math.floor(rnd() * pool.length)];
-        this._spawnGroupOnPath(path, chosen.type, chosen.count);
+        jobs.push(() => this._spawnGroupOnPath(path, chosen.type, chosen.count));
       }
       /* kids are part of every street, not only the school routes */
-      if (!Quality.isPotato) this._spawnGroupOnPath(path, "school_kids", Quality.isLow ? 1 : 2);
+      if (!Quality.isPotato) jobs.push(() => this._spawnGroupOnPath(path, "school_kids", Quality.isLow ? 1 : 2));
+      perPath.push(jobs);
+    }
+    /* round-robin over the routes so the first people to appear are spread over the whole map */
+    const tasks = [];
+    for (let round = 0; ; round++) {
+      let any = false;
+      for (const jobs of perPath) if (round < jobs.length) { tasks.push(jobs[round]); any = true; }
+      if (!any) break;
     }
 
     if (opts.roleSpots) {
@@ -536,19 +550,37 @@ export const NPCs = {
       for (const spot of SPOTS) {
         const c = opts.roleSpots.find(p => (p.lm && p.lm.id === spot.id) || p.id === spot.id);
         if (!c) continue;
-        for (const role of spot.roles) {
-          const free = this._freeSpot(c.x, c.z, 20, 40);
-          if (free) this._spawnRole(free.x, free.z, role);
-        }
+        tasks.push(() => {
+          for (const role of spot.roles) {
+            const free = this._freeSpot(c.x, c.z, 20, 40);
+            if (free) this._spawnRole(free.x, free.z, role);
+          }
+        });
       }
     }
 
-    console.log(
+    const token = this._spawnToken = {};
+    const slice = (ms) => {
+      const t0 = performance.now();
+      while (tasks.length && performance.now() - t0 < ms) {
+        const job = tasks.shift();
+        try { job(); } catch (e) { console.warn("[npcs] spawn job failed:", e); }
+      }
+    };
+    const report = () => console.log(
       "%c[npcs]",
       "background:#9dffb0;color:#0a2010;font-weight:bold;padding:2px 6px;border-radius:4px",
       this.list.length + " NPCs (" + this.list.filter(n => n.groupTag).length + " grouped, " +
       this.list.filter(n => !n.groupTag).length + " solo/role)"
     );
+    slice(40);
+    if (!tasks.length) { report(); return; }
+    const pump = () => {
+      if (this._spawnToken !== token || _scene !== scene) return;   /* scene was left */
+      slice(8);
+      if (tasks.length) setTimeout(pump, 45); else report();
+    };
+    setTimeout(pump, 150);
   },
 
   _spawnGroupOnPath(path, groupType, wantedCount) {
@@ -1303,6 +1335,7 @@ export const NPCs = {
   },
 
   despawn() {
+    this._spawnToken = null;          /* stops any still-queued crowd building */
     try { Lives.onDespawn(); } catch (e) {}
     for (const npc of this.list) {
       if (npc.seatTarget) { npc.seatTarget.taken = false; npc.seatTarget = null; }
