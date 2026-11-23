@@ -28,7 +28,8 @@ import { Blood } from "./blood.js";
 import { Sfx } from "./sfx.js";
 import { buildGroup } from "./npc-groups.js";
 import { Lives } from "./npc-lives.js";
-import { applyFemaleShape } from "../characters/female-body-shapes.js";
+import { applyFemaleShape, isShapeBlocked } from "../characters/female-body-shapes.js";
+import { adultOK } from "./adult-gate.js";
 import { InteriorPoses } from "./interior-poses.js";
 import { AnimationAutomation } from "./animation-automation.js";
 import { pickFall, poseFall, restY } from "./death-pose.js";
@@ -61,6 +62,24 @@ function randomConfig() {
     hat: rnd() < 0.18 ? { style: pick(HAT_STYLES), color: Math.floor(rnd() * SHIRT_COLORS.length) } : null,
     glasses: rnd() < 0.30 ? { style: pick(GLASS_STYLES), color: 0 } : null,
   };
+}
+
+/* Beachwear for ambient adult NPCs: only on the beach map, only with 18+ consent, never kids / students.
+   Men go shirtless in shorts, women wear a bandeau top and brief bottoms (see lp-tops / lp-bottoms). */
+function onBeachScene() {
+  try {
+    const sc = window.__ph3d_router && window.__ph3d_router.current;
+    if (!sc) return false;
+    const key = String((sc._routeParams && sc._routeParams.id) || sc.sceneId || sc._routeName || "").toLowerCase();
+    return key === "beach";
+  } catch (e) { return false; }
+}
+function applyBeachwear(cfg, tag) {
+  if (!cfg || !adultOK() || !onBeachScene() || isShapeBlocked(cfg, tag)) return;
+  if (tag !== "walker" && tag !== "couple") return;
+  if (rnd() > 0.4) return;
+  if (cfg.gender === "masculine") { cfg.topStyle = "offcloth"; cfg.bottomStyle = "shorts"; cfg.hat = null; }
+  else if (cfg.gender === "feminine") { cfg.topStyle = "underwear"; cfg.bottomStyle = "underwear"; }
 }
 
 /* Role uniforms — return a config or null if role has none. */
@@ -753,7 +772,7 @@ export const NPCs = {
     }
 
     const cfg = withPlayerLook(forcedConfig || uniformFor(role) || randomConfig());
-    try { applyFemaleShape(cfg, null, groupTag || role); } catch (e) {}   /* adult feminine NPCs only; kids / students are skipped */
+    try { applyFemaleShape(cfg, null, groupTag || role); applyBeachwear(cfg, groupTag || role); } catch (e) {}   /* adult feminine NPCs only; kids / students are skipped */
     const built = buildCharacter(cfg);
     const group = built.root;
     const rig = built.rig;
