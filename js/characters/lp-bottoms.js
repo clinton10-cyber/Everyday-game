@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { revolve, bone, rAt, mk, sphere, box, cyl, torus, lam, shade, ring, shellGeo, clamp } from "./lp-parts.js";
 import { resolveColor, BOTTOM_COLORS, ACCENT_COLORS, SHOE_COLORS } from "../core/wardrobe.js";
 import { TOPS } from "./lp-tops.js";
+import { addAdultBodyDetails } from "./female-body-shapes.js";
 
 /* kind: pants (cover the whole leg) | shorts (thigh only) | skirt (rigid, on the hips) */
 export const BOTTOMS = {
@@ -42,10 +43,11 @@ export function buildPelvis(ctx) {
   ctx.bTrim = trim;
 
   if (spec.kind === "skirt") {
-    if (spec.hidden) {                       /* dress: skin hips under the skirt */
+    if (spec.hidden) {                       /* dress / offcloth: skin hips under the skirt */
       const hipsMesh = new THREE.Mesh(revolve(rows.map(r => ({ y: r.y, r: r.r * 0.98 })), { radial: 14, capBottom: 0.4, capTop: 0.5 }), M.skin);
       hipsMesh.scale.set(B.sxP, 1, B.szP);
       hips.add(hipsMesh);
+      try { addAdultBodyDetails(ctx); } catch (e) { console.warn("[adult-body]", e); }
       return;
     }
     /* waist → hem, flaring: one rigid lathe shell hanging from the hips */
@@ -81,6 +83,9 @@ export function buildPelvis(ctx) {
   if (spec.pockets) {                                     /* cargo thigh pockets live on the leg */
     ctx.cargo = true;
   }
+
+  /* 18+ genitals / details when bottom is bare (tops call also covers this) */
+  try { addAdultBodyDetails(ctx); } catch (e) { console.warn("[adult-body]", e); }
 }
 
 export function buildLeg(ctx, side) {
