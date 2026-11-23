@@ -187,7 +187,7 @@ export function bodySpec(type, build = 0, shape = null) {
     const up = 0.75 + 0.25 * shape.bust;
     B.torsoRx = B.torsoRx.map((v, i) => v * (i < 2 ? shape.waist : i >= 3 && i <= 5 ? up : 1));
     B.torsoRz = B.torsoRz.map((v, i) => v * (i < 2 ? shape.waist : i >= 3 && i <= 5 ? shape.bust : 1));
-    const hipK = 1 + (shape.hip - 1) * 0.55;       /* softened so trousers and skirts still sit cleanly on the hips */
+    const hipK = 1 + (shape.hip - 1) * 0.85;       /* softened so trousers and skirts still sit cleanly on the hips */
     B.pelvRx = B.pelvRx.map((v, i) => v * (i === 0 ? 1 : hipK));
     B.pelvRz = B.pelvRz.map((v, i) => v * (i === 0 ? 1 : 0.92 + 0.08 * hipK));
     B.hipX *= hipK;
@@ -445,11 +445,11 @@ function buildTorso(rig, B, M, o) {
     const front = Math.max(0, Math.cos(a));
     const side = Math.sin(a);
     const lift = Math.exp(-Math.pow((r.y - 0.262) / 0.056, 2));           /* where the bust sits on the torso */
-    const lobeL = Math.exp(-Math.pow((side - 0.42) / 0.36, 2));           /* left / right soft lobes */
-    const lobeR = Math.exp(-Math.pow((side + 0.42) / 0.36, 2));
+    const lobeL = Math.exp(-Math.pow((side - 0.40) / 0.30, 2));           /* left / right soft lobes */
+    const lobeR = Math.exp(-Math.pow((side + 0.40) / 0.30, 2));
     const lobes = Math.max(lobeL, lobeR);
     const soft = Math.pow(front, 1.6) * (0.55 + 0.45 * lobes);
-    return { dz: bust * 1.25 * lift * soft };
+    return { dz: bust * 3.4 * lift * soft };
   };
   mesh(loft(skinRings, { seg: 10, shape: bustShape }), M.skin, spine);
 
