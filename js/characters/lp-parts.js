@@ -150,12 +150,13 @@ export function measures(cfg) {
   const b = clamp(+cfg.build || 0, -1, 1);
   const style = cfg.bodyStyle || "faceted";
   const styleShape = [1,1,1];   /* body-style silhouettes now live in lp-bodystyle.js (unique per style) */
-  const sxT = (female ? 0.93 : male ? 1.06 : 1.00) * (1 + 0.16 * b) * styleShape[0];   /* torso width  */
-  const szT = (female ? 0.68 : male ? 0.72 : 0.70) * (1 + 0.14 * b) * styleShape[1];   /* torso depth  */
-  const sxP = (female ? 1.08 : male ? 0.98 : 1.00) * (1 + 0.13 * b);   /* pelvis width */
-  const szP = (female ? 0.78 : 0.74)               * (1 + 0.11 * b);   /* pelvis depth */
-  const limb = (1 + 0.10 * b) * styleShape[2];                                            /* limb thickness */
-  const waistK = female ? 0.90 : male ? 0.97 : 0.94;
+  const FS = female && cfg._femaleShape ? cfg._femaleShape : null;   /* adult female body shape (female-body-shapes.js) */
+  const sxT = (female ? 0.93 : male ? 1.06 : 1.00) * (1 + 0.16 * b) * styleShape[0] * (FS ? 0.75 + 0.25 * FS.bust : 1);   /* torso width  */
+  const szT = (female ? 0.68 : male ? 0.72 : 0.70) * (1 + 0.14 * b) * styleShape[1] * (FS ? FS.bust : 1);                /* torso depth  */
+  const sxP = (female ? 1.08 : male ? 0.98 : 1.00) * (1 + 0.13 * b) * (FS ? FS.hip : 1);                                   /* pelvis width */
+  const szP = (female ? 0.78 : 0.74)               * (1 + 0.11 * b) * (FS ? 0.9 + 0.1 * FS.hip : 1);                      /* pelvis depth */
+  const limb = (1 + 0.10 * b) * styleShape[2] * (FS ? 0.92 + 0.08 * FS.thigh : 1);                                        /* limb thickness */
+  const waistK = (female ? 0.90 : male ? 0.97 : 0.94) * (FS ? FS.waist : 1);
 
   /* world half-width where torso meets pelvis (the narrower of the two) */
   const joinW = Math.min(0.142 * sxT, 0.146 * sxP);

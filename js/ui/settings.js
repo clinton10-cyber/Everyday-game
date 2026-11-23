@@ -28,6 +28,8 @@ const DEFAULTS = {
   moveSpeed:            1.0,
   lookSens:             1.0,
   fov:                  90,      /* horizontal degrees, CoD style */
+  adultConsent:         false,   /* player confirmed they are 18+ and opt in to mature content (default OFF) */
+  adultConsentAt:       0,       /* timestamp of that confirmation */
 };
 
 function load() {
@@ -46,6 +48,15 @@ export const Settings = {
   data: load(),
 
   get(key)       { return this.data[key]; },
+
+  /* True only when the player has explicitly confirmed they are 18+ and opted in.
+     Mature features must call this and must never apply to child, teen or student characters. */
+  adultAllowed() { return this.data.adultConsent === true && this.data.adultConsentAt > 0; },
+
+  setAdultConsent(on) {
+    this.set("adultConsentAt", on ? Date.now() : 0);
+    this.set("adultConsent", !!on);
+  },
 
   set(key, value) {
     this.data[key] = value;
@@ -108,6 +119,9 @@ export const Settings = {
           break;
         case "showFps":
           this._applyFps(value);
+          break;
+        case "adultConsent":
+          window.__ph3d_adultAllowed = () => Settings.adultAllowed();
           break;
         case "hideOnScreenHints":
           document.documentElement.classList.toggle("ph3d-hide-hints", !!value);

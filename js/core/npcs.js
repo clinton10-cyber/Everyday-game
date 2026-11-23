@@ -28,6 +28,7 @@ import { Blood } from "./blood.js";
 import { Sfx } from "./sfx.js";
 import { buildGroup } from "./npc-groups.js";
 import { Lives } from "./npc-lives.js";
+import { applyFemaleShape } from "../characters/female-body-shapes.js";
 import { InteriorPoses } from "./interior-poses.js";
 import { AnimationAutomation } from "./animation-automation.js";
 import { pickFall, poseFall, restY } from "./death-pose.js";
@@ -650,7 +651,7 @@ export const NPCs = {
 
       const jitter = (Math.random() - 0.5) * 0.4;
 
-      const npc = this._build(x, z, "walker", path, startU + jitter / 100, m.config);
+      const npc = this._build(x, z, "walker", path, startU + jitter / 100, m.config, groupType);
       if (!npc) continue;
 
       npc.groupTag = groupType;
@@ -741,7 +742,7 @@ export const NPCs = {
     }
   },
 
-  _build(x, z, role, path, startU, forcedConfig) {
+  _build(x, z, role, path, startU, forcedConfig, groupTag) {
     if (!_scene) return null;
 
     /* Push out of any AABB first — the base spot or the "random free
@@ -752,6 +753,7 @@ export const NPCs = {
     }
 
     const cfg = withPlayerLook(forcedConfig || uniformFor(role) || randomConfig());
+    try { applyFemaleShape(cfg, null, groupTag || role); } catch (e) {}   /* adult feminine NPCs only; kids / students are skipped */
     const built = buildCharacter(cfg);
     const group = built.root;
     const rig = built.rig;
