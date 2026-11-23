@@ -37,6 +37,9 @@ export const TOPS = {
   kaftan:     { sl: "long",  ease: 0.032, skirt: { hem: -0.50, hemR: 0.215 }, neck: "mandarin" },
   agbada:     { sl: "wide",  ease: 0.034, skirt: { hem: -0.66, hemR: 0.300 }, neck: "mandarin", agbada: true },
   dress:      { sl: "none",  ease: 0.010, skirt: { hem: -0.47, hemR: 0.275 }, neck: "scoop", fitted: true },
+  /* consent-only (Settings → Content & consent); see core/adult-gate.js */
+  underwear:  { sl: "none",  ease: 0.004, crop: -0.04, neck: "tube", topY: 0.30 },
+  offcloth:   { sl: "none",  ease: 0,     neck: "none", bare: true },
 };
 export function topSpec(cfg) { return TOPS[cfg.topStyle] || TOPS.tshirt; }
 
@@ -66,6 +69,8 @@ export function buildTop(ctx) {
     skin.castShadow = true; skin.receiveShadow = true;
     spine.add(skin);
   }
+
+  if (S.bare) return;   /* offcloth (consent-only): plain skin torso, no garment */
 
   /* ── cut-outs ── */
   let cut = null;

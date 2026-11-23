@@ -3,6 +3,7 @@
    low-poly character builders (lowpoly.js + lp-*.js).
    ═══════════════════════════════════════════════════════════ */
 import * as THREE from "three";
+import { shapeFor } from "./female-body-shapes.js";
 
 export const V2 = (x, y) => new THREE.Vector2(x, y);
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -147,10 +148,11 @@ export const HIP_HEIGHT = 0.935;
 export function measures(cfg) {
   const female = cfg.gender === "feminine";
   const male   = cfg.gender === "masculine";
-  const b = clamp(+cfg.build || 0, -1, 1);
+  const FSB = female ? shapeFor(cfg) : null;
+  const b = clamp((+cfg.build || 0) + (FSB ? FSB.buildBias : 0), -1, 1);
   const style = cfg.bodyStyle || "faceted";
   const styleShape = [1,1,1];   /* body-style silhouettes now live in lp-bodystyle.js (unique per style) */
-  const FS = female && cfg._femaleShape ? cfg._femaleShape : null;   /* adult female body shape (female-body-shapes.js) */
+  const FS = female ? shapeFor(cfg) : null;   /* adult female body shape, consent-gated (female-body-shapes.js) */
   const sxT = (female ? 0.93 : male ? 1.06 : 1.00) * (1 + 0.16 * b) * styleShape[0] * (FS ? 0.75 + 0.25 * FS.bust : 1);   /* torso width  */
   const szT = (female ? 0.68 : male ? 0.72 : 0.70) * (1 + 0.14 * b) * styleShape[1] * (FS ? FS.bust : 1);                /* torso depth  */
   const sxP = (female ? 1.08 : male ? 0.98 : 1.00) * (1 + 0.13 * b) * (FS ? FS.hip : 1);                                   /* pelvis width */

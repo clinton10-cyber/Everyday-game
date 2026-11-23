@@ -181,6 +181,7 @@
 "js/cinematics/story-page.js",
 "js/cinematics/story-player.js",
 "js/core/admin.js",
+"js/core/adult-gate.js",
 "js/core/animation-automation.js",
 "js/core/api.js",
 "js/core/arrest-watch.js",

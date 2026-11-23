@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { sanitizeAdult } from "../core/adult-gate.js";
 import { Wardrobe } from "../core/wardrobe.js";
 import { HIP_HEIGHT, measures, revolve, bone, mk, sphere, box, lerp } from "./lp-parts.js";
 import { buildPelvis, buildLeg } from "./lp-bottoms.js";
@@ -111,6 +112,7 @@ function buildInto(root, rig, config, mats) {
 }
 
 function buildBase(root, rig, config, mats) {
+  config = sanitizeAdult(config);   /* consent-only styles fall back to plain clothes when consent is off */
   /* optional faceted look (Body tab › Look). Classic stays the default. */
   if (config.look === "faceted") {
     buildFacetedInto(root, rig, config, mats);

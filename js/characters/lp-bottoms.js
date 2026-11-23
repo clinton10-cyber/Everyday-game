@@ -20,6 +20,9 @@ export const BOTTOMS = {
   bermuda:   { kind: "shorts", ease: 0.020, len: 0.40, belt: true, pockets: true },
   skirt:     { kind: "skirt",  ease: 0.012, hem: -0.47, hemR: 0.255 },
   miniskirt: { kind: "skirt",  ease: 0.010, hem: -0.27, hemR: 0.215 },
+  /* consent-only (Settings → Content & consent); see core/adult-gate.js */
+  underwear: { kind: "shorts", ease: 0.002, len: 0.07 },
+  offcloth:  { kind: "skirt",  ease: 0.010, hem: -0.2, hemR: 0.2, hidden: true },
 };
 export function bottomSpec(cfg) { return BOTTOMS[cfg.bottomStyle] || BOTTOMS.jeans; }
 

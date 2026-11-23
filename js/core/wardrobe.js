@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { adultOK, ADULT_TOP_STYLES, ADULT_BOTTOM_STYLES } from "./adult-gate.js";
+import { FEMALE_SHAPE_KEYS } from "../characters/female-body-shapes.js";
 import { enableClothFX, setClothParams, makeFabricTextures, topFabric, bottomFabric, topWind, bottomWind, sheenOf } from "../characters/fabric.js";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -482,6 +484,8 @@ export const WARDROBE_TABS = [
     { label: "Gender",      kind: "pills",  key: "gender", options: GENDERS },
     { label: "Skin tone",   kind: "color",  key: "skinTone", palette: SKIN_TONES },
     { label: "Build",       kind: "slider", key: "build", min: -1, max: 1, step: 0.05, lo: "Slim", hi: "Full" },
+    { label: "Body shape",  kind: "pills",  key: "bodyShape", options: ["default", ...FEMALE_SHAPE_KEYS],
+      when: c => c.gender === "feminine" && adultOK() },
     { label: "Eye colour",  kind: "color",  key: "eyeColor", palette: EYE_COLORS },
     { label: "Lip colour",  kind: "color",  key: "lipColor", palette: LIP_COLORS },
   ]},
@@ -492,7 +496,7 @@ export const WARDROBE_TABS = [
       colors: [{ sub: "color", label: "Beard colour", palette: HAIR_COLORS, auto: "Match hair" }] },
   ]},
   { id: "top", label: "Top", groups: [
-    { label: "Style",       kind: "pills",  key: "topStyle", options: TOP_STYLES },
+    { label: "Style",       kind: "pills",  key: "topStyle", get options() { return adultOK() ? [...TOP_STYLES, ...ADULT_TOP_STYLES] : TOP_STYLES; } },
     { label: "Colour",      kind: "color",  key: "topColor", palette: SHIRT_COLORS },
     { label: "Pattern",     kind: "pills",  key: "topPattern", options: PATTERNS },
     { label: "Accent / trim", kind: "color", key: "topAccent", palette: ACCENT_COLORS },
@@ -503,7 +507,7 @@ export const WARDROBE_TABS = [
       when: c => c.topStyle === "suit" && c.tie && c.tie !== "none" },
   ]},
   { id: "bottom", label: "Bottom", groups: [
-    { label: "Style",       kind: "pills",  key: "bottomStyle", options: BOTTOM_STYLES,
+    { label: "Style",       kind: "pills",  key: "bottomStyle", get options() { return adultOK() ? [...BOTTOM_STYLES, ...ADULT_BOTTOM_STYLES] : BOTTOM_STYLES; },
       note: c => ONE_PIECE_TOPS.includes(c.topStyle) ? "Your dress covers the bottoms — pick another top to show them." : "" },
     { label: "Skirt shape", kind: "pills",  key: "dressStyle", options: DRESS_SHAPES,
       when: c => c.look === "faceted" && (c.bottomStyle === "skirt" || c.bottomStyle === "miniskirt") && c.topStyle !== "dress" },

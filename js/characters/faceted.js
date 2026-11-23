@@ -815,9 +815,9 @@ function buildInto(root, rig, o, ext) {
    optional "Faceted" look in lowpoly.js). Unknown styles fall back to the nearest. */
 const TOP_MAP = { tshirt: "tshirt", longsleeve: "longsleeve", hoodie: "hoodie", tank: "tank", singlet: "singlet", vneck: "vneck",
   sweater: "sweater", turtleneck: "turtleneck", polo: "polo", jersey: "jersey", croptop: "croptop", tube: "tube", jacket: "jacket",
-  bomber: "bomber", suit: "suit", dashiki: "dashiki", kaftan: "kaftan", agbada: "agbada", dress: "dress" };
+  bomber: "bomber", suit: "suit", dashiki: "dashiki", kaftan: "kaftan", agbada: "agbada", dress: "dress", underwear: "tube", offcloth: "none" };
 const BOTTOM_MAP = { jeans: "jeans", shorts: "shorts", tracksuit: "tracksuit", baggy: "baggy", cargo: "cargo", bermuda: "bermuda",
-  leggings: "leggings", skirt: "skirt", miniskirt: "skirt", palazzo: "palazzo" };
+  leggings: "leggings", skirt: "skirt", miniskirt: "skirt", palazzo: "palazzo", underwear: "shorts", offcloth: "none" };
 const SHOE_MAP = { sneakers: "sneaker", hightops: "sneaker", cleats: "sneaker", boots: "boot", wellies: "boot", formal: "formal",
   loafers: "formal", heels: "heels", barefoot: "barefoot", sandals: "barefoot", slippers: "barefoot", flipflops: "barefoot" };
 const HAIR_MAP = { short: "short", buzz: "buzz", curly: "afro", long: "long", ponytail: "ponytail", bald: "bald", afro: "afro", bun: "bun",
