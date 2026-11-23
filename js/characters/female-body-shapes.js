@@ -2,8 +2,11 @@
    Body-shape variety for ADULT feminine characters (slim, average, curvy, athletic, soft, petite).
    - Only active when the player has given 18+ consent (Settings → Content & consent).
    - The player picks a shape in the wardrobe (Body tab); ambient adult female NPCs get a random one.
-   - Never applied to children, teens or students. */
+   - Never applied to children, teens or students.
+   Also provides addAdultBodyDetails() for breasts (blobs + areola + nipples) and genitals. */
+import * as THREE from "three";
 import { adultOK } from "../core/adult-gate.js";
+import { mk, sphere, lam } from "./lp-parts.js";
 
 export const FEMALE_SHAPES = {
   slim:     { label: "Slim",        bust: 0.88, waist: 0.82, hip: 0.92, thigh: 0.90, buildBias: -0.35 },
@@ -47,4 +50,64 @@ export function applyFemaleShape(cfg, shapeKey = null, tag = null) {
   if (!cfg || cfg.gender !== "feminine" || !adultOK() || isShapeBlocked(cfg, tag)) return cfg;
   if (!cfg.bodyShape || cfg.bodyShape === "default") cfg.bodyShape = shapeKey || randomFemaleShape();
   return cfg;
+}
+
+/* ── Adult body details (18+ consent only) ─────────────────────────────
+   Adds two breast "blobs", areola, nipples and simple low-poly genitals
+   when the character is adult feminine and clothing is off / underwear.
+   Never applied to children, teens or when consent is off. */
+export function addAdultBodyDetails(ctx) {
+  const { B, cfg, M, spine, hips } = ctx || {};
+  if (!cfg || cfg.gender !== "feminine" || !adultOK() || isShapeBlocked(cfg)) return;
+
+  const FS = shapeFor(cfg);
+  const bust = FS ? FS.bust : 1.0;
+  const topBare = cfg.topStyle === "offcloth" || cfg.topStyle === "underwear";
+  const botBare = cfg.bottomStyle === "offcloth" || cfg.bottomStyle === "underwear";
+
+  // ── Breasts: two blobs + areola + nipples ──
+  if (topBare && spine && M && M.skin) {
+    const skin = M.skin;
+    const areolaMat = lam(new THREE.Color(skin.color).offsetHSL(0.02, 0.18, -0.20));
+    const nippleMat = lam(new THREE.Color(skin.color).offsetHSL(0.04, 0.28, -0.32));
+
+    const baseR = 0.078 * Math.max(0.75, Math.min(1.45, bust));
+    const y = 0.285;
+    const z = 0.092 * (B ? B.szT : 1);
+    const xOff = 0.068 * (B ? B.sxT : 1);
+
+    for (const s of [-1, 1]) {
+      // main breast volume (the two blobs)
+      const breast = mk(sphere(baseR, 12, 10), skin, spine, xOff * s, y, z);
+      breast.scale.set(1.08, 0.90, 0.86);
+      breast.castShadow = true;
+      breast.userData.adultDetail = true;
+
+      // areola
+      const areola = mk(sphere(baseR * 0.36, 8, 6), areolaMat, spine, xOff * s, y - 0.005, z + baseR * 0.58);
+      areola.scale.set(1.05, 0.65, 0.32);
+      areola.userData.adultDetail = true;
+
+      // nipple
+      const nip = mk(sphere(baseR * 0.105, 6, 5), nippleMat, spine, xOff * s, y - 0.007, z + baseR * 0.74);
+      nip.scale.set(1, 0.8, 0.65);
+      nip.userData.adultDetail = true;
+    }
+  }
+
+  // ── Genitals (simple low-poly feminine) ──
+  if (botBare && hips && M && M.skin) {
+    const skin = M.skin;
+    const dark = lam(new THREE.Color(skin.color).offsetHSL(0.02, 0.12, -0.24));
+
+    // soft mound
+    const mound = mk(sphere(0.055, 10, 8), skin, hips, 0, -0.055, 0.078 * (B ? B.szP : 1));
+    mound.scale.set(1.18, 0.52, 0.88);
+    mound.userData.adultDetail = true;
+
+    // central cleft
+    const cleft = mk(sphere(0.017, 6, 5), dark, hips, 0, -0.070, 0.098 * (B ? B.szP : 1));
+    cleft.scale.set(0.32, 1.45, 0.50);
+    cleft.userData.adultDetail = true;
+  }
 }
