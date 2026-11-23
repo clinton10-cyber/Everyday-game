@@ -860,6 +860,16 @@ export class ThirdPersonControls {
     if (this.state !== "standing" && this.state !== "crouching") { this.stand(); return; }
     if (this._nearCar && this._enterCarCb) { this._enterCarCb(this._nearCar); return; }
     if (this.held) { this.dropHeld(false); return; }
+
+    /* When a gun is out, FIRE always wins — nearby pickups / interactables
+       only activate when the player is unarmed or uses a dedicated PICK UP button. */
+    if (this._isGunWeapon()) {
+      if (this.weapons && this.weapons.isArmed()) {
+        this.weapons.attack(this._getWeaponTargets());
+      }
+      return;
+    }
+
     const inter = this._nearestInteractable();
     if (inter && inter.onInteract) { inter.onInteract(this); return; }
     const use = this._nearestUse();
@@ -965,17 +975,17 @@ export class ThirdPersonControls {
     else {
       const inter = this._nearestInteractable();
       const use = this._nearestUse();
-      if (inter) { t = inter.label || "USE"; ds = "interact"; }
+      /* Gun weapons: FIRE/STAB/LAUNCH always shown first — pickups don't hijack the button */
+      if (this.weapons && this.weapons.current === "knife")  { t = "STAB"; ds = "warn"; }
+      else if (this._isGunWeapon() && this.weapons.current !== "bazooka") { t = "FIRE"; ds = "interact"; }
+      else if (this.weapons && this.weapons.current === "bazooka") { t = "LAUNCH"; ds = "warn"; }
+      else if (inter) { t = inter.label || "USE"; ds = "interact"; }
       else if (use) { t = use.label || "USE"; ds = "interact"; }
       /* Dropped inventory items and world pickups share the same nearby-item
          prompt. Give the player a visible touch action as well as the E key. */
       else if (window.__ph3d_nearObj && !window.__ph3d_nearObj.taken) { t = "PICK UP"; ds = "take"; }
       else if (this.nearSit) { t = this.nearSit.label || "SIT"; }
       else if (this._nearestCarryable()) { t = "TAKE"; ds = "take"; }
-      else if (this.weapons && this.weapons.current === "knife")  { t = "STAB"; ds = "warn"; }
-      else if (this.weapons && this.weapons.current === "pistol") { t = "FIRE"; ds = "interact"; }
-      else if (this._isGunWeapon() && this.weapons.current !== "bazooka") { t = "FIRE"; ds = "interact"; }
-      else if (this.weapons && this.weapons.current === "bazooka") { t = "LAUNCH"; ds = "warn"; }
     }
     if (t) { b.textContent = t; b.style.opacity = "1"; b.style.transform = "translateY(0)"; b.style.pointerEvents = "auto"; b.dataset.state = ds; }
     else { b.style.opacity = "0"; b.style.transform = "translateY(10px)"; b.style.pointerEvents = "none"; }
@@ -1433,16 +1443,26 @@ _updateCamera(dt, snap) {
       Math.sin(this.aimPitch),
       Math.cos(this.yaw) * Math.cos(this.aimPitch)
     ).normalize();
-    /* the character faces +Z, so its RIGHT side is -X: shoulderSide +1 now really is the right shoulder (camera sits behind the gun hand, CoD style) */
+    /* Right vector relative to the player's facing direction */
     const right = new THREE.Vector3(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
-    const eye = new THREE.Vector3(this.pos.x, this.floorY + 1.55, this.pos.z);
 
-    const aimDistance = this.aiming ? 1.18 : 2.35;
-    const shoulderOffset = (this.aiming ? 0.22 : 0.52) * (this.shoulderSide || 1);
+    /* Player body shifts RIGHT (gun-hand side) so the crosshair is clear on the left.
+       Camera sits behind the LEFT shoulder so the gun is visible on the right of screen
+       and the barrel points exactly at the crosshair. */
+    const bodyShift = this.aiming ? 0.26 : 0.36;
+    const eye = new THREE.Vector3(
+      this.pos.x + right.x * bodyShift,
+      this.floorY + 1.55,
+      this.pos.z + right.z * bodyShift
+    );
+
+    const aimDistance = this.aiming ? 1.10 : 2.20;
+    /* Negative = camera behind left shoulder → gun on right of screen */
+    const shoulderOffset = -(this.aiming ? 0.16 : 0.40) * (this.shoulderSide || 1);
     let camPos = eye.clone()
       .addScaledVector(aimDir, -aimDistance)
       .addScaledVector(right, shoulderOffset)
-      .add(new THREE.Vector3(0, this.aiming ? 0.02 : 0.12, 0));
+      .add(new THREE.Vector3(0, this.aiming ? 0.04 : 0.14, 0));
 
     if (this.world.colliders) {
       const backDir = new THREE.Vector3().subVectors(camPos, eye);
@@ -1467,9 +1487,13 @@ _updateCamera(dt, snap) {
 
     if (this.world.groundAt) { const gy = this.world.groundAt(camPos.x, camPos.z) + 0.3; if (camPos.y < gy) camPos.y = gy; }
     this.camera.position.copy(camPos);
-    this.camera.lookAt(eye.clone().addScaledVector(aimDir, 15));
+    /* Look from camera position toward a far point along aimDir so gun barrel
+       and crosshair are always co-aligned regardless of body shift. */
+    this.camera.lookAt(camPos.clone().addScaledVector(aimDir, 50));
 
-    this._aimOrigin = eye;
+    /* Bullets originate from the true player chest (un-shifted) so hitscan
+       goes exactly where the crosshair sits at screen-centre. */
+    this._aimOrigin = new THREE.Vector3(this.pos.x, this.floorY + 1.55, this.pos.z);
     this._aimDir = aimDir;
     return;
   }

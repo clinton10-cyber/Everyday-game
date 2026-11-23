@@ -731,8 +731,11 @@ export class Weapons {
 
   attack(targets) {
     const c = this.controls;
-    if (c && ((c.state !== "standing" && c.state !== "crouching") || !!c.held ||
-      (c._emoteTimer > 0.12) || (!!(c.jet && c.jet.on) && c.onGround === false))) return false;
+    /* c.state is only set by ThirdPersonControls; plain walker objects in the
+       drive/walk scene have no .state — treat undefined as "standing" so they can fire. */
+    const st = c && c.state;
+    if (c && st && st !== "standing" && st !== "crouching") return false;
+    if (c && (!!c.held || (c._emoteTimer > 0.12) || (!!(c.jet && c.jet.on) && c.onGround === false))) return false;
     if (this.current === "knife")  return this.knife.stab();
     if (this.current === "pistol") return this.pistol.fire();
     if (this.current === "sniper") return this.sniper.fire();
