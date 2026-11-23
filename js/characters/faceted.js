@@ -18,6 +18,7 @@
    phone and gait code drive it unchanged.
    ════════════════════════════════════════════════════════════════════ */
 import * as THREE from "three";
+import { shapeFor } from "./female-body-shapes.js";
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -170,10 +171,10 @@ function mixBody(a, b, t) {
   }
   return o;
 }
-export function bodySpec(type, build = 0) {
+export function bodySpec(type, build = 0, shape = null) {
   const t = type === "male" ? 0 : type === "female" ? 1 : 0.5;
   const B = mixBody(MALE, FEMALE, t);
-  const k = clamp(+build || 0, -1, 1);
+  const k = clamp((+build || 0) + (shape && type === "female" ? shape.buildBias : 0), -1, 1);
   const w = 1 + 0.14 * k;                         /* build slider: width */
   const d = 1 + 0.12 * k;                         /* build slider: depth */
   B.type = type;
@@ -182,6 +183,18 @@ export function bodySpec(type, build = 0) {
   B.torsoRx = B.torsoRx.map((v) => v * w);  B.torsoRz = B.torsoRz.map((v) => v * d);
   B.pelvRx = B.pelvRx.map((v) => v * w);    B.pelvRz = B.pelvRz.map((v) => v * d);
   B.limb = 1 + 0.10 * k;
+  if (shape && B.female) {                        /* adult female body shape, consent-gated (female-body-shapes.js) */
+    const up = 0.75 + 0.25 * shape.bust;
+    B.torsoRx = B.torsoRx.map((v, i) => v * (i < 2 ? shape.waist : i >= 3 && i <= 5 ? up : 1));
+    B.torsoRz = B.torsoRz.map((v, i) => v * (i < 2 ? shape.waist : i >= 3 && i <= 5 ? shape.bust : 1));
+    const hipK = 1 + (shape.hip - 1) * 0.55;       /* softened so trousers and skirts still sit cleanly on the hips */
+    B.pelvRx = B.pelvRx.map((v, i) => v * (i === 0 ? 1 : hipK));
+    B.pelvRz = B.pelvRz.map((v, i) => v * (i === 0 ? 1 : 0.92 + 0.08 * hipK));
+    B.hipX *= hipK;
+    B.bust *= shape.bust;
+    B.thigh *= shape.thigh;
+    B.limb *= 0.92 + 0.08 * shape.thigh;
+  }
   B.shoulderX *= w;
   B.hipX *= w;
   B.armTop = 0.047 * B.arm * B.limb;  B.armElbow = 0.040 * B.arm * B.limb;  B.armWrist = 0.031 * B.arm * B.limb;
@@ -766,7 +779,7 @@ export function applyFaceted(character, options) {
 }
 
 function buildInto(root, rig, o, ext) {
-  const B = bodySpec(o.body, o.build);
+  const B = bodySpec(o.body, o.build, o.bodyShapeMul);
   let M;
   if (ext) {
     /* the game's own Wardrobe materials: reuse them so live recolouring keeps working */
@@ -836,6 +849,7 @@ export function facetedOptionsFromConfig(cfg, colors) {
     body, build: cfg.build || 0,
     hair: HAIR_MAP[cfg.hairStyle] || "short",
     hat: !!(cfg.hat && cfg.hat.style),
+    bodyShapeMul: shapeFor(cfg),
     top, bottom: BOTTOM_MAP[bs] || "jeans",
     shoeStyle: SHOE_MAP[cfg.shoeStyle] || "sneaker",
     dress: Object.assign({}, DEFAULTS.dress, skirtStyle),
