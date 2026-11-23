@@ -14,6 +14,7 @@ import {
   frontZ, lerp, clamp, glow,
 } from "./lp-parts.js";
 import { resolveColor, SHIRT_COLORS, ACCENT_COLORS } from "../core/wardrobe.js";
+import { addAdultBodyDetails } from "./female-body-shapes.js";
 
 /* sl: sleeve kind · ease: looseness (m) · hem: tail hem y in hips space
    (long: flared skirt hem) · neck: neckline / collar type                */
@@ -69,6 +70,9 @@ export function buildTop(ctx) {
     skin.castShadow = true; skin.receiveShadow = true;
     spine.add(skin);
   }
+
+  /* 18+ adult body details (breasts / nipples / genitals) when consent + bare/underwear */
+  try { addAdultBodyDetails(ctx); } catch (e) { console.warn("[adult-body]", e); }
 
   if (S.bare) return;   /* offcloth (consent-only): plain skin torso, no garment */
 
