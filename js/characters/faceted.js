@@ -183,6 +183,11 @@ export function bodySpec(type, build = 0, shape = null) {
   B.torsoRx = B.torsoRx.map((v) => v * w);  B.torsoRz = B.torsoRz.map((v) => v * d);
   B.pelvRx = B.pelvRx.map((v) => v * w);    B.pelvRz = B.pelvRz.map((v) => v * d);
   B.limb = 1 + 0.10 * k;
+  /* hip ↔ waist continuity: the pelvis's top ring is always the torso's width at the same height,
+     so the waistband / trouser top meets the body with no step, for every body type and shape. */
+  const PELV_TOP_T = 0.065 / T_Y1;
+  const joinRx = spline(B.torsoRx, PELV_TOP_T), joinRz = spline(B.torsoRz, PELV_TOP_T);
+  const pelvMid = [0, 1, 2, 3, 4];
   if (shape && B.female) {                        /* adult female body shape, consent-gated (female-body-shapes.js) */
     const up = 0.75 + 0.25 * shape.bust;
     B.torsoRx = B.torsoRx.map((v, i) => v * (i < 2 ? shape.waist : i >= 3 && i <= 5 ? up : 1));
@@ -193,11 +198,15 @@ export function bodySpec(type, build = 0, shape = null) {
     const blend = [1, 1, 1, 0.5, 0];
     B.pelvRx = B.pelvRx.map((v, i) => v * (1 + (hipK - 1) * blend[i]));
     B.pelvRz = B.pelvRz.map((v, i) => v * (1 + (0.92 + 0.08 * hipK - 1) * blend[i]));
-    B.hipX *= hipK;
+    /* leg joints keep their spacing so the trousers don't splay into a shelf */
     B.bust *= shape.bust;
     B.thigh *= shape.thigh;
     B.limb *= 0.92 + 0.08 * shape.thigh;
   }
+  /* lock the pelvis top to the waist and ease the row below it toward it, so the outline is one smooth curve */
+  B.pelvRx[4] = joinRx; B.pelvRz[4] = joinRz;
+  B.pelvRx[3] = (B.pelvRx[3] + joinRx) / 2; B.pelvRz[3] = (B.pelvRz[3] + joinRz) / 2;
+  void pelvMid;
   B.shoulderX *= w;
   B.hipX *= w;
   B.armTop = 0.047 * B.arm * B.limb;  B.armElbow = 0.040 * B.arm * B.limb;  B.armWrist = 0.031 * B.arm * B.limb;
