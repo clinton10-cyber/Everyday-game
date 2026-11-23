@@ -153,8 +153,10 @@ export function measures(cfg) {
   const style = cfg.bodyStyle || "faceted";
   const styleShape = [1,1,1];   /* body-style silhouettes now live in lp-bodystyle.js (unique per style) */
   const FS = female ? shapeFor(cfg) : null;   /* adult female body shape, consent-gated (female-body-shapes.js) */
+  /* Extra chest depth so clothing shells sit outside the two breast blobs */
+  const breastK = FS ? Math.max(1.0, FS.bust) : 1.0;
   const sxT = (female ? 0.93 : male ? 1.06 : 1.00) * (1 + 0.16 * b) * styleShape[0] * (FS ? 0.75 + 0.25 * FS.bust : 1);   /* torso width  */
-  const szT = (female ? 0.68 : male ? 0.72 : 0.70) * (1 + 0.14 * b) * styleShape[1] * (FS ? FS.bust : 1);                /* torso depth  */
+  const szT = (female ? 0.68 : male ? 0.72 : 0.70) * (1 + 0.14 * b) * styleShape[1] * (FS ? FS.bust * 1.08 : 1);          /* torso depth (+8% for breast clearance) */
   const sxP = (female ? 1.08 : male ? 0.98 : 1.00) * (1 + 0.13 * b) * (FS ? FS.hip : 1);                                   /* pelvis width */
   const szP = (female ? 0.78 : 0.74)               * (1 + 0.11 * b) * (FS ? 0.9 + 0.1 * FS.hip : 1);                      /* pelvis depth */
   const limb = (1 + 0.10 * b) * styleShape[2] * (FS ? 0.92 + 0.08 * FS.thigh : 1);                                        /* limb thickness */
@@ -165,13 +167,15 @@ export function measures(cfg) {
   const joinT = joinW / sxT;
   const joinP = joinW / sxP;
 
+  /* Slightly fuller chest rows when adult female shape is active so tops drape over the blobs */
+  const chestBoost = FS ? 0.012 * breastK : 0;
   const rows0 = [                                       /* torso, tight */
     { y: 0.000, r: joinT },
     { y: 0.050, r: Math.max(0.140 * waistK, joinT * 0.96) },
     { y: 0.115, r: 0.150 },
-    { y: 0.190, r: 0.172 },
-    { y: 0.280, r: 0.196 },
-    { y: 0.355, r: 0.190 },
+    { y: 0.190, r: 0.172 + chestBoost * 0.4 },
+    { y: 0.280, r: 0.196 + chestBoost },
+    { y: 0.355, r: 0.190 + chestBoost * 0.5 },
     { y: 0.390, r: 0.164 },
     { y: 0.412, r: 0.112 },
     { y: 0.430, r: 0.068 },
@@ -186,6 +190,7 @@ export function measures(cfg) {
   return {
     female, male, build: b, sxT, szT, sxP, szP, limb, waistK, joinW, joinT, joinP,
     rows0, prows0,
+    breastK,                                 /* >1 when adult feminine shape active – used by frontZ */
     shoulderX: 0.166 * sxT + 0.008,
     hipX: 0.081 * sxP,
     armTop: 0.056 * limb, armElbow: 0.046 * limb, armWrist: 0.036 * limb,
@@ -193,9 +198,16 @@ export function measures(cfg) {
   };
 }
 
-/* world-space Z of the front of a torso shell at height y (spine space) */
+/* world-space Z of the front of a torso shell at height y (spine space).
+   Extra forward offset in the breast band so clothing clears the two blobs. */
 export function frontZ(B, y, ease = 0, x = 0) {
   const r = rAt(B.rows0, y) + ease;
   const xx = x / B.sxT;
-  return B.szT * Math.sqrt(Math.max(0, r * r - xx * xx));
+  let z = B.szT * Math.sqrt(Math.max(0, r * r - xx * xx));
+  /* Breast clearance: push garment front outward around y = 0.24 … 0.33 */
+  if (B.breastK && B.breastK > 1.01 && y > 0.22 && y < 0.36) {
+    const t = 1 - Math.abs((y - 0.285) / 0.07);
+    if (t > 0) z += 0.055 * (B.breastK - 0.85) * t * t;
+  }
+  return z;
 }
