@@ -437,12 +437,19 @@ function buildTorso(rig, B, M, o) {
   /* skin torso (always — it shows through sleeveless tops and under tops) */
   const skinRings = ringsFrom(T_Y0, T_Y1, 10, { rx: B.torsoRx, rz: B.torsoRz });
   const bust = B.bust;
+  /* Soft, rounded bust: two smooth blobs on the front of the chest, spread a little
+     to each side and tapering toward the armpit, so it reads as a natural shape that
+     follows the body type. Non-anatomical: no nipple or areola geometry. */
   const bustShape = (r, a) => {
     if (!bust) return null;
     const front = Math.max(0, Math.cos(a));
-    const bump = Math.exp(-Math.pow((r.y - 0.262) / 0.050, 2));
-    const side = Math.pow(front, 3) * Math.abs(Math.sin(a)) > 0.0 ? 1 : 1;
-    return { dz: bust * bump * Math.pow(front, 2.2) };
+    const side = Math.sin(a);
+    const lift = Math.exp(-Math.pow((r.y - 0.262) / 0.056, 2));           /* where the bust sits on the torso */
+    const lobeL = Math.exp(-Math.pow((side - 0.42) / 0.36, 2));           /* left / right soft lobes */
+    const lobeR = Math.exp(-Math.pow((side + 0.42) / 0.36, 2));
+    const lobes = Math.max(lobeL, lobeR);
+    const soft = Math.pow(front, 1.6) * (0.55 + 0.45 * lobes);
+    return { dz: bust * 1.25 * lift * soft };
   };
   mesh(loft(skinRings, { seg: 10, shape: bustShape }), M.skin, spine);
 
