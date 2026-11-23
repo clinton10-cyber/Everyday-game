@@ -187,9 +187,12 @@ export function bodySpec(type, build = 0, shape = null) {
     const up = 0.75 + 0.25 * shape.bust;
     B.torsoRx = B.torsoRx.map((v, i) => v * (i < 2 ? shape.waist : i >= 3 && i <= 5 ? up : 1));
     B.torsoRz = B.torsoRz.map((v, i) => v * (i < 2 ? shape.waist : i >= 3 && i <= 5 ? shape.bust : 1));
-    const hipK = 1 + (shape.hip - 1) * 0.85;       /* softened so trousers and skirts still sit cleanly on the hips */
-    B.pelvRx = B.pelvRx.map((v, i) => v * (i === 0 ? 1 : hipK));
-    B.pelvRz = B.pelvRz.map((v, i) => v * (i === 0 ? 1 : 0.92 + 0.08 * hipK));
+    /* hips widen toward the bottom and blend back to the waist at the top, so the waistband
+       meets the torso with no ledge; the top row stays at the unscaled width. */
+    const hipK = 1 + (shape.hip - 1) * 0.85;
+    const blend = [1, 1, 1, 0.5, 0];
+    B.pelvRx = B.pelvRx.map((v, i) => v * (1 + (hipK - 1) * blend[i]));
+    B.pelvRz = B.pelvRz.map((v, i) => v * (1 + (0.92 + 0.08 * hipK - 1) * blend[i]));
     B.hipX *= hipK;
     B.bust *= shape.bust;
     B.thigh *= shape.thigh;
@@ -440,7 +443,9 @@ function buildTorso(rig, B, M, o) {
   /* Soft, rounded bust: two smooth blobs on the front of the chest, spread a little
      to each side and tapering toward the armpit, so it reads as a natural shape that
      follows the body type. Non-anatomical: no nipple or areola geometry. */
-  const bustShape = (r, a) => {
+  /* k scales the lift: the skin gets the full bust, garments get a smaller one so the
+     shoulders and collar of a shirt never flare out (the chest band stays where it is). */
+  const makeBust = (k) => (r, a) => {
     if (!bust) return null;
     const front = Math.max(0, Math.cos(a));
     const side = Math.sin(a);
@@ -449,14 +454,16 @@ function buildTorso(rig, B, M, o) {
     const lobeR = Math.exp(-Math.pow((side + 0.40) / 0.30, 2));
     const lobes = Math.max(lobeL, lobeR);
     const soft = Math.pow(front, 1.6) * (0.55 + 0.45 * lobes);
-    return { dz: bust * 3.4 * lift * soft };
+    return { dz: bust * k * lift * soft };
   };
+  const bustShape = makeBust(3.4);
+  const garmentBust = bustShape;   /* full bust, so garments cover the skin bust with no poke-through */
   mesh(loft(skinRings, { seg: 10, shape: bustShape }), M.skin, spine);
 
   /* pelvis (hips space) */
   const pelv = ringsFrom(-0.115, 0.065, 6, { rx: B.pelvRx, rz: B.pelvRz });
   rig._pelvisRings = pelv;
-  return { skinRings, bustShape, pelv };
+  return { skinRings, bustShape: garmentBust, pelv };
 }
 
 function buildTopShell(rig, B, M, o, T) {
