@@ -53,20 +53,23 @@ export function applyFemaleShape(cfg, shapeKey = null, tag = null) {
 }
 
 /* ── Adult body details (18+ consent only) ─────────────────────────────
-   Adds two breast "blobs", areola, nipples and simple low-poly genitals
-   when the character is adult feminine and clothing is off / underwear.
+   Feminine: two breast blobs + areola + nipples + genitals
+   Masculine: simple low-poly genitals
+   Only when clothing is off / underwear and the character is adult.
    Never applied to children, teens or when consent is off. */
 export function addAdultBodyDetails(ctx) {
   const { B, cfg, M, spine, hips } = ctx || {};
-  if (!cfg || cfg.gender !== "feminine" || !adultOK() || isShapeBlocked(cfg)) return;
+  if (!cfg || !adultOK() || isShapeBlocked(cfg)) return;
 
-  const FS = shapeFor(cfg);
-  const bust = FS ? FS.bust : 1.0;
   const topBare = cfg.topStyle === "offcloth" || cfg.topStyle === "underwear";
   const botBare = cfg.bottomStyle === "offcloth" || cfg.bottomStyle === "underwear";
+  const female = cfg.gender === "feminine";
+  const male   = cfg.gender === "masculine";
 
-  // ── Breasts: two blobs + areola + nipples ──
-  if (topBare && spine && M && M.skin) {
+  // ── Feminine breasts: two blobs + areola + nipples ──
+  if (female && topBare && spine && M && M.skin) {
+    const FS = shapeFor(cfg);
+    const bust = FS ? FS.bust : 1.0;
     const skin = M.skin;
     const areolaMat = lam(new THREE.Color(skin.color).offsetHSL(0.02, 0.18, -0.20));
     const nippleMat = lam(new THREE.Color(skin.color).offsetHSL(0.04, 0.28, -0.32));
@@ -95,19 +98,36 @@ export function addAdultBodyDetails(ctx) {
     }
   }
 
-  // ── Genitals (simple low-poly feminine) ──
+  // ── Genitals ──
   if (botBare && hips && M && M.skin) {
     const skin = M.skin;
     const dark = lam(new THREE.Color(skin.color).offsetHSL(0.02, 0.12, -0.24));
 
-    // soft mound
-    const mound = mk(sphere(0.055, 10, 8), skin, hips, 0, -0.055, 0.078 * (B ? B.szP : 1));
-    mound.scale.set(1.18, 0.52, 0.88);
-    mound.userData.adultDetail = true;
+    if (female) {
+      // soft mound + cleft
+      const mound = mk(sphere(0.055, 10, 8), skin, hips, 0, -0.055, 0.078 * (B ? B.szP : 1));
+      mound.scale.set(1.18, 0.52, 0.88);
+      mound.userData.adultDetail = true;
 
-    // central cleft
-    const cleft = mk(sphere(0.017, 6, 5), dark, hips, 0, -0.070, 0.098 * (B ? B.szP : 1));
-    cleft.scale.set(0.32, 1.45, 0.50);
-    cleft.userData.adultDetail = true;
+      const cleft = mk(sphere(0.017, 6, 5), dark, hips, 0, -0.070, 0.098 * (B ? B.szP : 1));
+      cleft.scale.set(0.32, 1.45, 0.50);
+      cleft.userData.adultDetail = true;
+    } else if (male) {
+      // simple low-poly male genitals (shaft + glans + scrotum)
+      const shaft = mk(sphere(0.028, 8, 6), skin, hips, 0, -0.095, 0.055 * (B ? B.szP : 1));
+      shaft.scale.set(0.75, 1.55, 0.85);
+      shaft.userData.adultDetail = true;
+
+      const glans = mk(sphere(0.022, 7, 5), dark, hips, 0, -0.125, 0.068 * (B ? B.szP : 1));
+      glans.scale.set(0.95, 0.75, 0.9);
+      glans.userData.adultDetail = true;
+
+      // scrotum (two lobes)
+      for (const s of [-1, 1]) {
+        const lobe = mk(sphere(0.026, 7, 5), skin, hips, 0.022 * s, -0.088, 0.035 * (B ? B.szP : 1));
+        lobe.scale.set(0.9, 1.05, 0.95);
+        lobe.userData.adultDetail = true;
+      }
+    }
   }
 }
