@@ -522,6 +522,35 @@ setTimeout(hide,8000);el.addEventListener("click",hide);})();
 </div>
 <div id="fade"></div>
 <div id="scene-loader">
+  <div class="sl-stage" aria-hidden="true">
+    <div class="sl-sky far"></div>
+    <div class="sl-sky near"></div>
+    <div class="sl-actor sl-walker">
+      <svg viewBox="0 0 60 90" width="44" height="66" fill="none" stroke="#eaf6ff" stroke-width="6" stroke-linecap="round">
+        <g class="sl-bob">
+          <g class="sl-arm b"><line x1="30" y1="27" x2="30" y2="50" stroke="#8fb4c9"/></g>
+          <g class="sl-leg b"><line x1="30" y1="52" x2="30" y2="80" stroke="#8fb4c9"/></g>
+          <line x1="30" y1="20" x2="30" y2="54"/>
+          <circle cx="30" cy="11" r="8" fill="#eaf6ff" stroke="none"/>
+          <g class="sl-leg a"><line x1="30" y1="52" x2="30" y2="80"/></g>
+          <g class="sl-arm a"><line x1="30" y1="27" x2="30" y2="50"/></g>
+        </g>
+      </svg>
+    </div>
+    <div class="sl-actor sl-car">
+      <svg viewBox="0 0 140 56" width="112" height="45">
+        <g class="sl-bob">
+          <polygon class="sl-beam" points="132,32 176,22 176,46" fill="#FFD60A"/>
+          <path d="M6 40V31Q6 27 12 26L32 23 46 10Q48 8 52 8H88Q92 8 94 10L108 23 128 27Q134 28 134 33V40Z" fill="#FF5C00"/>
+          <path d="M50 13 38 23H66V13ZM72 13V23H102L90 13Z" fill="#0b1018" opacity=".78"/>
+          <rect x="124" y="30" width="8" height="5" rx="2" fill="#FFD60A"/>
+        </g>
+        <g class="sl-wheel" style="transform-origin:36px 42px"><circle cx="36" cy="42" r="10" fill="#0b1018" stroke="#eaf6ff" stroke-width="2"/><path d="M36 34V50M28 42H44" stroke="#eaf6ff" stroke-width="2"/></g>
+        <g class="sl-wheel" style="transform-origin:106px 42px"><circle cx="106" cy="42" r="10" fill="#0b1018" stroke="#eaf6ff" stroke-width="2"/><path d="M106 34V50M98 42H114" stroke="#eaf6ff" stroke-width="2"/></g>
+      </svg>
+    </div>
+    <div class="sl-road"></div>
+  </div>
   <div class="sl-pct" id="sl-pct">0%</div>
   <div class="sl-bar"><i id="sl-fill"></i></div>
   <div class="sl-label" id="sl-label">LOADING…</div>
@@ -787,41 +816,80 @@ setTimeout(hide,8000);el.addEventListener("click",hide);})();
 </script>
 
 <script type="module">
-/* ── Player panel → Character Hub ──────────────────────────── */
+/* ── Player panel → Character Hub (Tailor) ─────────────────────
+   • preloads the Tailor in the background so the first tap is instant
+   • instant tap feedback ("Opening Tailor…") while it loads
+   • touchend + click no longer fire twice
+   • a failure is shown on screen instead of failing silently        */
 (function mountHub() {
   if (window.__ph3d_hub_mounted) return;
   const panel = document.getElementById("player-panel");
   if (!panel) { setTimeout(mountHub, 300); return; }
   window.__ph3d_hub_mounted = true;
 
-  let hubMod = null;
-  async function getHub() {
-    if (hubMod) return hubMod;
+  let hubMod = null, loading = null, lastTap = 0, noteEl = null, noteT = 0;
+
+  function note(msg, ms) {
     try {
-      hubMod = await import("./js/core/character-hub.js");
-      window.__ph3d_character_hub = hubMod.Hub;
-    } catch (e) {
-      console.warn("[hub] failed to load", e);
+      if (!noteEl) {
+        noteEl = document.createElement("div");
+        noteEl.id = "ph3d-hub-note";
+        noteEl.style.cssText = "position:fixed;left:50%;top:max(12px,env(safe-area-inset-top,0px));transform:translateX(-50%);" +
+          "z-index:99999;max-width:min(92vw,420px);padding:10px 16px;border-radius:12px;background:rgba(10,16,13,.94);" +
+          "color:#fff;border:1px solid rgba(255,198,43,.55);font:700 13px/1.35 system-ui,sans-serif;text-align:center;" +
+          "box-shadow:0 8px 24px rgba(0,0,0,.5);pointer-events:none";
+        document.body.appendChild(noteEl);
+      }
+      noteEl.textContent = msg; noteEl.style.display = "block";
+      clearTimeout(noteT);
+      if (ms) noteT = setTimeout(hideNote, ms);
+    } catch (e) {}
+  }
+  function hideNote() { clearTimeout(noteT); if (noteEl) noteEl.style.display = "none"; }
+
+  function getHub() {
+    if (hubMod) return Promise.resolve(hubMod);
+    if (!loading) {
+      loading = import("./js/core/character-hub.js").then((m) => {
+        hubMod = m; window.__ph3d_character_hub = m.Hub; return m;
+      }).catch((e) => { loading = null; console.error("[hub] failed to load", e); throw e; });
     }
-    return hubMod;
+    return loading;
   }
 
-  panel.addEventListener("click", async (ev) => {
+  /* warm the module cache once the game has settled, so the first tap doesn't wait on ~35 files */
+  (window.requestIdleCallback || ((f) => setTimeout(f, 3000)))(() => { getHub().catch(() => {}); }, { timeout: 8000 });
+
+  async function openTailor() {
+    const now = performance.now();
+    if (now - lastTap < 700) return;            /* touchend and the click that follows it = one tap */
+    lastTap = now;
+    panel.style.opacity = ".72";
+    const slow = setTimeout(() => note("Opening Tailor…"), hubMod ? 1e9 : 120);
+    try {
+      const m = await getHub();
+      if (!m || !m.Hub) throw new Error("Tailor module missing");
+      if (m.Hub.open() === false) throw new Error(m.Hub.lastError || "could not start");
+      hideNote();
+    } catch (e) {
+      note("Tailor couldn't open: " + String((e && e.message) || e).replace(/[.\s]+$/, "") + ". Tap the card to try again.", 7000);
+    } finally {
+      clearTimeout(slow); panel.style.opacity = "";
+    }
+  }
+
+  panel.addEventListener("click", (ev) => {
     if (ev.target.closest("button")) return;
-    const m = await getHub();
-    if (m && m.Hub) m.Hub.open();
+    openTailor();
   });
-  panel.addEventListener("touchstart", async (ev) => {
+  panel.addEventListener("touchstart", (ev) => {
     panel._touchT0 = performance.now();
     panel._touchY = ev.touches[0].clientY;
   }, { passive: true });
-  panel.addEventListener("touchend", async (ev) => {
+  panel.addEventListener("touchend", (ev) => {
     const dt = performance.now() - (panel._touchT0 || 0);
     const dy = Math.abs((ev.changedTouches[0].clientY) - (panel._touchY || 0));
-    if (dt < 450 && dy < 12) {
-      const m = await getHub();
-      if (m && m.Hub) m.Hub.open();
-    }
+    if (dt < 450 && dy < 12) openTailor();
   }, { passive: true });
 })();
 </script>

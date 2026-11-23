@@ -217,7 +217,12 @@ export class Router {
     const lbl = document.getElementById("sl-label");
     const fill = document.getElementById("sl-fill");
     const pctEl = document.getElementById("sl-pct");
-    if (lbl) lbl.textContent = "LOADING " + name.toUpperCase() + "…";
+    /* Walk / Drive get a themed animation and show instantly (they are the heavy scenes). */
+    const mode = ({ walk: "walk", zonewalk: "walk", drive: "drive", zonedrive: "drive" })[name] || "";
+    if (el) { if (mode) el.dataset.mode = mode; else delete el.dataset.mode; }
+    if (lbl) lbl.textContent = mode === "drive" ? "STARTING THE ENGINE…"
+                             : mode === "walk"  ? "HEADING OUT ON FOOT…"
+                             : "LOADING " + name.toUpperCase() + "…";
 
     /* Progress is an estimate (scene builds report no real progress): it eases
        toward 92% while the scene loads, then snaps to 100% when it is ready. */
@@ -228,11 +233,12 @@ export class Router {
     };
     const step = () => { p += (92 - p) * 0.06; draw(); raf = requestAnimationFrame(step); };
     /* Only show the loader if the load is actually slow (avoids a flash on fast loads). */
+    let shownAt = 0;
     const showT = setTimeout(() => {
-      shown = true; p = 0; draw();
+      shown = true; shownAt = performance.now(); p = 0; draw();
       if (el) el.classList.add("show");
       raf = requestAnimationFrame(step);
-    }, 300);
+    }, mode ? 0 : 300);
 
     const t0 = performance.now();
     const tick = setInterval(() => {
@@ -248,7 +254,9 @@ export class Router {
       cancelAnimationFrame(raf);
       if (shown) {
         p = 100; draw();
-        await new Promise(r => setTimeout(r, 140));   // let the player see 100%
+        /* let the player see 100% — and, for walk/drive, never flash the animation for a blink */
+        const hold = Math.max(140, (mode ? 650 : 0) - (performance.now() - shownAt));
+        await new Promise(r => setTimeout(r, hold));
       }
       if (el) el.classList.remove("show");
     }

@@ -901,9 +901,16 @@ export class CharacterHub {
     try {
       if (!this._built) this._build();
     } catch (e) {
-      console.warn("[hub] build failed", e);
-      return;
+      console.error("[hub] build failed", e);
+      this.lastError = (e && e.message) || String(e);
+      /* undo the half-built overlay so the next tap starts clean (and never stacks a second one) */
+      try { if (this.renderer) this.renderer.dispose(); } catch (_) {}
+      try { if (this._dom && this._dom.root) this._dom.root.remove(); } catch (_) {}
+      try { window.removeEventListener("resize", this._onResize); window.removeEventListener("keydown", this._onKey); } catch (_) {}
+      this.renderer = null; this._dom = null; this._built = false;
+      return false;
     }
+    this.lastError = "";
     this.visible = true;
     this._dom.root.classList.add("on");
     this._resize();
@@ -1013,7 +1020,14 @@ export class CharacterHub {
 
     /* three.js */
     const lowTier = Quality.current && Quality.current.tier === "low";
-    this.renderer = new THREE.WebGLRenderer({ canvas: this._dom.canvas, antialias: !lowTier, alpha: false });
+    /* some phones refuse a WebGL context with antialiasing (or when the game already holds several) — fall back */
+    let glErr = null;
+    this.renderer = null;
+    for (const extra of [{ antialias: !lowTier }, { antialias: false }, { antialias: false, powerPreference: "low-power" }]) {
+      try { this.renderer = new THREE.WebGLRenderer({ canvas: this._dom.canvas, alpha: false, ...extra }); break; }
+      catch (e) { glErr = e; }
+    }
+    if (!this.renderer) throw new Error("3D graphics (WebGL) could not start" + (glErr && glErr.message ? " — " + glErr.message : ""));
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowTier ? 1.5 : 2));
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color("#ece4d2");
