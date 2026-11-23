@@ -66,6 +66,40 @@ function start(R, group, partial) {
   return st;
 }
 
+/* FLOOR: when the body lies down, "hang toward gravity" points limbs INTO the floor.  After the joint
+   rotations are written, any limb / head whose joints end up below the floor is eased back toward its
+   body-aligned pose (output only -- the physics state is untouched, so nothing jitters).
+   floorY = opt.floorY, else (body lying: group up-axis nearly horizontal) the group pivot minus half a body thickness. */
+const LIE_HALF = 0.14, MARGIN = 0.10;
+const _w = new THREE.Vector3(), _up = new THREE.Vector3(), _gq = new THREE.Quaternion();
+const CHAINS = [
+  { root: "shL", mid: "elL", end: "wrL", tip: [0, -0.14, 0] }, { root: "shR", mid: "elR", end: "wrR", tip: [0, -0.14, 0] },
+  { root: "hpL", mid: "knL", end: "anL", tip: [0, -0.10, 0.16] }, { root: "hpR", mid: "knR", end: "anR", tip: [0, -0.10, 0.16] },
+];
+const yOf = (j, x, y, z) => _w.set(x, y, z).applyMatrix4(j.matrixWorld).y;
+function floorClamp(R, group, J, A, floorOpt) {
+  group.getWorldQuaternion(_gq); _up.set(0, 1, 0).applyQuaternion(_gq);
+  let floorY = floorOpt;
+  if (floorY == null) { if (_up.y > 0.55) return; group.getWorldPosition(_w); floorY = _w.y - LIE_HALF; }
+  const lo = floorY + MARGIN;
+  group.updateMatrixWorld(true);
+  const setRot = (k, f) => { const j = J[k]; if (j && A[k]) j.rotation.set(A[k][0] * f, A[k][1] * f, A[k][2] * f); };
+  for (const c of CHAINS) {
+    const jr = J[c.root], jm = J[c.mid], je = J[c.end];
+    if (!jr || !jm || !je) continue;
+    const low = () => { jr.updateWorldMatrix(true, true);
+      return Math.min(yOf(jm, 0, 0, 0), yOf(je, 0, 0, 0), yOf(je, c.tip[0], c.tip[1], c.tip[2])); };
+    let f = 1;
+    for (let i = 0; i < 7 && low() < lo; i++) { f *= 0.62; setRot(c.root, f); setRot(c.mid, Math.max(f, 0.35)); setRot(c.end, f); }
+    if (f < 1) { setRot(c.root, f); setRot(c.mid, Math.max(f, 0.35)); setRot(c.end, f); }
+  }
+  /* head / spine / neck: do not let a lolling head dig into the floor */
+  const jh = J.hd; if (jh) {
+    const lowH = () => { jh.updateWorldMatrix(true, true); return yOf(jh, 0, 0.12, 0.0); };
+    let f = 1; for (let i = 0; i < 9 && lowH() < floorY + 0.11; i++) { f *= 0.6; setRot("hd", f); setRot("nk", f); setRot("sp", f); }
+  }
+}
+
 export const Limp = {
   step(R, group, dt, opt) {
     if (!R || !R.hips || !group) return;
@@ -137,6 +171,7 @@ export const Limp = {
       else j.rotation.set(j.rotation.x + (A[k][0] - j.rotation.x) * w, j.rotation.y, j.rotation.z + (A[k][2] - j.rotation.z) * w);
     }
     if (!mask) { R.hips.rotation.x *= 0.85; R.hips.rotation.y *= 0.85; R.hips.rotation.z *= 0.85; }   /* body lies flat */
+    if (!mask && w >= 1) { try { floorClamp(R, group, J, A, opt && opt.floorY); } catch (e) {} }
 
     st.t += dt;
     if (mask) return;

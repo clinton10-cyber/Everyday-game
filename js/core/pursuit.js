@@ -23,7 +23,9 @@ import { NPCs } from "./npcs.js";
 import { WalkActions } from "./walk-actions.js";
 
 const CHASE_SPEED = 6.2;
-const REACH_START = 1.7;
+const REACH_START = 1.45;     /* closes to striking range so punches / kicks actually connect */
+/* a fighter who is not holding anyone throws strikes, not suplexes into thin air */
+const NPC_STRIKES = ["jab", "cross", "hook", "elbowStrike", "lowKick", "roundhouse", "superkick", "clothesline"];
 const MIN_HP_TO_FIGHT = 12;
 const PAUSE_CRUMBS = new Set(["AUTO HUB"]);     /* scenes with no player body */
 
@@ -291,6 +293,7 @@ function step(p, dt, pl) {
       faceToward(p, pl.x, pl.z, dt, 14);
       const m = WRESTLING_MOVES[p.move];
       const dur = m.dur / EMOTE_SPEED;
+      try { c._anim && (c._anim.wrDist = dist); } catch (e) {}   /* the body steps through the real gap (see wrestling.js mk) */
       if (!p.hitDone && p.t >= dur * (m.impact != null ? m.impact : IMPACT_AT)) {
         p.hitDone = true;
         if (dist <= m.reach + 0.3 && pl.walking && !Combat.downed) {
@@ -342,7 +345,7 @@ function step(p, dt, pl) {
   if (p.downV > 0.005) {
     p.group.rotation.x = -Math.PI / 2 * p.downV;
   } else if (p.group.rotation.x !== 0) p.group.rotation.x = 0;
-  p.group.position.set(c.pos.x, (p.y || 0) + 0.22 * p.downV, c.pos.z);
+  p.group.position.set(c.pos.x, (p.y || 0) + 0.13 * p.downV, c.pos.z);
   p.group.rotation.y = c.yaw;
 
   try { Animator.animate(c, dt); } catch (e) {}
@@ -355,7 +358,7 @@ function step(p, dt, pl) {
 }
 
 function startAttack(p) {
-  const names = Object.keys(WRESTLING_MOVES).filter((n) => n !== p.lastMove && WRESTLING_MOVES[n].npc !== false && !WRESTLING_MOVES[n].hidden);
+  const names = NPC_STRIKES.filter((n) => n !== p.lastMove && WRESTLING_MOVES[n] && WRESTLING_MOVES[n].npc !== false && !WRESTLING_MOVES[n].hidden);
   const name = names[Math.floor(rnd() * names.length)];
   const m = WRESTLING_MOVES[name];
   p.move = name; p.lastMove = name;

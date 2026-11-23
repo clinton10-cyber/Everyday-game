@@ -1,0 +1,69 @@
+<!doctype html><meta charset="utf-8"><title>Lie lab</title>
+<script async src="../vendor/es-module-shims.js"></script>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.min.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{margin:0;background:#8f98a6}canvas{display:block}div.l{position:fixed;font:12px monospace;color:#fff;background:#000a;padding:1px 3px}</style>
+<canvas id="c"></canvas>
+<script type="module">
+/* tools/lie-lab.html -- every way a body ends up lying down, rendered side-on, with the measured gap between
+   the lowest point of the body and the floor (float > 0 = lying in the air, < 0 = sunk into the floor).
+   window.__lie = { name: { float } }.  window.__done when finished. */
+import * as THREE from "three";
+import { buildCharacter } from "../js/characters/lowpoly.js";
+import { animate } from "../js/characters/animator.js";
+import { Limp } from "../js/characters/limp.js";
+import { poseFall, restY } from "../js/core/death-pose.js";
+const q = new URLSearchParams(location.search); const DOWN_Y = +(q.get("downY") || 0.13);
+const CASES = (q.get("cases") || "npcDowned,pursuitDown,death,deathForward,deathSide").split(",");
+const CW = 420, CH = 260, COLS = 2, rows = Math.ceil(CASES.length / COLS);
+const cv = document.getElementById("c"); cv.width = CW * COLS; cv.height = CH * rows;
+const R = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+R.setPixelRatio(1); R.setSize(cv.width, cv.height, false); R.setScissorTest(true); R.setClearColor(0x8f98a6);
+const LIMBS = new Set(["shL","shR","hpL","hpR","elL","elR","knL","knR","hd","wrL","wrR","anL","anR"]);
+window.__lie = {};
+let __lowObj = null;
+const lowest = (root) => { let m = Infinity; __lowObj = null; root.updateMatrixWorld(true);
+  const v = new THREE.Vector3();
+  root.traverse(o => { if (!o.isMesh || !o.visible) return; const g = o.geometry; if (!g || !g.attributes.position) return;
+    const p = g.attributes.position; const step = Math.max(1, Math.floor(p.count / 400));
+    for (let i = 0; i < p.count; i += step) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (v.y < m) { m = v.y; __lowObj = o; } } });
+  return m; };
+CASES.forEach((name, idx) => {
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 1.6)); const dl = new THREE.DirectionalLight(0xffffff, 1.3); dl.position.set(-3, 5, 2); scene.add(dl);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshLambertMaterial({ color: 0x6f7a66 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+  const grid = new THREE.GridHelper(12, 24, 0x445, 0x556); grid.position.y = 0.002; scene.add(grid);
+  const B = buildCharacter(null); scene.add(B.root);
+  const ctl = { rig: B.rig, pos: { x: 0, z: 0 }, yaw: 0, state: "standing", vel: { x: 0, y: 0, z: 0 }, onGround: true };
+  for (let i = 0; i < 30; i++) animate(ctl, 1 / 60);
+  const g = B.root;
+  const settle = (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) { animate(ctl, dt); try { Limp.step(B.rig, g, dt); } catch (e) {} g.updateMatrixWorld(true); } };
+  if (name === "npcDowned") {              /* npcs.js "downed": group.rotation.x = -PI/2, y += 0.22 (standing pose underneath) */
+    g.rotation.x = -Math.PI / 2; g.position.y = DOWN_Y; animate(ctl, 1 / 60);
+  } else if (name === "pursuitDown") {     /* pursuit.js "down": same recipe + dead-weight limbs */
+    g.rotation.x = -Math.PI / 2; g.position.y = DOWN_Y; for (let i = 0; i < 120; i++) { animate(ctl, 1 / 60); Limp.step(B.rig, g, 1 / 60); }
+  } else if (name === "death" || name === "deathForward" || name === "deathSide") {   /* death-pose.js (NPC death and player) */
+    const fall = name === "deathForward" ? { dx: 0, dz: 1 } : name === "deathSide" ? { dx: 1, dz: 0 } : { dx: 0, dz: -1 };
+    poseFall(g, fall, 0, 1, name === "deathSide" ? 0.3 : 0); g.position.y = restY(0, 1);
+    for (let i = 0; i < 120; i++) { animate(ctl, 1 / 60); Limp.step(B.rig, g, 1 / 60); }
+  } else if (name.startsWith("custom:")) { /* custom:<rotx>:<y> */
+    const [, rx, y] = name.split(":"); g.rotation.x = +rx; g.position.y = +y; for (let i = 0; i < 120; i++) { animate(ctl, 1 / 60); Limp.step(B.rig, g, 1 / 60); }
+  }
+  g.updateMatrixWorld(true);
+  const lo = lowest(g);
+  const wy = (o) => { if (!o) return null; const v = new THREE.Vector3(); o.getWorldPosition(v); return +v.y.toFixed(2); };
+  const r = B.rig, an = (l) => l.ankle || l.ank;
+  const jn = new Map(); (function walk(o, path) { if (!o || typeof o !== 'object') return; })(null);
+  const RG = B.rig; const reg = (o, n) => { if (o && o.isObject3D) jn.set(o, n); };
+  for (const k of Object.keys(RG)) { const v = RG[k]; if (v && v.isObject3D) reg(v, k); else if (v && typeof v === 'object') for (const k2 of Object.keys(v)) if (v[k2] && v[k2].isObject3D) reg(v[k2], k + '.' + k2); }
+  const chain = []; for (let o = __lowObj; o && o !== g && chain.length < 8; o = o.parent) { if (jn.has(o)) { chain.push(jn.get(o)); break; } }
+  const rr = (o) => o ? [o.rotation.x, o.rotation.y, o.rotation.z].map(n => +n.toFixed(2)).join(',') : '-';
+  const hc = new THREE.Vector3(0, 0.12, 0); r.head && hc.applyMatrix4(r.head.matrixWorld);
+  window.__dbg = window.__dbg || {}; window.__dbg[name] = { headCenterY: +hc.y.toFixed(3), spine: rr(r.spine), neck: rr(r.neck), head: rr(r.head), hips: rr(r.hips), headPos: r.head.position.toArray().map(n => +n.toFixed(2)).join(',') };
+  window.__lie[name] = { lowObj: chain.join("<"), float: +lo.toFixed(3), parts: { head: wy(r.head), hips: wy(r.hips), elL: wy(r.armL.elbow), wrL: wy(r.armL.wrist), elR: wy(r.armR.elbow), wrR: wy(r.armR.wrist), knL: wy(r.legL.knee), anL: wy(an(r.legL)), knR: wy(r.legR.knee), anR: wy(an(r.legR)) } };
+  const cx = (idx % COLS) * CW, cy = (rows - 1 - Math.floor(idx / COLS)) * CH;
+  const cam = new THREE.PerspectiveCamera(30, CW / CH, 0.05, 30); cam.position.set(-5.5, 0.9, 0.6); cam.lookAt(0, 0.35, 0.6);
+  R.setViewport(cx, cy, CW, CH); R.setScissor(cx, cy, CW, CH); R.render(scene, cam);
+  const l = document.createElement("div"); l.className = "l"; l.textContent = name + "  lowest point y = " + lo.toFixed(3) + (lo > 0.02 ? "  FLOATING" : lo < -0.02 ? "  SUNK" : "  ok"); l.style.cssText = `left:${cx + 3}px;top:${(Math.floor(idx / COLS)) * CH + 3}px`; document.body.appendChild(l);
+});
+window.__done = true;
+</script>

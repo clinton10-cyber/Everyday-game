@@ -1889,7 +1889,7 @@ export const NPCs = {
       npc._downVisual = (npc._downVisual || 0) + (targetDown - (npc._downVisual || 0)) * Math.min(1, dt * 6);
       if (npc._downVisual > 0.005) {
         npc.group.rotation.x = -Math.PI / 2 * npc._downVisual;
-        npc.group.position.y += 0.22 * npc._downVisual;
+        npc.group.position.y += 0.13 * npc._downVisual;
       } else if (npc.group.rotation.x !== 0 && !npc.dead) {
         npc.group.rotation.x = 0;
       }
