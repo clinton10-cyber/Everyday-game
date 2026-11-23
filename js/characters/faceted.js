@@ -203,6 +203,9 @@ export function bodySpec(type, build = 0, shape = null) {
     B.thigh *= shape.thigh;
     B.limb *= 0.92 + 0.08 * shape.thigh;
   }
+  /* one light smoothing pass over the hip rows, so a wide hip reads as a soft curve and not side bumps */
+  const sm = (a) => a.map((v, i) => (i === 0 || i === a.length - 1) ? v : 0.25 * a[i - 1] + 0.5 * v + 0.25 * a[i + 1]);
+  B.pelvRx = sm(B.pelvRx); B.pelvRz = sm(B.pelvRz);
   /* lock the pelvis top to the waist and ease the row below it toward it, so the outline is one smooth curve */
   B.pelvRx[4] = joinRx; B.pelvRz[4] = joinRz;
   B.pelvRx[3] = (B.pelvRx[3] + joinRx) / 2; B.pelvRz[3] = (B.pelvRz[3] + joinRz) / 2;
@@ -668,7 +671,9 @@ function buildLeg(rig, ctx, side) {
     const e = BT.ease;
     const tp = BT.taper || 1;
     /* flared legs (palazzo) widen smoothly from the hip to the hem; everything else keeps one taper */
-    const rtU = (v, u) => v * (BT.flare ? lerp(1.0, tp, sstep(u)) : tp);
+    /* wide cuts (baggy / cargo / palazzo, taper > 1) ease out from the hip's own width, so there's no flat shelf where
+       the leg meets the pelvis; slim cuts (taper <= 1) keep one even taper */
+    const rtU = (v, u) => v * ((BT.flare || tp > 1) ? lerp(1.0, tp, sstep(u)) : tp);
     const rt = (v) => v * tp;
     const thLen = kind === "shorts" ? BT.len : 0.42;
     const tr = [];
