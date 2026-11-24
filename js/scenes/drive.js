@@ -43,6 +43,7 @@ import { WalkActions } from "../core/walk-actions.js";
 import { askAndRoute } from "../core/landmark-routing.js";
 import { Kidnap } from "../core/kidnap.js";
 import { disposeObject3D } from "../core/disposer.js";
+import { isTyping } from "../core/typing-guard.js";
 
 /* ================================================================
    CONSTANTS
@@ -677,6 +678,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
 
   const dom = router.renderer.domElement;
   const onKD = e => {
+    if (isTyping(e)) return;
     keys[e.code] = 1;
     if (e.code === "KeyH" && mode === "drive") {
       try { Sfx.play("car_horn", { x: carPos.x, z: carPos.z }); } catch (_) {}
@@ -685,6 +687,8 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   const onKU = e => { keys[e.code] = 0; };
   window.addEventListener("keydown", onKD);
   window.addEventListener("keyup", onKU);
+  const onTyping = () => { for (const k in keys) keys[k] = 0; };
+  window.addEventListener("ph3d-typing", onTyping);
 
   /* Start outdoor ambience */
   /* ambience beds are handled by AudioSystem (js/core/audio.js) */
@@ -1413,6 +1417,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       window.removeEventListener("keydown", _onKeyFly); try { walkFlyBtn.remove(); jetVis.dispose(); } catch (e) {}
       try { speedFx.dispose(); } catch (e) {}
       window.removeEventListener("keyup", onKU);
+      window.removeEventListener("ph3d-typing", onTyping);
       window.removeEventListener("keydown", onKeyE);
       window.removeEventListener("keyup", onKeyE);
       dom.removeEventListener("pointerdown", onPD);

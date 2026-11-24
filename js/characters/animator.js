@@ -403,6 +403,23 @@ function idleLayer(a, P, amt) {
   P.hips[2] += Math.sin(a.idleT * 0.35) * 0.012 * amt;
 }
 
+/* body-type posture: the shared poses were tuned on the male/neutral frame. On the feminine frame the
+   pelvis is wider than the shoulders, so hanging arms pin into the hips and the stance looks stiff.
+   Open the arms a little by the hip-over-shoulder gap, lift the chest and settle the head. */
+function postureLayer(R, P, a, amt) {
+  const M = R && R.measures;
+  if (!M || !M.female || amt <= 0.001) return;
+  const hipW = M.pelvRx ? Math.max.apply(null, M.pelvRx) : (M.hipX || 0.08) * 2;
+  const shW = M.shoulderX || 0.15;
+  const gap = clamp(hipW - shW + 0.03, 0, 0.12);                   /* how far the hips overhang the shoulders */
+  const open = clamp(gap * 2.4, 0.05, 0.22) * (1 - 0.45 * a.moveAmt) * amt;
+  P.aL.sh[2] += open; P.aR.sh[2] -= open;                          /* arms clear the hips */
+  P.aL.el[0] -= 0.05 * amt; P.aR.el[0] -= 0.05 * amt;              /* soft elbows */
+  P.spine[0] -= 0.035 * amt;                                       /* chest lifted, not slumped */
+  P.head[0] += 0.03 * amt;                                         /* chin level */
+  P.spine[2] += Math.sin(a.idleT * 0.35 + 0.6) * 0.012 * (1 - a.moveAmt) * amt;   /* weight shift */
+}
+
 /* ═══════════════ airborne ═══════════════ */
 function airPose(a, ctl, P) {
   const vy = ctl.vel ? ctl.vel.y : 0;
@@ -1518,6 +1535,7 @@ export function animate(ctl, dt) {
   } else {
     locomotion(a, ctl, P, crouching);
     idleLayer(a, P, (1 - a.moveAmt) * (crouching ? 0.5 : 1));
+    postureLayer(R, P, a, crouching ? 0.4 : 1);
     if (ctl._guard && !ctl.held && !crouching) guardLayer(P, 1 - a.moveAmt);   /* FIGHT mode: fists up */
 
     if (ctl.held) {

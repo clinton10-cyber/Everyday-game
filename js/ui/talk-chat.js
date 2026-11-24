@@ -9,6 +9,7 @@
    Quick-reply chips run the existing Lives.act() actions; the full relationship panel (dates, baby, carry, etc.)
    has its own RELATIONSHIP button in the NPC action HUD (npc-talk.js), not here. */
 
+import { setTyping } from "../core/typing-guard.js";
 import { ChatBrain } from "../core/chat-brain.js";
 import { NpcMoney } from "../core/npc-money.js";
 import { GameKeyboard } from "./game-keyboard.js";
@@ -263,6 +264,7 @@ export const TalkChat = {
     this._scrim.classList.add("on");
     this._sheet.classList.add("on");
     if (this._kb) this._kb.activate();
+    setTyping(true);                       /* keyboard belongs to the chat: WASD / E / Space no longer move the player */
   },
 
   close() {
@@ -273,6 +275,7 @@ export const TalkChat = {
     this._emojiQuickEl.classList.remove("on");
     this._showTyping(false);
     if (this._kb) this._kb.deactivate();
+    setTyping(false);
     this._sheet.style.removeProperty("--tc-kb"); this._sheet.classList.remove("kb");
     this._current = null;
     this._save();

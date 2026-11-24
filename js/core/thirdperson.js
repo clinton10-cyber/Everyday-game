@@ -12,6 +12,7 @@ import { AnimationAutomation } from "./animation-automation.js";
 import { Weapons } from "./guns.js";
 import { NPCs } from "./npcs.js";
 import { HUD } from "../ui/hud.js";
+import { isTyping } from "./typing-guard.js";
 import { Sanity } from "./sanity.js";
 import { InteriorPoses } from "./interior-poses.js";
 import { WorldObjects } from "./world-objects.js";
@@ -389,6 +390,8 @@ export class ThirdPersonControls {
       sections: [
         { cols: 2, items: [
           { icon: "sit", label: "Sit down", sub: "Right here", onClick: () => self._sitHere() },
+          { icon: "hand", label: "How to play", sub: "Keys · joystick · phone",
+            onClick: () => { import("../ui/how-to-play.js").then(m => setTimeout(() => m.HowToPlay.open(), 120)).catch(() => {}); } },
           { icon: "shirt", label: "Wardrobe", sub: "Change your look", tone: "danfo",
             onClick: () => {
               if (self._wardrobeUI && self._wardrobeUI.open) self._wardrobeUI.open();
@@ -576,6 +579,7 @@ export class ThirdPersonControls {
   _bind() {
     const el = this.dom;
     this._kd = e => {
+      if (isTyping(e)) return;                       /* chat / text field has the keyboard */
       this.keys[e.code] = true;
       if (e.code === "KeyE") this.triggerAction();
       if (e.code === "KeyQ") {
@@ -607,6 +611,8 @@ export class ThirdPersonControls {
     this._ku = e => { this.keys[e.code] = false; if (e.code === "Mouse2") this.setAiming(false); };
     window.addEventListener("keydown", this._kd);
     window.addEventListener("keyup", this._ku);
+    this._typ = () => { for (const k of Object.keys(this.keys)) this.keys[k] = false; };
+    window.addEventListener("ph3d-typing", this._typ);   /* chat opened: let go of every held key */
 
     this._pd = e => {
       if (e.button === 2 && this._isGunWeapon()) {
@@ -1125,11 +1131,28 @@ export class ThirdPersonControls {
      regular path) never pops the gait phase. Movement still
      uses the full dt; only the animation clock is clamped. */
   const animDt = Math.min(dt, 0.033);
+    /* keyboard camera orbit: A / D swing the camera round the player, W / S tilt it up and down
+       (same directions as dragging the mouse / screen). Arrow keys walk. */
+    {
+      const oy = (this.keys.KeyD ? 1 : 0) - (this.keys.KeyA ? 1 : 0);
+      const op = (this.keys.KeyW ? 1 : 0) - (this.keys.KeyS ? 1 : 0);
+      if (oy || op) {
+        const sens = window.__ph3d_lookSens || 1;
+        const dyaw = -oy * 1.9 * sens * dt, dpitch = op * 1.2 * sens * dt;
+        if (this._isGunWeapon()) {
+          this.yaw += dyaw; this.camYaw = this.yaw + Math.PI;
+          this.aimPitch = Math.max(-1.05, Math.min(1.05, this.aimPitch + dpitch));
+        } else {
+          this.camYaw += dyaw;
+          this.camPitch = Math.max(0.05, Math.min(LOOK_PITCH_MAX, this.camPitch + dpitch));
+        }
+      }
+    }
     let f = 0, s = 0;
-    if (this.keys.KeyW || this.keys.ArrowUp) f += 1;
-    if (this.keys.KeyS || this.keys.ArrowDown) f -= 1;
-    if (this.keys.KeyA || this.keys.ArrowLeft) s -= 1;
-    if (this.keys.KeyD || this.keys.ArrowRight) s += 1;
+    if (this.keys.ArrowUp) f += 1;
+    if (this.keys.ArrowDown) f -= 1;
+    if (this.keys.ArrowLeft) s -= 1;
+    if (this.keys.ArrowRight) s += 1;
     f += -this.joy.dy; s += this.joy.dx;
     let L = Math.hypot(f, s);
     if (L > 1) { f /= L; s /= L; }
@@ -1623,6 +1646,7 @@ _updateCamera(dt, snap) {
     }
     window.removeEventListener("keydown", this._kd);
     window.removeEventListener("keyup", this._ku);
+    if (this._typ) window.removeEventListener("ph3d-typing", this._typ);
     const el = this.dom;
     el.removeEventListener("contextmenu", this._contextMenuBlock);
     el.removeEventListener("pointerdown", this._pd);

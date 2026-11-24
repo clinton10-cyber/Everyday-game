@@ -12,6 +12,7 @@ import { buildCybertruck3D } from "../vehicles/cybertruck3d.js";
 import { buildNK250 } from "../vehicles/nk250.js";
 import { buildHoverboard } from "../vehicles/hoverboard.js";
 import { buildRangeRover3D } from "../vehicles/rangerover_compound.js";
+import { isTyping } from "../core/typing-guard.js";
 
 const MAX_SPEED = 16, ACCEL = 9, BRAKE = 16, REV_SPEED = -7, DRAG = 0.992;
 const STEER_RATE = 2.1;
@@ -62,10 +63,12 @@ scene.add(carRoot);
   carRoot.position.set(car.x, 0, car.z);
 
   const keys = Object.create(null);
-  const onKD = e => { keys[e.code] = 1; };
+  const onKD = e => { if (isTyping(e)) return; keys[e.code] = 1; };
   const onKU = e => { keys[e.code] = 0; };
+  const onTyping = () => { for (const k in keys) keys[k] = 0; };
   window.addEventListener("keydown", onKD);
   window.addEventListener("keyup", onKU);
+  window.addEventListener("ph3d-typing", onTyping);
 
   const dom = router.renderer.domElement;
   let dragId = null, lx = 0, ly = 0;
@@ -212,6 +215,7 @@ scene.add(carRoot);
     dispose: () => {
       window.removeEventListener("keydown", onKD);
       window.removeEventListener("keyup", onKU);
+      window.removeEventListener("ph3d-typing", onTyping);
       dom.removeEventListener("pointerdown", onPD);
       dom.removeEventListener("pointermove", onPM);
       dom.removeEventListener("pointerup", onPU);

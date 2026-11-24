@@ -281,6 +281,10 @@ export const SettingsUI = {
           cols: 2,
           items: [
             {
+              icon: "hand", label: "How to play", sub: "Keys · joystick · phone",
+              onClick: () => { import("./how-to-play.js").then((m) => setTimeout(() => m.HowToPlay.open(), 120)).catch(() => {}); },
+            },
+            {
               icon: "walk", label: "Joystick",
               sub: S.get("joystickSide") === "left" ? "Left" : "Right", keep: true,
               onClick: (ev, tile) => {
