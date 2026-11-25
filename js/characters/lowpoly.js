@@ -9,7 +9,8 @@ import { buildHat, buildGlasses, buildAccessories } from "./lp-extras.js";
 import { buildCostume, COSTUMES } from "./lp-costumes.js";
 import { buildFacetedInto } from "./faceted.js";
 import { applyBodyStyle } from "./lp-bodystyle.js";
-import { applyBodySelection } from "../core/style-ability-shop.js";
+import { applyBodySelection, getEquippedTattoos } from "../core/style-ability-shop.js";
+import { attachTattoos } from "./lp-tattoos.js";
 
 export { HIP_HEIGHT, COSTUMES };
 
@@ -109,6 +110,11 @@ function buildInto(root, rig, config, mats) {
   buildBase(root, rig, config, mats);
   /* each purchasable body style adds its own proportions + signature parts (both looks) */
   try { applyBodyStyle(rig, config, mats); } catch (e) { console.warn("[bodystyle]", e); }
+  /* equipped body tattoos (purchased designs) */
+  try {
+    const ids = (config && config.tattoos) || getEquippedTattoos();
+    attachTattoos(rig, ids);
+  } catch (e) { console.warn("[tattoos]", e); }
 }
 
 function buildBase(root, rig, config, mats) {
