@@ -224,6 +224,7 @@ const DEFAULT = {
   costume: null,
   costumeColor: null,
   costumeColor2: null,
+  tattoos: [],   /* equipped tattoo design ids (purchased via Body panel) */
 };
 
 const STORE_KEY = "ph3d.wardrobe.v1";
