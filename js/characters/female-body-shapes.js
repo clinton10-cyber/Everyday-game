@@ -61,13 +61,15 @@ export function addAdultBodyDetails(ctx) {
   const { B, cfg, M, spine, hips } = ctx || {};
   if (!cfg || !adultOK() || isShapeBlocked(cfg)) return;
 
-  const topBare = cfg.topStyle === "offcloth" || cfg.topStyle === "underwear";
-  const botBare = cfg.bottomStyle === "offcloth" || cfg.bottomStyle === "underwear";
+  /* Breast volume under bra/underwear/offcloth; full areola+nipples only when fully bare */
+  const topVol  = ["offcloth", "underwear", "bra"].includes(cfg.topStyle);
+  const topNude = cfg.topStyle === "offcloth";
+  const botBare = ["offcloth", "underwear", "panties"].includes(cfg.bottomStyle);
   const female = cfg.gender === "feminine";
   const male   = cfg.gender === "masculine";
 
-  // ── Feminine breasts: two blobs + areola + nipples ──
-  if (female && topBare && spine && M && M.skin) {
+  // ── Feminine breasts: two blobs (+ areola/nipples when fully bare) ──
+  if (female && topVol && spine && M && M.skin) {
     const FS = shapeFor(cfg);
     const bust = FS ? FS.bust : 1.0;
     const skin = M.skin;
@@ -80,21 +82,22 @@ export function addAdultBodyDetails(ctx) {
     const xOff = 0.068 * (B ? B.sxT : 1);
 
     for (const s of [-1, 1]) {
-      // main breast volume (the two blobs)
+      // main breast volume (the two blobs) — always under bra/underwear
       const breast = mk(sphere(baseR, 12, 10), skin, spine, xOff * s, y, z);
       breast.scale.set(1.08, 0.90, 0.86);
       breast.castShadow = true;
       breast.userData.adultDetail = true;
 
-      // areola
-      const areola = mk(sphere(baseR * 0.36, 8, 6), areolaMat, spine, xOff * s, y - 0.005, z + baseR * 0.58);
-      areola.scale.set(1.05, 0.65, 0.32);
-      areola.userData.adultDetail = true;
+      if (topNude) {
+        // areola + nipple only when fully bare
+        const areola = mk(sphere(baseR * 0.36, 8, 6), areolaMat, spine, xOff * s, y - 0.005, z + baseR * 0.58);
+        areola.scale.set(1.05, 0.65, 0.32);
+        areola.userData.adultDetail = true;
 
-      // nipple
-      const nip = mk(sphere(baseR * 0.105, 6, 5), nippleMat, spine, xOff * s, y - 0.007, z + baseR * 0.74);
-      nip.scale.set(1, 0.8, 0.65);
-      nip.userData.adultDetail = true;
+        const nip = mk(sphere(baseR * 0.105, 6, 5), nippleMat, spine, xOff * s, y - 0.007, z + baseR * 0.74);
+        nip.scale.set(1, 0.8, 0.65);
+        nip.userData.adultDetail = true;
+      }
     }
   }
 
