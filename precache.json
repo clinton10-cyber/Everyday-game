@@ -567,6 +567,7 @@
 "js/ui/wanted.js",
 "js/ui/wrestling-modal.js",
 "js/vehicles/bmw3d.js",
+"js/vehicles/car-doors.js",
 "js/vehicles/chiron3d.js",
 "js/vehicles/cybertruck3d.js",
 "js/vehicles/gwagon3d.js",
