@@ -788,6 +788,7 @@
 .tphone.app-immersive .gm-sec{font-size:11px;letter-spacing:.18em;color:#9db4c9;margin:12px 2px}
 .tphone.app-immersive .gm-card{position:relative;min-height:132px;overflow:hidden;align-items:flex-end;padding:16px;border-radius:20px;border:1px solid #ffffff20;background:linear-gradient(90deg,#06111eea,#06111e44),url("https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=1000&auto=format&fit=crop") center/cover;box-shadow:0 10px 28px #0005}
 .tphone.app-immersive .gm-card[data-g="range"]{background:linear-gradient(90deg,#06111eee,#06111e55),url("https://images.unsplash.com/photo-1518770660439-4636190af475?w=1000&auto=format&fit=crop") center/cover}
+.tphone.app-immersive .gm-card[data-g="blocks"]{background:linear-gradient(90deg,#06111eee,#06111e44),repeating-conic-gradient(#5da83a 0 25%,#7a5230 0 50%) 0 0/46px 46px}
 .tphone.app-immersive .gm-card b{font-size:19px;color:#fff}
 .tphone.app-immersive .gm-card small{color:#d7e3ef;opacity:1;font-size:11px}
 .tphone.app-immersive .gm-ic{background:#ffffff22;border:1px solid #ffffff35;color:#fff;backdrop-filter:blur(8px)}

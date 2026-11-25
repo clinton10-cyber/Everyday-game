@@ -31,7 +31,8 @@ export const PhoneGames = {
     el.innerHTML = `
       <div class="gm-sec">GAMES</div>
       <div class="gm-card" data-g="subway"><div class="gm-ic">RUN</div><div><b>Subway Run</b><small>3D endless runner · your character · best ${best("subway")}</small></div></div>
-      <div class="gm-card" data-g="range"><div class="gm-ic">OPS</div><div><b>Tactical Range</b><small>3rd-person squad combat · waves · take cover</small></div></div>`;
+      <div class="gm-card" data-g="range"><div class="gm-ic">OPS</div><div><b>Tactical Range</b><small>3rd-person squad combat · waves · take cover</small></div></div>
+      <div class="gm-card" data-g="blocks"><div class="gm-ic">BLK</div><div><b>Block World</b><small>build &amp; paint anything · fly · 3 save slots</small></div></div>`;
     el.querySelectorAll(".gm-card").forEach((c) => c.onclick = () => this.launch(c.dataset.g));
   },
 
@@ -45,6 +46,11 @@ export const PhoneGames = {
       return;
     }
     if (g === "subway") return this.subway();
+    if (g === "blocks") {                                  /* full-screen sandbox: close the phone, open the world */
+      if (P) P.hide();
+      import("./block-world.js").then((m) => m.BlockWorld.open()).catch((err) => { console.warn("[block-world]", err); toast("Block World failed to load"); });
+      return;
+    }
   },
 
   _shell(title, extra) {
