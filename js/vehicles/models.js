@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { buildMercedes3D } from "./mercedes3d.js";
 import { buildBMW3D } from "./bmw3d.js";
 import { buildChiron3D } from "./chiron3d.js";
+import { buildTaxi3D } from "./taxi3d.js";
 
 /* Helper to make a standard PBR paint material */
 function paintMat(body) {
@@ -676,70 +677,9 @@ export function buildChiron(body = "#0e2138", rim = "#c9ced6") {
   return buildChiron3D(body, rim);
 }
 
-/* ── 7. TAXI (Simple Danfo) ─────────────────────────────────────── */
-export function buildTaxi(body = "#f2c31a", rim = "#111") {
-  const g = new THREE.Group();
-  const paint  = paintMat(body);
-  const black  = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.8 });
-  const chrome = new THREE.MeshStandardMaterial({ color: 0xb8c0c8, metalness: 0.9, roughness: 0.2 });
-  const glass  = glassMat();
-
-  /* Long van-style danfo shape (nose toward +X) */
-  const lower = new THREE.Mesh(new THREE.BoxGeometry(4.8, 1.0, 2.0), paint);
-  lower.position.set(0, 0.85, 0); lower.castShadow = true; g.add(lower);
-  const stripe = new THREE.Mesh(new THREE.BoxGeometry(4.82, 0.18, 2.02), black);
-  stripe.position.set(0, 0.85, 0); g.add(stripe);
-
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.95, 1.92), paint);
-  cab.position.set(-0.4, 1.75, 0); cab.castShadow = true; g.add(cab);
-  const cabGlass = new THREE.Mesh(new THREE.BoxGeometry(3.55, 0.85, 1.94), glass);
-  cabGlass.position.set(-0.4, 1.75, 0); g.add(cabGlass);
-
-  for (const s of [-1, 1]) {
-    const p = new THREE.Mesh(new THREE.BoxGeometry(3.55, 0.9, 0.08), paint);
-    p.position.set(-0.4, 1.75, s * 0.95); g.add(p);
-  }
-
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.08, 1.94), paint);
-  roof.position.set(-0.4, 2.26, 0); g.add(roof);
-  const rack = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.06, 1.5), black);
-  rack.position.set(-0.4, 2.32, 0); g.add(rack);
-
-  const bumpF = new THREE.Mesh(new THREE.BoxGeometry(4.86, 0.28, 2.04), black);
-  bumpF.position.set(0, 0.42, 0); g.add(bumpF);
-
-  const headMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const tailMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-  for (const s of [-1, 1]) {
-    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.34), headMat);
-    hl.position.set(2.44, 0.95, s * 0.62); g.add(hl);
-    const tl = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.20, 0.24), tailMat);
-    tl.position.set(-2.44, 0.95, s * 0.70); g.add(tl);
-  }
-
-  for (let k = 0; k < 3; k++) {
-    const slat = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 1.2), chrome);
-    slat.position.set(2.42, 0.78 + k * 0.10, 0); g.add(slat);
-  }
-
-  const tireMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-  const wheels = [];
-  for (const wx of [1.55, -1.55]) {
-    for (const wz of [1.0, -1.0]) {
-      const pivot = new THREE.Group();
-      pivot.position.set(wx, 0.46, wz); g.add(pivot);
-      const spin = new THREE.Group(); pivot.add(spin);
-      const tireGeo = new THREE.CylinderGeometry(0.46, 0.46, 0.30, 20);
-      tireGeo.rotateX(Math.PI / 2);
-      spin.add(new THREE.Mesh(tireGeo, tireMat));
-      const rimGeo = new THREE.CylinderGeometry(0.27, 0.27, 0.32, 16);
-      rimGeo.rotateX(Math.PI / 2);
-      spin.add(new THREE.Mesh(rimGeo, rimMat(rim)));
-      wheels.push({ pivot, spin, steer: Math.abs(wx - 1.55) < 0.01, spinZ: true });
-    }
-  }
-  g.userData.wheels = wheels;
-  return g;
+/* ── 7. TAXI (smooth lofted body — see taxi3d.js) ───────────────── */
+export function buildTaxi(body = "#f2c31a", rim = "#2a2d35") {
+  return buildTaxi3D(body, rim);
 }
 
 import { buildNK250 } from "./nk250.js";
