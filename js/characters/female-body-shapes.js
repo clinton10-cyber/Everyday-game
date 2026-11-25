@@ -68,7 +68,7 @@ export function addAdultBodyDetails(ctx) {
   const female = cfg.gender === "feminine";
   const male   = cfg.gender === "masculine";
 
-  // ── Feminine breasts: two blobs (+ areola/nipples when fully bare) ──
+  // ── Feminine breasts: two clearly separated blobs (+ areola/nipples when bare) ──
   if (female && topVol && spine && M && M.skin) {
     const FS = shapeFor(cfg);
     const bust = FS ? FS.bust : 1.0;
@@ -76,26 +76,30 @@ export function addAdultBodyDetails(ctx) {
     const areolaMat = lam(new THREE.Color(skin.color).offsetHSL(0.02, 0.18, -0.20));
     const nippleMat = lam(new THREE.Color(skin.color).offsetHSL(0.04, 0.28, -0.32));
 
-    const baseR = 0.078 * Math.max(0.75, Math.min(1.45, bust));
-    const y = 0.285;
-    const z = 0.092 * (B ? B.szT : 1);
-    const xOff = 0.068 * (B ? B.sxT : 1);
+    /* Smaller radius + wider X offset so the two breasts stay distinct (no single mound) */
+    const k = Math.max(0.75, Math.min(1.45, bust));
+    const baseR = 0.062 * k;
+    const y = 0.278;
+    const z = 0.108 * (B ? B.szT : 1);          /* sit further forward of the torso shell */
+    const xOff = 0.095 * (B ? Math.max(B.sxT, 0.95) : 1);  /* clear cleavage gap */
 
     for (const s of [-1, 1]) {
-      // main breast volume (the two blobs) — always under bra/underwear
-      const breast = mk(sphere(baseR, 12, 10), skin, spine, xOff * s, y, z);
-      breast.scale.set(1.08, 0.90, 0.86);
+      // main breast volume — teardrop-ish, angled slightly outward and down
+      const breast = mk(sphere(baseR, 14, 12), skin, spine, xOff * s, y, z);
+      breast.scale.set(1.15, 0.95, 1.05);        /* wider, a bit deeper front */
+      breast.rotation.set(0.18, s * 0.22, s * 0.08);
       breast.castShadow = true;
       breast.userData.adultDetail = true;
 
       if (topNude) {
-        // areola + nipple only when fully bare
-        const areola = mk(sphere(baseR * 0.36, 8, 6), areolaMat, spine, xOff * s, y - 0.005, z + baseR * 0.58);
-        areola.scale.set(1.05, 0.65, 0.32);
+        // areola + nipple on the front face of each breast
+        const az = z + baseR * 0.72;
+        const areola = mk(sphere(baseR * 0.32, 8, 6), areolaMat, spine, xOff * s, y - 0.008, az);
+        areola.scale.set(1.1, 0.7, 0.28);
         areola.userData.adultDetail = true;
 
-        const nip = mk(sphere(baseR * 0.105, 6, 5), nippleMat, spine, xOff * s, y - 0.007, z + baseR * 0.74);
-        nip.scale.set(1, 0.8, 0.65);
+        const nip = mk(sphere(baseR * 0.10, 6, 5), nippleMat, spine, xOff * s, y - 0.010, az + baseR * 0.18);
+        nip.scale.set(1, 0.85, 0.7);
         nip.userData.adultDetail = true;
       }
     }
