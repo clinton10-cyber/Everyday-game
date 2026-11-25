@@ -40,6 +40,7 @@ export const TOPS = {
   dress:      { sl: "none",  ease: 0.010, skirt: { hem: -0.47, hemR: 0.275 }, neck: "scoop", fitted: true },
   /* consent-only (Settings → Content & consent); see core/adult-gate.js */
   underwear:  { sl: "none",  ease: 0.004, crop: -0.04, neck: "tube", topY: 0.30 },
+  bra:        { sl: "none",  ease: 0.002, neck: "bra", topY: 0.34, bra: true },
   offcloth:   { sl: "none",  ease: 0,     neck: "none", bare: true },
 };
 export function topSpec(cfg) { return TOPS[cfg.topStyle] || TOPS.tshirt; }
@@ -71,10 +72,38 @@ export function buildTop(ctx) {
     spine.add(skin);
   }
 
-  /* 18+ adult body details (breasts / nipples / genitals) when consent + bare/underwear */
+  /* 18+ adult body details (breasts / nipples / genitals) when consent + bare/underwear/bra */
   try { addAdultBodyDetails(ctx); } catch (e) { console.warn("[adult-body]", e); }
 
   if (S.bare) return;   /* offcloth (consent-only): plain skin torso, no garment */
+
+  /* ── Bra (consent-only): cups + band + straps ── */
+  if (S.bra) {
+    const bust = (B.breastK || 1.0);
+    const cupR = 0.072 * Math.max(0.85, Math.min(1.35, bust));
+    const bandY = 0.22;
+    const cupY = 0.285;
+    const cupZ = 0.095 * sz;
+    const cupX = 0.070 * sx;
+    /* underband */
+    ring(spine, M.top, 0.155 + e, 0.012, bandY, sx * 1.05, sz * 0.95, 20);
+    /* cups (sit over breast blobs) */
+    for (const s of [-1, 1]) {
+      const cup = mk(sphere(cupR, 12, 10), M.top, spine, cupX * s, cupY, cupZ);
+      cup.scale.set(1.05, 0.88, 0.78);
+      cup.castShadow = true;
+      /* small centre gore */
+      mk(box(0.012, 0.045, 0.010), M.top, spine, 0, cupY - 0.02, cupZ * 0.85).castShadow = false;
+    }
+    /* shoulder straps */
+    for (const s of [-1, 1]) {
+      const strap = mk(box(0.018, 0.16, 0.012), M.top, spine, s * 0.095 * sx, 0.36, -0.01, 0, 0, s * -0.15);
+      strap.castShadow = false;
+    }
+    /* thin back band */
+    ring(spine, M.top, 0.145 + e, 0.008, 0.30, sx * 0.95, sz * 0.7, 16);
+    return;
+  }
 
   /* ── cut-outs ── */
   let cut = null;
