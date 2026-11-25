@@ -640,6 +640,23 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   /* Weapons expect a controller whose forward is -(sin yaw, cos yaw);
      this walker faces +(sin yaw, cos yaw), so aim through a proxy
      that adds π to the yaw. */
+  /* a gun (not knife / fists) is drawn: the walker switches to a shoulder aim camera */
+  function gunOutNow() {
+    return !!(walkerWeapons && walkerWeapons.isArmed() &&
+      ["pistol", "sniper", "rifle", "smg", "shotgun", "lmg", "bazooka"].includes(walkerWeapons.current));
+  }
+  let walkShoulder = -1;                /* +1 / -1: which shoulder the aim camera sits over (B swaps) */
+  /* ray vs. a vertical cylinder (a person): distance t, or -1 */
+  function rayVertCyl(ox, oy, oz, dx, dy, dz, cx, cz, r, y0, y1, maxT) {
+    const px = ox - cx, pz = oz - cz, a = dx * dx + dz * dz;
+    if (a < 1e-8) return -1;
+    const b = 2 * (px * dx + pz * dz), c = px * px + pz * pz - r * r, disc = b * b - 4 * a * c;
+    if (disc < 0) return -1;
+    const s = Math.sqrt(disc); let t = (-b - s) / (2 * a); if (t < 0) t = (-b + s) / (2 * a);
+    if (t < 0 || t > maxT) return -1;
+    const y = oy + dy * t;
+    return (y >= y0 && y <= y1) ? t : -1;
+  }
   const weaponCtl = {
     get pos()    { return walker; },
     get yaw()    { return walker.yaw + Math.PI; },
@@ -649,11 +666,26 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     get opts()   { return walker.opts; },
     get aimPitch() { return walker.pitch || 0; },
     getAim() {
-      const cp = Math.cos(walker.pitch || 0), sp = Math.sin(walker.pitch || 0);
-      return {
-        origin: new THREE.Vector3(walker.x, walker.y + 1.4, walker.z),
-        dir: new THREE.Vector3(Math.sin(walker.yaw) * cp, sp, Math.cos(walker.yaw) * cp).normalize(),
-      };
+      const gun = gunOutNow();
+      const cp = Math.cos(walker.pitch || 0), sp = Math.sin(walker.pitch || 0), yawA = gun ? walkCameraYaw : walker.yaw;
+      const origin = new THREE.Vector3(walker.x, walker.y + 1.4, walker.z);
+      let dir = new THREE.Vector3(Math.sin(yawA) * cp, sp, Math.cos(yawA) * cp).normalize();
+      if (gun) {
+        /* the camera is over the shoulder: send the bullet to whatever the crosshair is on (a person, or far away) */
+        const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
+        const cam = camera.position; let D = 60;
+        try {
+          for (const tg of WalkActions.targets()) {
+            if (!tg || !tg.alive) continue;
+            const cy = tg.y || 0;
+            const t = rayVertCyl(cam.x, cam.y, cam.z, fwd.x, fwd.y, fwd.z, tg.x, tg.z, 0.5, cy, cy + 1.8, D);
+            if (t > 1 && t < D) D = t;
+          }
+        } catch (e) {}
+        const sd = cam.clone().addScaledVector(fwd, D).sub(origin);
+        if (sd.lengthSq() > 0.25) { sd.normalize(); if (sd.dot(fwd) > 0.6) dir = sd; }
+      }
+      return { origin, dir };
     },
   };
   const JET_SWIM_ANGLE = Math.PI / 2;   /* swimming pitches the body 90 degrees, head first; jetpack/wing flight uses the same angle */
@@ -1032,7 +1064,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     try { window.__ph3d_phone && window.__ph3d_phone._toast(jet.on ? "Jetpack on. Hold JUMP to fly" : "Jetpack off"); } catch (e) {}
   };
   walkFlyBtn.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); toggleJet(); }, { passive: false });
-  const _onKeyFly = e => { if (e.code === "KeyJ" && !e.repeat && mode === "walk") toggleJet();   /* J = jetpack (F is Fight/Fire only) */ };
+  const _onKeyFly = e => { if (e.code === "KeyB" && !e.repeat && mode === "walk") walkShoulder = -walkShoulder; if (e.code === "KeyJ" && !e.repeat && mode === "walk") toggleJet();   /* J = jetpack (F is Fight/Fire only) */ };
   window.addEventListener("keydown", _onKeyFly);
 
   const walkEnterBtn = document.createElement("button");
@@ -1249,6 +1281,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   const _cf = new THREE.Vector3(); const _cr = new THREE.Vector3();
   const _camP = new THREE.Vector3(); const _camL = new THREE.Vector3();
   const _walkCamP = new THREE.Vector3();
+  const _aimCamP = new THREE.Vector3();
   let _lastWorldHitT = -10;
 
   /* Reuse the historic buildTaxi helper */
@@ -1770,7 +1803,13 @@ try {
           const worldDirZ = camFz * (-mz) - camRz * mx;
 
           try { Sfx.stepTick(dt, jm > 0.15 && walker.onGround && !jet.on, run); } catch (_) {}
-          if (jm > 0.15) {
+          if (gunOutNow() && !_jetFly) {
+            /* gun out: face the crosshair direction, move relative to the camera (strafe) */
+            let dYawA = walkCameraYaw - walker.yaw;
+            while (dYawA > Math.PI) dYawA -= TAU;
+            while (dYawA < -Math.PI) dYawA += TAU;
+            walker.yaw += dYawA * Math.min(1, dt * 18);
+          } else if (jm > 0.15) {
             const targetYaw = Math.atan2(worldDirX, worldDirZ);
             let dYaw = targetYaw - walker.yaw;
             while (dYaw > Math.PI) dYaw -= TAU;
@@ -1919,9 +1958,24 @@ try {
         /* While flying the avatar moves up to ~64 m/s. A follow rate of 8/s lets the camera trail ~8 m behind
            (the "lag"), so it follows much tighter in the air. */
         const _flyCam = jet.on && !walker.onGround;
-        _walkCamP.set(camX, camH, camZ);
-        camera.position.lerp(_walkCamP, Math.min(1, dt * (_flyCam ? 28 : 8)));
-        camera.lookAt(walker.x, targetY, walker.z);
+        if (gunOutNow() && !_flyCam) {
+          /* Over-the-shoulder aim camera: it looks ALONG the aim line, so the crosshair is never on the player */
+          const pp = walker.pitch || 0, cpp = Math.cos(pp), spp = Math.sin(pp);
+          const fx = Math.sin(walkCameraYaw) * cpp, fy = spp, fz = Math.cos(walkCameraYaw) * cpp;
+          const rx = Math.cos(walkCameraYaw), rz = -Math.sin(walkCameraYaw);
+          _aimCamP.set(
+            walker.x - fx * 2.7 + rx * 0.95 * walkShoulder,
+            walker.y + 1.55 - fy * 2.7 + 0.25,
+            walker.z - fz * 2.7 + rz * 0.95 * walkShoulder);
+          const gh = sampleTerrainMeshHeight(_aimCamP.x, _aimCamP.z) + 0.45;
+          if (_aimCamP.y < gh) _aimCamP.y = gh;
+          camera.position.lerp(_aimCamP, Math.min(1, dt * 16));
+          camera.lookAt(camera.position.x + fx * 50, camera.position.y + fy * 50, camera.position.z + fz * 50);
+        } else {
+          _walkCamP.set(camX, camH, camZ);
+          camera.position.lerp(_walkCamP, Math.min(1, dt * (_flyCam ? 28 : 8)));
+          camera.lookAt(walker.x, targetY, walker.z);
+        }
 
         if (hudEl) hudEl.textContent = Math.round(horizSpeed * 3.6) + " km/h";
       }
