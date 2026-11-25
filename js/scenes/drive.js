@@ -1492,6 +1492,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
         carX: carPos.x, carZ: carPos.z,
         heading, speed,
         halfW: carSize.x * 0.5, halfL: carSize.z * 0.5,
+        height: carSize.y, groundY: carRoot.position.y,
       };
     },
   };
@@ -1826,15 +1827,8 @@ try {
 
       if (mode === "drive") {
         if (RIDE) poseRider(dt);
-        else {
-          /* driver stays visibly seated behind the wheel (follows the car's pitch/roll) */
-          try {
-            carRoot.updateMatrixWorld(true);
-            const sp = doorPoints(carMesh, "left").seat;
-            const w = carRoot.localToWorld(new THREE.Vector3(sp.x, sp.y, sp.z));
-            poseSeated(dt, { x: w.x, z: w.z, y: w.y }, heading);
-          } catch (e) { character.visible = false; }
-        }
+        /* (the seated driver is posed further down, AFTER the car has moved this frame — posing
+           here used last frame's car matrix, so at speed the owner lagged behind and slid out) */
         carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
 
         const th = (input.throttle || keys.KeyW || keys.ArrowUp) ? 1 : 0;
@@ -1906,6 +1900,16 @@ try {
 
         carRoot.position.set(carPos.x, carY, carPos.z);
         carRoot.rotation.set(pitch, heading, -roll, "YXZ");
+
+        if (!RIDE) {
+          /* driver stays locked to the seat (follows the car's pitch/roll) using THIS frame's car matrix */
+          try {
+            carRoot.updateMatrixWorld(true);
+            const sp = doorPoints(carMesh, "left").seat;
+            const w = carRoot.localToWorld(new THREE.Vector3(sp.x, sp.y, sp.z));
+            poseSeated(dt, { x: w.x, z: w.z, y: w.y }, heading);
+          } catch (e) { character.visible = false; }
+        }
 
         wheelRot += (speed * dt / 0.44) * 0.42;
         if (wheelRot > Math.PI * 2) wheelRot -= Math.PI * 2;

@@ -33,6 +33,7 @@ import { adultOK } from "./adult-gate.js";
 import { InteriorPoses } from "./interior-poses.js";
 import { AnimationAutomation } from "./animation-automation.js";
 import { pickFall, poseFall, restY } from "./death-pose.js";
+import { NpcCollider } from "./npc-collider.js";
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -1070,6 +1071,8 @@ export const NPCs = {
           hp: npc.hp,
           _npc: npc,
           onHit(dmg, type, part) { self._onHit(npc, dmg, type, { part }); },
+          /* high-precision per-body-part ray test (head/torso/arms/legs/feet follow the live skeleton) */
+          rayTest(ox, oy, oz, dx, dy, dz, maxT, pad) { return NpcCollider.raycast(npc, ox, oy, oz, dx, dy, dz, maxT, pad); },
         };
       }
       out.push(npc._tgt);
@@ -1841,10 +1844,18 @@ export const NPCs = {
         const dxC = npc.ctl.pos.x - driveState.x;
         const dzC = npc.ctl.pos.z - driveState.z;
         const hy = driveState.heading || 0, hs = Math.sin(hy), hc = Math.cos(hy);
-        const lxC = Math.abs(dxC * hc - dzC * hs) - (driveState.halfW || 1.0), lzC = Math.abs(dxC * hs + dzC * hc) - (driveState.halfL || 2.4);
-        const dC = Math.hypot(Math.max(lxC, 0), Math.max(lzC, 0));      /* distance outside your car's body */
+        /* broad phase: skip anyone clearly out of reach (cheap), then the precise per-part test */
+        const _reach = Math.hypot(driveState.halfW || 1.0, driveState.halfL || 2.4) + 1.5;
+        let _carHit = null;
+        if (dxC * dxC + dzC * dzC < _reach * _reach && Math.abs(driveState.speed || 0) > 2) {
+          _carHit = NpcCollider.hitByCar(npc, {
+            x: driveState.x, z: driveState.z, heading: hy,
+            halfW: driveState.halfW || 1.0, halfL: driveState.halfL || 2.4,
+            height: driveState.height || 1.5, groundY: driveState.groundY || 0,
+          });
+        }
 
-        if (dC < 0.3 && Math.abs(driveState.speed || 0) > 2) {
+        if (_carHit) {
           npc.hitCd = 3.0;
           npc.state = "flee";
           npc.stateT = 3.5;

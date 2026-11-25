@@ -555,6 +555,17 @@ export class Gun {
       for (const o of targets) {
         if (!o || !o.alive) continue;
         const cy = (o.y != null ? o.y : 0);
+        /* NPCs expose a high-precision per-body-part test (head/torso/arms/legs/feet capsules that
+           follow the live skeleton). The old fat cylinder is only the broad-phase for them. */
+        if (typeof o.rayTest === "function") {
+          const broad = rayCylinder(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, o.x, o.z, radius + 0.6, cy - 0.3, cy + 2.2);
+          if (broad < 0) continue;
+          const pad = this.type === "shotgun" ? 0.10 : 0.025;      /* tiny aim-assist; shotgun pellets spread wider */
+          const pr = o.rayTest(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, Math.min(this.range, bestT), pad);
+          if (!pr || pr.t > this.range || pr.t >= bestT) continue;
+          bestT = pr.t; bestHit = o; bestPart = pr.part;
+          continue;
+        }
         const t = rayCylinder(
           origin.x, origin.y, origin.z, dir.x, dir.y, dir.z,
           o.x, o.z, radius, cy + 0.05, cy + 1.70
