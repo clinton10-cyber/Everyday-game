@@ -16,6 +16,7 @@ import { buildBMW3D } from "../vehicles/bmw3d.js";
 import { buildChiron3D } from "../vehicles/chiron3d.js";
 import { buildVehicle as buildVehicleSimple } from "../vehicles/models.js";
 import { buildScrappy3D } from "../vehicles/scrappy3d.js";
+import { addCarDoors, setDoorTarget, updateDoors, doorStandPoint } from "../vehicles/car-doors.js";
 import { buildCharacter, HIP_HEIGHT, attachPhone, liveApplyConfig } from "../characters/lowpoly.js";
 import { Wardrobe } from "../core/wardrobe.js";
 import { Combat } from "../core/combat.js";
@@ -565,6 +566,14 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   const carSize = new THREE.Vector3(); carBox.getSize(carSize);
   for (const n of hiddenForBox) n.visible = true;
 
+  /* Hinged doors on every car (not bikes / hoverboard) */
+  const IS_CAR = !["nk250", "hoverboard"].includes(model);
+  if (IS_CAR) {
+    try {
+      addCarDoors(carMesh, { size: carSize, bodyColor: State.vehicle && State.vehicle.body });
+    } catch (e) { console.warn("[doors]", e); }
+  }
+
   const carWing = (carMesh.userData && carMesh.userData.wing) || null;
   const carWingLight = (carMesh.userData && carMesh.userData.wingLight) || null;
   const surf = CAR_SURFACES[model] || CAR_SURFACES.default;
@@ -979,46 +988,186 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     else router.go("interior", { id: "myhouse" });
   };
 
-  function enterCar(force) {
-    if (mode === "walk") {
-      const dx = walker.x - carPos.x, dz = walker.z - carPos.z;
-      if (!force && (dx * dx + dz * dz > 6 * 6)) { if (window.__ph3d_phone) window.__ph3d_phone._toast("Too far from the car"); return; }
+  /* ── Enter / exit vehicle animation (doors + walk-in) ── */
+  let carTransit = null; /* { kind:"enter"|"exit", t, phase, from, to, doorSide } */
+
+  function beginEnterCar(force) {
+    if (mode !== "walk" || carTransit) return;
+    const dx = walker.x - carPos.x, dz = walker.z - carPos.z;
+    if (!force && (dx * dx + dz * dz > 6 * 6)) {
+      if (window.__ph3d_phone) window.__ph3d_phone._toast("Too far from the car");
+      return;
+    }
+    if (RIDE) {
       mode = "drive"; speed = 0;
       try { Sfx.play("car_engine_start"); } catch (_) {}
       getOutBtn.textContent = "GET OUT";
-      if (RIDE) mountRider(); else character.visible = false;
+      mountRider();
       joyBaseEl.style.display = "none";
       input.joyX = 0; input.joyY = 0;
       carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
+      return;
     }
+    const stand = doorStandPoint(carRoot, carMesh, heading, carPos, carSize, "left");
+    const seat = doorStandPoint(carRoot, carMesh, heading, carPos, carSize, "left");
+    /* seat is closer to center */
+    const cH = Math.cos(heading), sH = Math.sin(heading);
+    const seatLX = -carSize.x * 0.22, seatLZ = -carSize.z * 0.05;
+    seat.x = carPos.x + seatLX * cH + seatLZ * sH;
+    seat.z = carPos.z - seatLX * sH + seatLZ * cH;
+    carTransit = {
+      kind: "enter", t: 0, phase: 0,
+      from: { x: walker.x, z: walker.z, y: walker.y },
+      stand, seat,
+      doorSide: "left",
+    };
+    try { setDoorTarget(carMesh, "left", 1); } catch (e) {}
+    getOutBtn.style.pointerEvents = "none";
+    joyBaseEl.style.display = "none";
+    input.joyX = 0; input.joyY = 0;
   }
 
-  function exitCar() {
-    if (mode === "drive") {
+  function beginExitCar() {
+    if (mode !== "drive" || carTransit) return;
+    if (RIDE) {
       mode = "walk";
       try { Sfx.play("car_engine_stop"); } catch (_) {}
       const cH = Math.cos(heading), sH = Math.sin(heading);
-      const exW = carSize.x * 0.5 + 0.9, exL = carSize.z * 0.5 + 0.9;
-      const cands = [[exW, 0], [-exW, 0], [0, exL], [0, -exL]];
-      let exX = null, exZ = null;
-      for (const [lx_, lz_] of cands) {
-        const wx = carPos.x + lx_ * cH + lz_ * sH;
-        const wz = carPos.z - lx_ * sH + lz_ * cH;
-        const rr_ = resolveAABBs(wx, wz, WALK_RADIUS, worldAABBs);
-        if (Math.abs(rr_[0] - wx) < 0.05 && Math.abs(rr_[1] - wz) < 0.05) { exX = wx; exZ = wz; break; }
-      }
-      if (exX === null) { exX = carPos.x + exW * cH; exZ = carPos.z - exW * sH; }
-      walker.x = exX; walker.z = exZ;
+      const exW = carSize.x * 0.5 + 0.9;
+      walker.x = carPos.x + exW * cH; walker.z = carPos.z - exW * sH;
       walker.y = sampleTerrainMeshHeight(walker.x, walker.z);
       walker.yaw = heading; walker.pitch = 0; walker.vy = 0; walker.onGround = true;
       speed = 0;
       getOutBtn.textContent = "GET IN CAR";
-      if (RIDE && character.parent !== three) { three.add(character); try { charRig.hips.rotation.set(0, 0, 0); charRig.spine.rotation.set(0, 0, 0); } catch (e) {} }
+      if (character.parent !== three) { three.add(character); try { charRig.hips.rotation.set(0, 0, 0); charRig.spine.rotation.set(0, 0, 0); } catch (e) {} }
       character.position.set(walker.x, walker.y, walker.z);
       character.rotation.y = walker.yaw;
       character.visible = true;
       joyBaseEl.style.display = "block";
-    } else { enterCar(); }
+      return;
+    }
+    const stand = doorStandPoint(carRoot, carMesh, heading, carPos, carSize, "left");
+    const cH = Math.cos(heading), sH = Math.sin(heading);
+    const seatLX = -carSize.x * 0.22, seatLZ = -carSize.z * 0.05;
+    const seat = {
+      x: carPos.x + seatLX * cH + seatLZ * sH,
+      z: carPos.z - seatLX * sH + seatLZ * cH,
+      y: sampleTerrainMeshHeight(carPos.x, carPos.z),
+    };
+    stand.y = sampleTerrainMeshHeight(stand.x, stand.z);
+    carTransit = {
+      kind: "exit", t: 0, phase: 0,
+      from: { x: seat.x, z: seat.z, y: seat.y },
+      stand, seat,
+      doorSide: "left",
+    };
+    speed = 0;
+    try { setDoorTarget(carMesh, "left", 1); } catch (e) {}
+    character.visible = true;
+    character.position.set(seat.x, seat.y, seat.z);
+    character.rotation.y = heading;
+    getOutBtn.style.pointerEvents = "none";
+  }
+
+  function enterCar(force) {
+    if (mode === "walk") beginEnterCar(force);
+  }
+
+  function exitCar() {
+    if (mode === "drive") beginExitCar();
+    else enterCar();
+  }
+
+  function tickCarTransit(dt) {
+    if (!carTransit) return false;
+    const tr = carTransit;
+    tr.t += dt;
+    try { updateDoors(carMesh, dt); } catch (e) {}
+
+    if (tr.kind === "enter") {
+      /* phase 0: open door + walk to stand (~0.55s) */
+      if (tr.phase === 0) {
+        const u = Math.min(1, tr.t / 0.55);
+        const e = u * u * (3 - 2 * u);
+        walker.x = tr.from.x + (tr.stand.x - tr.from.x) * e;
+        walker.z = tr.from.z + (tr.stand.z - tr.from.z) * e;
+        walker.y = sampleTerrainMeshHeight(walker.x, walker.z);
+        walker.yaw = heading;
+        character.visible = true;
+        character.position.set(walker.x, walker.y, walker.z);
+        character.rotation.y = walker.yaw;
+        try {
+          if (charRig) Animator.update(charRig, { move: 0.6, dt });
+        } catch (e) {}
+        if (u >= 1) { tr.phase = 1; tr.t = 0; tr.from = { x: walker.x, z: walker.z, y: walker.y }; }
+        return true;
+      }
+      /* phase 1: step into seat (~0.5s) */
+      if (tr.phase === 1) {
+        const u = Math.min(1, tr.t / 0.5);
+        const e = u * u * (3 - 2 * u);
+        walker.x = tr.from.x + (tr.seat.x - tr.from.x) * e;
+        walker.z = tr.from.z + (tr.seat.z - tr.from.z) * e;
+        walker.y = sampleTerrainMeshHeight(walker.x, walker.z) + e * 0.15;
+        character.position.set(walker.x, walker.y, walker.z);
+        character.rotation.y = heading;
+        if (u >= 1) { tr.phase = 2; tr.t = 0; try { setDoorTarget(carMesh, "left", 0); } catch (e) {} }
+        return true;
+      }
+      /* phase 2: close door, finish enter (~0.4s) */
+      if (tr.phase === 2) {
+        if (tr.t >= 0.35) {
+          mode = "drive"; speed = 0;
+          try { Sfx.play("car_engine_start"); } catch (_) {}
+          getOutBtn.textContent = "GET OUT";
+          getOutBtn.style.pointerEvents = "auto";
+          character.visible = false;
+          carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
+          carTransit = null;
+        }
+        return true;
+      }
+    }
+
+    if (tr.kind === "exit") {
+      /* phase 0: open door, sit visible (~0.4s) */
+      if (tr.phase === 0) {
+        character.visible = true;
+        character.position.set(tr.seat.x, tr.seat.y, tr.seat.z);
+        character.rotation.y = heading;
+        if (tr.t >= 0.4) { tr.phase = 1; tr.t = 0; tr.from = { x: tr.seat.x, z: tr.seat.z, y: tr.seat.y }; }
+        return true;
+      }
+      /* phase 1: step out to stand (~0.5s) */
+      if (tr.phase === 1) {
+        const u = Math.min(1, tr.t / 0.5);
+        const e = u * u * (3 - 2 * u);
+        walker.x = tr.from.x + (tr.stand.x - tr.from.x) * e;
+        walker.z = tr.from.z + (tr.stand.z - tr.from.z) * e;
+        walker.y = sampleTerrainMeshHeight(walker.x, walker.z);
+        walker.yaw = heading;
+        character.position.set(walker.x, walker.y, walker.z);
+        character.rotation.y = walker.yaw;
+        if (u >= 1) { tr.phase = 2; tr.t = 0; try { setDoorTarget(carMesh, "left", 0); } catch (e) {} }
+        return true;
+      }
+      /* phase 2: close door, finish exit */
+      if (tr.phase === 2) {
+        if (tr.t >= 0.35) {
+          mode = "walk";
+          try { Sfx.play("car_engine_stop"); } catch (_) {}
+          walker.yaw = heading; walker.pitch = 0; walker.vy = 0; walker.onGround = true;
+          speed = 0;
+          getOutBtn.textContent = "GET IN CAR";
+          getOutBtn.style.pointerEvents = "auto";
+          character.visible = true;
+          joyBaseEl.style.display = "block";
+          carTransit = null;
+        }
+        return true;
+      }
+    }
+    return true;
   }
 
   getOutBtn.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); exitCar(); }, { passive: false });
@@ -1584,6 +1733,25 @@ try {
       try { JobObjectives.tick(dt, px, pz, mode); } catch (e) {}
       try { ObjectiveHUD.tick(px, pz); } catch (e) {}
       try { WalkActions.tick(dt, walker._intentSpeed || 0); } catch (e) {}
+
+      try { if (carMesh) updateDoors(carMesh, dt); } catch (e) {}
+      if (tickCarTransit(dt)) {
+        try {
+          const carY = sampleTerrainMeshHeight(carPos.x, carPos.z);
+          carRoot.position.set(carPos.x, carY, carPos.z);
+          carRoot.rotation.y = heading;
+        } catch (e) {}
+        /* still render camera for transit */
+        try {
+          const camDist = 7.5, camH = 3.2;
+          const cx = carPos.x - Math.sin(heading + cameraYaw) * camDist;
+          const cz = carPos.z - Math.cos(heading + cameraYaw) * camDist;
+          camera.position.lerp(new THREE.Vector3(cx, carPos.y + camH, cz), Math.min(1, dt * 8));
+          camera.lookAt(carPos.x, carPos.y + 1.2, carPos.z);
+        } catch (e) {}
+        window.__ph3d_player = walker;
+        return;
+      }
 
       window.__ph3d_player = walker;
 
