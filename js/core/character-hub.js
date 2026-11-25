@@ -24,7 +24,7 @@ import { Quality } from "./quality.js";
 import { Wardrobe, WARDROBE_TABS, COSTUME_INFO, resolveColor } from "./wardrobe.js";
 import { buildCharacter, liveApplyConfig } from "../characters/lowpoly.js";
 import { EMOTES, setHand, HAND } from "../characters/animator.js";
-import { isEmoteUnlocked, openStyleAbilityShop, getStyleItems, getEquippedWing, setEquippedWing, purchaseStyleItem, attachCosmeticWings, updateCosmeticWings, BODY_TYPES, BODY_STYLES, getBodyOwnership, ownsBodyItem, purchaseBodyItem, getBodySelection, setBodySelection } from "./style-ability-shop.js";
+import { isEmoteUnlocked, openStyleAbilityShop, getStyleItems, getEquippedWing, setEquippedWing, purchaseStyleItem, attachCosmeticWings, updateCosmeticWings, BODY_TYPES, BODY_STYLES, TATTOOS, getBodyOwnership, ownsBodyItem, purchaseBodyItem, getBodySelection, setBodySelection, toggleEquippedTattoo, getEquippedTattoos } from "./style-ability-shop.js";
 import { Economy } from "./economy.js";
 import { State } from "./state.js";
 import { buildGWagon3D } from "../vehicles/gwagon3d.js";
@@ -1191,9 +1191,10 @@ export class CharacterHub {
     const root=this._dom.root, rack=this._dom.rack;
     this._hideDragHint(); this._activeCategory="__body";
     root.querySelectorAll(".tb-tab").forEach(b=>b.classList.remove("on"));
-    root.querySelector("#tb-rack-title").textContent="Body Types & Styles";
+    root.querySelector("#tb-rack-title").textContent="Body Types, Styles & Tattoos";
     root.querySelector("#tb-rack-count").textContent="CUSTOM FIT";
     const body=root.querySelector("#tb-rack-body"), selected=getBodySelection();
+    const equippedTats = getEquippedTattoos();
     const typeCards=[{id:"faceted",name:"Faceted",price:0,desc:"Default faceted character body."},...BODY_TYPES].map(x=>{
       const active=selected.type===x.id, owned=x.id==="faceted"||ownsBodyItem("types",x.id);
       return `<article class="tb-wing-card"><div class="tb-group-label"><em>◈</em> BODY TYPE</div><h3>${x.name}</h3><p>${x.desc}</p><div class="tb-wing-meta"><span>${active?'<b class="tb-wing-equipped">SELECTED</b>':owned?"OWNED":Economy.format(x.price)}</span><button class="tb-wing-action" data-body-type="${x.id}">${active?"SELECTED":owned?"USE":"PURCHASE"}</button></div></article>`;
@@ -1202,10 +1203,25 @@ export class CharacterHub {
       const active=selected.style===x.id, owned=x.id==="faceted"||ownsBodyItem("styles",x.id);
       return `<article class="tb-wing-card"><div class="tb-group-label"><em>✧</em> BODY STYLE</div><h3>${x.name}</h3><p>${x.desc}</p><div class="tb-wing-meta"><span>${active?'<b class="tb-wing-equipped">SELECTED</b>':owned?"OWNED":Economy.format(x.price)}</span><button class="tb-wing-action" data-body-style="${x.id}">${active?"SELECTED":owned?"USE":"PURCHASE"}</button></div></article>`;
     }).join("");
-    body.innerHTML=`<div class="tb-note">Five additional body proportions and six purchasable body finishes. Faceted remains the free default.</div><h3 class="tb-group-label">BODY TYPE</h3>${typeCards}<h3 class="tb-group-label">BODY STYLE</h3>${styleCards}`;
-    const apply=()=>{Wardrobe.config.look=selected.style==="faceted"?"faceted":(BODY_STYLES.find(x=>x.id===selected.style)?.look||"faceted");Wardrobe.config.bodyStyle=selected.style;const t=BODY_TYPES.find(x=>x.id===selected.type);Wardrobe.config.build=t?t.build:0;Wardrobe.config.bodyHeight=t?t.height:1;Wardrobe.save();this._rebuildAvatar();this._toggleBodyPanel();};
+    const tattooCards=TATTOOS.map(x=>{
+      const owned=ownsBodyItem("tattoos",x.id), on=equippedTats.includes(x.id);
+      return `<article class="tb-wing-card"><div class="tb-group-label"><em>✦</em> TATTOO · ${x.slot.toUpperCase()}</div><h3>${x.name}</h3><p>${x.desc}</p><div class="tb-wing-meta"><span>${on?'<b class="tb-wing-equipped">ON BODY</b>':owned?"OWNED":Economy.format(x.price)}</span><button class="tb-wing-action" data-tattoo="${x.id}">${on?"REMOVE":owned?"APPLY":"PURCHASE"}</button></div></article>`;
+    }).join("");
+    body.innerHTML=`<div class="tb-note">Body proportions, finishes and ink. Buy a tattoo once, then apply or remove it anytime. Multiple tattoos can be worn together.</div><h3 class="tb-group-label">BODY TYPE</h3>${typeCards}<h3 class="tb-group-label">BODY STYLE</h3>${styleCards}<h3 class="tb-group-label">BODY TATTOOS</h3>${tattooCards}`;
+    const apply=()=>{Wardrobe.config.look=selected.style==="faceted"?"faceted":(BODY_STYLES.find(x=>x.id===selected.style)?.look||"faceted");Wardrobe.config.bodyStyle=selected.style;const t=BODY_TYPES.find(x=>x.id===selected.type);Wardrobe.config.build=t?t.build:0;Wardrobe.config.bodyHeight=t?t.height:1;Wardrobe.config.tattoos=getEquippedTattoos();Wardrobe.save();this._rebuildAvatar();this._toggleBodyPanel();};
     body.querySelectorAll("[data-body-type]").forEach(btn=>btn.onclick=()=>{const id=btn.dataset.bodyType;if(id!=="faceted"&&!ownsBodyItem("types",id)){const r=purchaseBodyItem("types",id);if(!r.ok){btn.textContent=r.reason==="funds"?"NOT ENOUGH FUNDS":"UNAVAILABLE";return;}}selected.type=id;setBodySelection("type",id);apply();});
     body.querySelectorAll("[data-body-style]").forEach(btn=>btn.onclick=()=>{const id=btn.dataset.bodyStyle;if(id!=="faceted"&&!ownsBodyItem("styles",id)){const r=purchaseBodyItem("styles",id);if(!r.ok){btn.textContent=r.reason==="funds"?"NOT ENOUGH FUNDS":"UNAVAILABLE";return;}}selected.style=id;setBodySelection("style",id);apply();});
+    body.querySelectorAll("[data-tattoo]").forEach(btn=>btn.onclick=()=>{
+      const id=btn.dataset.tattoo;
+      if(!ownsBodyItem("tattoos",id)){
+        const r=purchaseBodyItem("tattoos",id);
+        if(!r.ok){btn.textContent=r.reason==="funds"?"NOT ENOUGH FUNDS":"UNAVAILABLE";return;}
+        toggleEquippedTattoo(id);
+      } else {
+        toggleEquippedTattoo(id);
+      }
+      apply();
+    });
     rack.classList.add("on");root.classList.add("tb-rack-open");this._layout();
   }
 
