@@ -23,6 +23,7 @@ export const BOTTOMS = {
   miniskirt: { kind: "skirt",  ease: 0.010, hem: -0.27, hemR: 0.215 },
   /* consent-only (Settings → Content & consent); see core/adult-gate.js */
   underwear: { kind: "shorts", ease: 0.002, len: 0.07 },
+  panties:   { kind: "shorts", ease: 0.0015, len: 0.055, panties: true },
   offcloth:  { kind: "skirt",  ease: 0.010, hem: -0.2, hemR: 0.2, hidden: true },
 };
 export function bottomSpec(cfg) { return BOTTOMS[cfg.bottomStyle] || BOTTOMS.jeans; }
@@ -73,6 +74,10 @@ export function buildPelvis(ctx) {
   pelvis.scale.set(B.sxP, 1, B.szP);
   pelvis.castShadow = true; pelvis.receiveShadow = true;
   hips.add(pelvis);
+  /* Panties: thin waistband + higher-cut look */
+  if (spec.panties) {
+    ring(hips, M.bottom, rows[4].r + 0.003, 0.007, 0.048, B.sxP, B.szP, 18);
+  }
   const shirtCovers = (TOPS[cfg.topStyle] || {}).crop === undefined && !legsBare(cfg);
   if (spec.belt && !shirtCovers) {
     const belt = lam(shade(base, -0.20));
