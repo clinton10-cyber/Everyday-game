@@ -15,6 +15,7 @@ import { buildMercedes3D } from "../vehicles/mercedes3d.js";
 import { buildBMW3D } from "../vehicles/bmw3d.js";
 import { buildChiron3D } from "../vehicles/chiron3d.js";
 import { buildVehicle as buildVehicleSimple } from "../vehicles/models.js";
+import { buildTaxi3D } from "../vehicles/taxi3d.js";
 import { buildScrappy3D } from "../vehicles/scrappy3d.js";
 import { addCarDoors, setDoorTarget, updateDoors, doorPoints, isDoorOpen } from "../vehicles/car-doors.js";
 import { buildCharacter, HIP_HEIGHT, attachPhone, liveApplyConfig } from "../characters/lowpoly.js";
@@ -544,7 +545,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   const model = (State.vehicle && State.vehicle.model) || "scrappy";
   let carMesh, frontCorrection;
   if (model === "scrappy") { carMesh = buildScrappy3D(State.vehicle.body, State.vehicle.rim); frontCorrection = FRONT_CORRECTION.scrappy; }
-  else if (model === "taxi") { carMesh = buildTaxi(); frontCorrection = MODELS_JS_CORRECTION; }
+  else if (model === "taxi") { carMesh = buildTaxi3D(State.vehicle.body || "#f2c31a", "#2a2d35"); frontCorrection = MODELS_JS_CORRECTION; }
   else if (model === "cybertruck") { carMesh = buildCybertruck3D(State.vehicle.body, State.vehicle.rim); frontCorrection = FRONT_CORRECTION.cybertruck; }
   else if (model === "rangerover") { carMesh = buildRangeRover3D(State.vehicle.body, State.vehicle.rim); frontCorrection = FRONT_CORRECTION.rangerover; }
   else if (model === "gwagon") { carMesh = buildGWagon3D(State.vehicle.body, State.vehicle.rim); frontCorrection = FRONT_CORRECTION.gwagon; }

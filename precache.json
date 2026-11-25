@@ -207,6 +207,7 @@
 "js/core/crimeSetup.js",
 "js/core/daynight.js",
 "js/core/death-pose.js",
+"js/vehicles/taxi3d.js",
 "js/core/npc-collider.js",
 "js/core/disposer.js",
 "js/core/drawers.js",

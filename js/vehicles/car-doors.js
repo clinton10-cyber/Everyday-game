@@ -22,7 +22,7 @@ const MAXH = 6; /* max doors per car */
 const SPECS = {
   gwagon:     { doors: [{ z1: 0.93, z0: -0.59, y0: 0.62, y1: 1.93, belt: 1.17 }], seat: { x: 0.42, y: 1.02, z: 0.20 } },
   scrappy:    { doors: [{ z1: 0.55, z0: -0.55, y0: 0.40, y1: 1.45, belt: 0.95 }], seat: { x: 0.38, y: 0.72, z: 0.12 }, hide: ["doorPivot"] },
-  taxi:       { doors: [{ z1: 0.95, z0: -0.10, y0: 0.55, y1: 1.85, belt: 1.15 }], seat: { x: 0.45, y: 0.95, z: 0.30 } },
+  taxi:       { doors: [{ z1: 0.80, z0: -0.62, y0: 0.45, y1: 1.58, belt: 1.12 }], seat: { x: 0.34, y: 1.08, z: 0.02 } },
   hilux:      { doors: [{ z1: 0.86, z0: -0.06, y0: 0.52, y1: 1.28, belt: 0.95 }], seat: { x: 0.42, y: 0.90, z: 0.32 } },
   cybertruck: { doors: [{ z1: 0.85, z0: -0.90, y0: 0.55, y1: 1.45, belt: 1.05 }], seat: { x: 0.42, y: 0.85, z: 0.15 } },
   rangerover: { native: true, doors: [{ z1: 0.885, z0: -0.715, y0: 0.74, y1: 1.7, belt: 1.4 }], seat: { x: 0.45, y: 1.18, z: 0.25 } },
