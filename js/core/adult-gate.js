@@ -2,8 +2,8 @@
    One place that answers "has the player confirmed they are 18+ and opted in?" (Settings → Content & consent).
    Everything mature in the wardrobe / NPC shapes must go through here. No imports, so it can be used anywhere. */
 
-export const ADULT_TOP_STYLES    = ["underwear", "offcloth"];
-export const ADULT_BOTTOM_STYLES = ["underwear", "offcloth"];
+export const ADULT_TOP_STYLES    = ["underwear", "bra", "offcloth"];
+export const ADULT_BOTTOM_STYLES = ["underwear", "panties", "offcloth"];
 
 export function adultOK() {
   try { return !!(window.__ph3d_adultAllowed && window.__ph3d_adultAllowed()); } catch (e) { return false; }
