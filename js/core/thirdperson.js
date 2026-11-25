@@ -934,12 +934,15 @@ export class ThirdPersonControls {
     if (!box) {
       box = this._actListEl = document.createElement("div");
       box.id = "ph3d-act-list";
-      box.style.cssText = "position:fixed;z-index:31;display:none;flex-direction:column-reverse;gap:6px;" +
-        "right:calc(var(--h-right,12px) + 150px);bottom:calc(var(--h-bottom,16px) + 6px);pointer-events:none;align-items:stretch";
+      /* bottom-centre row: between the joystick (left) and the FIRE / JUMP cluster (right), above the status pill —
+         it used to sit bottom-right and covered the FIRE buttons when a gun was out */
+      box.style.cssText = "position:fixed;z-index:31;display:none;flex-direction:row;flex-wrap:wrap-reverse;justify-content:center;gap:6px;" +
+        "left:calc(50% - 60px);transform:translateX(-50%);bottom:calc(var(--h-bottom,12px) + 40px);" +
+        "width:max-content;max-width:max(190px,calc(100vw - 460px));pointer-events:none;align-items:center";
       document.body.appendChild(box);
       if (!document.getElementById("ph3d-act-list-css")) {
         const st = document.createElement("style"); st.id = "ph3d-act-list-css";
-        st.textContent = "#ph3d-act-list button{pointer-events:auto;touch-action:manipulation;min-width:112px;padding:9px 14px;border-radius:999px;" +
+        st.textContent = "#ph3d-act-list button{pointer-events:auto;touch-action:manipulation;min-width:92px;padding:8px 12px;border-radius:999px;" +
           "background:rgba(8,16,28,.88);border:1px solid rgba(94,224,255,.5);color:#eaf6ff;font:800 11px/1 system-ui,sans-serif;letter-spacing:.1em;" +
           "text-align:left;display:flex;justify-content:space-between;gap:10px;align-items:center;backdrop-filter:blur(10px);box-shadow:0 6px 18px rgba(0,0,0,.45)}" +
           "#ph3d-act-list button.sel{background:#5ee0ff;color:#04202b;border-color:#5ee0ff}" +
