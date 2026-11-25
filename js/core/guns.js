@@ -704,6 +704,7 @@ export class Weapons {
     this.rifle.holster(); this.smg.holster(); this.shotgun.holster(); this.lmg.holster();
     this.bazooka.holster();
     this.current = name;
+    if (name !== "fists") this._lastArmed = name;          /* so SWAP can draw it again */
     if (name === "knife")  this.knife.draw();
     else if (name === "pistol") this.pistol.draw();
     else if (name === "sniper") this.sniper.draw();
@@ -727,6 +728,12 @@ export class Weapons {
   }
 
   holsterAll() { this.select("fists"); }
+  /* one key / one button: armed → fists, fists → the weapon you last held (pistol the first time) */
+  swap() {
+    if (this.isArmed()) { this.select("fists"); return "fists"; }
+    const w = this._lastArmed && this._lastArmed !== "fists" ? this._lastArmed : "pistol";
+    this.select(w); return w;
+  }
   isArmed() { return this.current !== "fists"; }
 
   attack(targets) {

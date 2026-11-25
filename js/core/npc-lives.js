@@ -469,6 +469,12 @@ function leaderPos(npc) {
   return { ok: false };
 }
 let _px = 0, _pz = 0;
+/* true while the player sits in a vehicle (city drive scene, or the open-zone drive scene) */
+function playerInCar() {
+  try { const d = window.__ph3d_drive; if (d && d.getMode && d.getMode() === "drive") return true; } catch (e) {}
+  try { const r = window.__ph3d_router; if (r && r.current && r.current._routeName === "zonedrive") return true; } catch (e) {}
+  return false;
+}
 /* open city, you sat down: the closest free spot around you (nearest ring first, no overlap with family already sat) */
 function pickSitSpot(npc, L) {
   const taken = host.list.filter((n) => n !== npc && !n.dead && n._companion && n._sitSpot).map((n) => n._sitSpot);
@@ -1138,6 +1144,22 @@ export const Lives = {
     if (!S) return;
     _px = px; _pz = pz;
     Lives.pulse();
+    /* Your family rides IN the car: invisible while you drive, back beside you when you get out. */
+    try {
+      if (host && host.list) {
+        const car = playerInCar();
+        for (const n of host.list) {
+          if (!n._companion || n.dead) continue;
+          if (car && !n._inCar) { n._inCar = true; n._lifeHidden = true; n.moveSpeed = 0; n.group.visible = false; }
+          else if (!car && n._inCar) {
+            n._inCar = false; n._lifeHidden = false;
+            n.ctl.pos.x = px + 1; n.ctl.pos.z = pz + 1;        /* step out next to the car */
+            n.group.position.set(n.ctl.pos.x, n._baseY || 0, n.ctl.pos.z); n.group.visible = true;
+            n.state = "life_follow"; n.stateT = 999;
+          }
+        }
+      }
+    } catch (e) {}
     secAcc += dt; saveAcc += dt;
     if (secAcc >= 1 && cityOn) {
       secAcc = 0;

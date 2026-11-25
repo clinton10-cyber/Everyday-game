@@ -68,6 +68,20 @@ export const WalkActions = {
     atk.style.cssText = "display:none;cursor:pointer;pointer-events:auto;touch-action:manipulation;";
     document.body.appendChild(atk);
 
+    /* ── gun ⇄ fists in one tap (the HUD places it with the other combat chips) ── */
+    const wpn = document.createElement("button");
+    wpn.id = "ph3d-wpn-btn";
+    wpn.type = "button";
+    wpn.textContent = "WEAPON";
+    wpn.style.cssText = "display:none;cursor:pointer;pointer-events:auto;touch-action:manipulation;";
+    document.body.appendChild(wpn);
+    wpn.addEventListener("pointerdown", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      window.__ph3d_lastHudTouch = performance.now();
+      if (this._canAct()) { try { S.weapons.swap(); } catch (err) {} }
+    }, { passive: false });
+    ["pointerup", "pointermove", "click"].forEach((k) => wpn.addEventListener(k, (e) => { e.preventDefault(); e.stopPropagation(); }));
+
     const swallow = (e) => { e.preventDefault(); e.stopPropagation(); };
     menu.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -100,7 +114,7 @@ export const WalkActions = {
         case "Digit3": w.select("pistol"); break;
         case "Digit4": w.select("sniper"); break;
         case "Digit5": w.select("bazooka"); break;
-        case "KeyR":   w.holsterAll();     break;
+        case "KeyR":   w.swap();           break;     /* gun ⇄ fists */
         case "KeyF":
           if (w.isArmed()) this.attack();
           else WrestlingModal.toggle({ walker: S.walker, weapons: w, getMode: S.getMode });
@@ -110,7 +124,7 @@ export const WalkActions = {
     };
     window.addEventListener("keydown", onKey);
 
-    S.menu = menu; S.atk = atk; S.onKey = onKey;
+    S.menu = menu; S.atk = atk; S.wpn = wpn; S.onKey = onKey;
     return this;
   },
 
@@ -207,7 +221,7 @@ export const WalkActions = {
 
     HUD.sheet({
       title: "Actions",
-      sub: "1–4 weapons · F attack · R holster · Q menu",
+      sub: "1–5 weapons · F fight/fire · R gun⇄fists · Q this menu",
       sections: [
         { label: "Weapons", cols: 3, radio: true, items: WEAPONS.map(weapon) },
         { label: "Emotes", cols: 5, items: BASIC_EMOTES.map(emote) },
@@ -237,6 +251,12 @@ export const WalkActions = {
     if (!walking && S.weapons.isArmed()) { try { S.weapons.holsterAll(); } catch (e) {} }
 
     S.menu.style.display = walking ? "block" : "none";
+    if (S.wpn) {
+      S.wpn.style.display = walking ? "block" : "none";
+      const wl = S.weapons.isArmed() ? "FISTS" : "WEAPON";     /* shows what a tap will switch TO */
+      if (S.wpn.textContent !== wl) S.wpn.textContent = wl;
+      S.wpn.classList.toggle("is-on", S.weapons.isArmed());
+    }
 
     const armed = walking;
     S.atk.style.display = armed ? "block" : "none";
@@ -259,6 +279,7 @@ export const WalkActions = {
     try { WrestlingModal.close(); } catch (e) {}
     try { S.menu.remove(); } catch (e) {}
     try { S.atk.remove(); } catch (e) {}
+    try { S.wpn && S.wpn.remove(); } catch (e) {}
     try { HUD.closeSheet(); } catch (e) {}
     S = null;
   },

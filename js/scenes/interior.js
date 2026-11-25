@@ -102,8 +102,11 @@ export async function interiorScene(params, router) {
 
       /* Give the Weapons system real targets (the interior's own NPCs). */
       ctl.opts.getTargets = () => {
-        try { return NPCs.targets(ctl.pos.x, ctl.pos.z, 80); }
-        catch (e) { return []; }
+        let t = [];
+        try { t = NPCs.targets(ctl.pos.x, ctl.pos.z, 80); } catch (e) {}
+        /* offended people who hunt you (Pursuit) are targets too */
+        try { const P = window.__ph3d_pursuit; if (P && P.targets) t = t.concat(P.targets(ctl.pos.x, ctl.pos.z, 80)); } catch (e) {}
+        return t;
       };
 
       /* React to shots — same behaviour drive.js wires into walker.opts. */

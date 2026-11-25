@@ -72,6 +72,19 @@ function rayAABB(ox,oy,oz,dx,dy,dz,minX,minY,minZ,maxX,maxY,maxZ,maxT){
   return tmin;
 }
 
+/* ray vs. a vertical cylinder (a person): returns distance t, or -1 */
+function rayVertCyl(ox, oy, oz, dx, dy, dz, cx, cz, r, y0, y1, maxT) {
+  const px = ox - cx, pz = oz - cz, a = dx * dx + dz * dz;
+  if (a < 1e-8) return -1;
+  const b = 2 * (px * dx + pz * dz), c = px * px + pz * pz - r * r, disc = b * b - 4 * a * c;
+  if (disc < 0) return -1;
+  const s = Math.sqrt(disc);
+  let t = (-b - s) / (2 * a); if (t < 0) t = (-b + s) / (2 * a);
+  if (t < 0 || t > maxT) return -1;
+  const y = oy + dy * t;
+  return (y >= y0 && y <= y1) ? t : -1;
+}
+
 export class ThirdPersonControls {
   constructor(camera, dom, world, opt = {}) {
     this.camera = camera; this.dom = dom; this.world = world; this.opts = opt;
@@ -581,18 +594,27 @@ export class ThirdPersonControls {
     this._kd = e => {
       if (isTyping(e)) return;                       /* chat / text field has the keyboard */
       this.keys[e.code] = true;
-      if (e.code === "KeyE") this.triggerAction();
-      if (e.code === "KeyQ") {
+      /* ONE KEY = ONE ACTION
+         E use/interact (several available → Tab picks, E runs) · F fight/fire · G lie down · J jetpack
+         Q actions menu · R gun⇄fists · T throw held · X drop held · C crouch · V view · B shoulder
+         (F / Q / R are handled by WalkActions whenever it is mounted — `_parity` — so they never fire twice) */
+      if (e.code === "KeyE" && !e.repeat) this.triggerContext();
+      if (e.code === "Tab") { e.preventDefault(); if (!e.repeat) this._cycleAction(); }
+      if (e.code === "KeyT" && !e.repeat) {
         if (this.held) this.dropHeld(true);
         else { const PA = window.__ph3d_playerActions; if (PA && PA.heldItem?.()) PA.throw(this); }
       }
-      if (e.code === "KeyF") {
-        if (this.weapons.isArmed()) this.weapons.attack(this._getWeaponTargets());
-        else this._lie();
+      if (e.code === "KeyX" && !e.repeat) {
+        if (this.held) this.dropHeld(false);
+        else { const PA = window.__ph3d_playerActions; if (PA && PA.heldItem?.()) PA.drop(this); }
       }
-      if (e.code === "KeyG") this._lie();
+      if (!this._parity) {
+        if (e.code === "KeyF" && this.weapons.isArmed()) this.weapons.attack(this._getWeaponTargets());
+        if (e.code === "KeyQ" && !e.repeat) this._openQuickMenu();
+        if (e.code === "KeyR" && !e.repeat) this.weapons.swap();
+      }
+      if (e.code === "KeyG" && !e.repeat) this._lie();
       if (e.code === "KeyJ" && !e.repeat) this.toggleJet();
-      if (e.code === "KeyR") this.weapons.holsterAll();
       if (e.code === "KeyC") this.crouch();
       if (e.code === "KeyV" && !e.repeat) this.toggleCameraMode();
       if (e.code === "KeyB" && !e.repeat) this.swapShoulder();
@@ -690,7 +712,12 @@ export class ThirdPersonControls {
     if (this.opts && this.opts.getTargets) return;      // scene brings its own weapon setup
     this.opts = this.opts || {};
     const self = this;
-    this.opts.getTargets = () => { try { return NPCs.targets(self.pos.x, self.pos.z, 80); } catch (e) { return []; } };
+    this.opts.getTargets = () => {
+      let t = []; try { t = NPCs.targets(self.pos.x, self.pos.z, 80); } catch (e) {}
+      /* people you have fought hunt you as "pursuers" — they must be shootable too */
+      try { const P = window.__ph3d_pursuit; if (P && P.targets) t = t.concat(P.targets(self.pos.x, self.pos.z, 80)); } catch (e) {}
+      return t;
+    };
     if (!this.opts.onGunFire) this.opts.onGunFire = () => {
       try { NPCs.scare(self.pos.x, self.pos.z, 15); } catch (e) {}
       try { const S = window.__ph3d_social; if (S && S.onCrime) S.onCrime(self.pos.x, self.pos.z, "gun"); } catch (e) {}
@@ -862,6 +889,92 @@ export class ThirdPersonControls {
     this._ul();
   }
 
+  /* Every action that is possible RIGHT NOW (the old code only ever ran the first one it found). */
+  _availableActions() {
+    const out = [];
+    if (this.state !== "standing" && this.state !== "crouching") {
+      out.push({ id: "stand", label: "STAND UP", run: () => this.stand() });
+      return out;
+    }
+    if (this._nearCar && this._enterCarCb) out.push({ id: "car", label: "ENTER CAR", run: () => this._enterCarCb(this._nearCar) });
+    if (this.held) { out.push({ id: "drop", label: "DROP", run: () => this.dropHeld(false) }); return out; }
+    const inter = this._nearestInteractable();
+    if (inter && inter.onInteract) out.push({ id: "i:" + (inter.label || "use"), label: inter.label || "USE", run: () => inter.onInteract(this) });
+    const use = this._nearestUse();
+    if (use && this.opts.onUse) {
+      out.push({ id: "u:" + (use.label || use.kind || "use"), label: use.label || "USE", run: () => {
+        const kind = use.kind || "";
+        this._useTimer = kind === "cook" ? 2.0 : 1.2;
+        this._useBend = USE_BEND[kind] != null ? USE_BEND[kind] : 0.30;
+        this._emoteTimer = 0; this._emoteName = null;
+        this.opts.onUse(use, this);
+      } });
+    }
+    const obj = window.__ph3d_nearObj, PA = window.__ph3d_playerActions;
+    if (obj && !obj.taken && PA && typeof PA.pickup === "function" && !PA.isBusy?.()) out.push({ id: "pick", label: "PICK UP", run: () => PA.pickup(this, obj) });
+    if (this.nearSit) out.push({ id: "sit", label: this.nearSit.label || "SIT", run: () => this.sit(this.nearSit) });
+    const c = this._nearestCarryable();
+    if (c) out.push({ id: "take", label: "TAKE", run: () => this.pickUp(c) });
+    return out;
+  }
+  /* E key: run the highlighted action (the first one unless Tab moved the highlight) */
+  triggerContext() {
+    const list = this._availableActions();
+    if (!list.length) return false;
+    list[Math.min(this._actSel || 0, list.length - 1)].run();
+    return true;
+  }
+  _cycleAction() {
+    const n = this._availableActions().length;
+    if (n > 1) { this._actSel = ((this._actSel || 0) + 1) % n; this._syncActionList(true); }
+  }
+  /* buttons for every available action (shown when there is a choice, or when a gun is out and the big button is FIRE) */
+  _syncActionList(force) {
+    let box = this._actListEl;
+    if (!box) {
+      box = this._actListEl = document.createElement("div");
+      box.id = "ph3d-act-list";
+      box.style.cssText = "position:fixed;z-index:31;display:none;flex-direction:column-reverse;gap:6px;" +
+        "right:calc(var(--h-right,12px) + 150px);bottom:calc(var(--h-bottom,16px) + 6px);pointer-events:none;align-items:stretch";
+      document.body.appendChild(box);
+      if (!document.getElementById("ph3d-act-list-css")) {
+        const st = document.createElement("style"); st.id = "ph3d-act-list-css";
+        st.textContent = "#ph3d-act-list button{pointer-events:auto;touch-action:manipulation;min-width:112px;padding:9px 14px;border-radius:999px;" +
+          "background:rgba(8,16,28,.88);border:1px solid rgba(94,224,255,.5);color:#eaf6ff;font:800 11px/1 system-ui,sans-serif;letter-spacing:.1em;" +
+          "text-align:left;display:flex;justify-content:space-between;gap:10px;align-items:center;backdrop-filter:blur(10px);box-shadow:0 6px 18px rgba(0,0,0,.45)}" +
+          "#ph3d-act-list button.sel{background:#5ee0ff;color:#04202b;border-color:#5ee0ff}" +
+          "#ph3d-act-list button i{font-style:normal;font-size:9px;opacity:.75;border:1px solid currentColor;border-radius:5px;padding:1px 4px}" +
+          "#ph3d-act-list button:active{transform:scale(.95)}";
+        document.head.appendChild(st);
+      }
+    }
+    const list = this._availableActions();
+    const show = list.length >= 2 || (list.length === 1 && this._isGunWeapon() && this.state === "standing");
+    this._actListShown = show;
+    if (!show) { if (box.style.display !== "none") { box.style.display = "none"; box.innerHTML = ""; this._actSig = ""; } return list; }
+    if ((this._actSel || 0) >= list.length) this._actSel = 0;
+    const sig = list.map(a => a.id).join("|") + "#" + (this._actSel || 0);
+    if (sig !== this._actSig || force) {
+      this._actSig = sig;
+      box.innerHTML = "";
+      list.forEach((a, i) => {
+        const b = document.createElement("button"); b.type = "button";
+        b.className = i === (this._actSel || 0) ? "sel" : "";
+        b.innerHTML = "<span></span>" + (i === (this._actSel || 0) ? "<i>E</i>" : "");
+        b.firstChild.textContent = a.label;
+        b.addEventListener("pointerdown", (e) => {
+          e.preventDefault(); e.stopPropagation(); window.__ph3d_lastHudTouch = performance.now();
+          const cur = this._availableActions().find(x => x.id === a.id);
+          if (cur) cur.run();
+        }, { passive: false });
+        ["pointerup", "pointermove", "click"].forEach(k => b.addEventListener(k, ev => { ev.preventDefault(); ev.stopPropagation(); }));
+        box.appendChild(b);
+      });
+    }
+    box.style.display = "flex";
+    return list;
+  }
+
   triggerAction() {
     if (this.state !== "standing" && this.state !== "crouching") { this.stand(); return; }
     if (this._nearCar && this._enterCarCb) { this._enterCarCb(this._nearCar); return; }
@@ -996,6 +1109,11 @@ export class ThirdPersonControls {
       else if (this._isGunWeapon() && this.weapons.current !== "bazooka") { t = "FIRE"; ds = "interact"; }
       else if (this.weapons && this.weapons.current === "bazooka") { t = "LAUNCH"; ds = "warn"; }
     }
+    try {
+      const list = this._syncActionList();
+      /* the list already offers every choice (incl. the one this button would run) */
+      if (list && list.length >= 2 && !this._isGunWeapon()) t = "";
+    } catch (err) {}
     if (t) { b.textContent = t; b.style.opacity = "1"; b.style.transform = "translateY(0)"; b.style.pointerEvents = "auto"; b.dataset.state = ds; }
     else { b.style.opacity = "0"; b.style.transform = "translateY(10px)"; b.style.pointerEvents = "none"; }
   }
@@ -1473,15 +1591,17 @@ _updateCamera(dt, snap) {
     const right = new THREE.Vector3(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
     /* Player body shifts RIGHT (gun-hand side); camera sits behind the LEFT shoulder,
        so the gun shows on the right of the screen and the crosshair is clear of the body. */
-    const bodyShift = this.aiming ? 0.26 : 0.36;
+    const bodyShift = this.aiming ? 0.26 : 0.36;      /* (kept) gun-hand side of the body */
     const eye = new THREE.Vector3(
       this.pos.x + right.x * bodyShift,
       this.floorY + 1.55,
       this.pos.z + right.z * bodyShift
     );
 
-    const aimDistance = this.aiming ? 1.10 : 2.20;
-    const shoulderOffset = -(this.aiming ? 0.16 : 0.40) * (this.shoulderSide || 1);
+    /* Camera sits well to the side of the body (≈0.37 m off its centre line) so neither the head nor the
+       shoulders sit on the crosshair — before, it was ~0.1 m off and the body blocked the target. */
+    const aimDistance = this.aiming ? 1.45 : 2.00;
+    const shoulderOffset = -(this.aiming ? 0.62 : 0.98) * (this.shoulderSide || 1);
     let camPos = eye.clone()
       .addScaledVector(aimDir, -aimDistance)
       .addScaledVector(right, shoulderOffset)
@@ -1513,9 +1633,31 @@ _updateCamera(dt, snap) {
     /* look along the aim ray from the camera itself so barrel and crosshair line up */
     this.camera.lookAt(camPos.clone().addScaledVector(aimDir, 50));
 
-    /* bullets start at the true player chest and travel along aimDir */
-    this._aimOrigin = new THREE.Vector3(this.pos.x, this.floorY + 1.55, this.pos.z);
-    this._aimDir = aimDir;
+    /* Bullets leave the chest but fly TOWARD whatever the crosshair is on (wall / person / far point),
+       so the shot lands exactly where you see it even though the camera is offset to the shoulder. */
+    const chest = new THREE.Vector3(this.pos.x, this.floorY + 1.55, this.pos.z);
+    let D = 45;
+    if (this.world.colliders) {
+      for (const c of this.world.colliders) {
+        if (c.level !== this.level) continue;
+        const t = rayAABB(camPos.x, camPos.y, camPos.z, aimDir.x, aimDir.y, aimDir.z,
+          c.minX, c.y0 != null ? c.y0 : 0, c.minZ, c.maxX, c.y1 != null ? c.y1 : TALL, c.maxZ, D);
+        if (t > 1.0 && t < D) D = t;
+      }
+    }
+    try {
+      for (const tg of this._getWeaponTargets()) {
+        if (!tg || !tg.alive) continue;
+        const cy = tg.y != null ? tg.y : 0;
+        const t = rayVertCyl(camPos.x, camPos.y, camPos.z, aimDir.x, aimDir.y, aimDir.z, tg.x, tg.z, 0.5, cy, cy + 1.8, D);
+        if (t > 1.0 && t < D) D = t;
+      }
+    } catch (e) {}
+    const aimPoint = camPos.clone().addScaledVector(aimDir, D);
+    const shotDir = aimPoint.clone().sub(chest);
+    if (shotDir.lengthSq() > 0.25 && shotDir.normalize().dot(aimDir) > 0.6) { /* ok */ } else shotDir.copy(aimDir);
+    this._aimOrigin = chest;
+    this._aimDir = shotDir;
     return;
   }
   this._aimOrigin = null;
@@ -1685,6 +1827,7 @@ _updateCamera(dt, snap) {
     this._flyBtn && this._flyBtn.parentNode && this._flyBtn.parentNode.removeChild(this._flyBtn);
     this._lieBtn && this._lieBtn.parentNode && this._lieBtn.parentNode.removeChild(this._lieBtn);
     this._viewBtn && this._viewBtn.parentNode && this._viewBtn.parentNode.removeChild(this._viewBtn);
+    this._actListEl && this._actListEl.parentNode && this._actListEl.parentNode.removeChild(this._actListEl);
     this._aimBtn && this._aimBtn.parentNode && this._aimBtn.parentNode.removeChild(this._aimBtn);
     this._shoulderBtn && this._shoulderBtn.parentNode && this._shoulderBtn.parentNode.removeChild(this._shoulderBtn);
     this._setFirstPersonVisibility(false);

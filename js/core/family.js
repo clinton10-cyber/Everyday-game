@@ -16,7 +16,7 @@
    ════════════════════════════════════════════════════════════════ */
 import * as THREE from "three";
 import { Lives } from "./npc-lives.js";
-import { buildCharacter, liveApplyConfig } from "../characters/lowpoly.js";
+import { buildCharacter, liveApplyConfig, HIP_HEIGHT } from "../characters/lowpoly.js";
 import * as Animator from "../characters/animator.js";
 import { Belly } from "./body-attach.js";
 import {
@@ -330,8 +330,19 @@ function seatStep(a, dt, free) {
     }
   } else { ctl.pos.x = s.x; ctl.pos.z = s.z; ctl.yaw = s.yaw || 0; }
   ctl._intentSpeed = sp;
-  ctl.pos.y = s.type === "lie" && a.seated ? (s.h || 0) - 0.022 : (ctl.pos.y || 0);
+  /* Lower the body onto the seat exactly like the player's own controller does
+     (floor = seat height − hip height + 0.10) — otherwise a seated spouse hovers in the air. */
+  if (a.seated && s.h !== undefined) {
+    const want = s.type === "lie" ? (s.h || 0) - 0.022 : s.h - HIP_HEIGHT + 0.10;
+    ctl.pos.y = (ctl.pos.y || 0) + (want - (ctl.pos.y || 0)) * Math.min(1, dt * 9);
+  } else ctl.pos.y = ctl.pos.y || 0;
   g.position.set(ctl.pos.x, ctl.pos.y, ctl.pos.z); g.rotation.y = ctl.yaw;
+}
+
+function inCar() {
+  try { const d = window.__ph3d_drive; if (d && d.getMode && d.getMode() === "drive") return true; } catch (e) {}
+  try { const r = window.__ph3d_router; if (r && r.current && r.current._routeName === "zonedrive") return true; } catch (e) {}
+  return false;
 }
 
 /* ═══ main loop (independent of any scene) ══════════════════════ */
@@ -378,6 +389,9 @@ function loop(now) {
     if (tp && live) applyHold(tp, list, plan);
     return;
   }
+
+  /* in a vehicle: your family is in the car with you, not standing in the road */
+  if (inCar()) { for (const a of _live.values()) a.group.visible = false; return; }
 
   /* everywhere else: our own avatars */
   if (!live) { for (const a of _live.values()) a.group.visible = false; return; }

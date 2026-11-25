@@ -54,16 +54,18 @@ function keyboardPane() {
   ${row(k("Mouse", 1), "Look around", "Move the mouse to turn the camera")}
   ${row(k("V") + k("B"), "Camera view", "V: first / third person · B: swap shoulder")}
   <div class="htp-h">Do things</div>
-  ${row(k("E"), "Interact · talk · pick up · use", "Doors, people, items, vehicles")}
-  ${row(k("Q"), "Drop / throw", "Whatever you are holding")}
-  ${row(k("F"), "Fight · attack", "Fire or stab when armed, wrestle when not")}
+  ${row(k("E"), "Use · interact · pick up · sit", "Runs the highlighted action. Doors, people, items, seats, vehicles")}
+  ${row(k("Tab"), "Choose an action", "When more than one is possible they all show as buttons — Tab moves the highlight, E runs it", )}
+  ${row(k("Q"), "Actions menu", "Weapons, emotes, dances, fight moves")}
+  ${row(k("F"), "Fight · fire", "Punch / wrestle when unarmed, fire or stab when armed")}
+  ${row(k("T") + k("X"), "Throw · drop", "T throws what you hold · X drops it")}
   ${row(k("G"), "Lie down")}
   ${row(k("C"), "Crouch")}
-  ${row(k("J"), "Jetpack", "If you have unlocked it")}
+  ${row(k("J"), "Jetpack", "Space to rise · only this key toggles it")}
   <div class="htp-h">Weapons</div>
   ${row(k("1") + k("2") + k("3") + k("4") + k("5"), "Fists · knife · pistol · sniper · bazooka")}
   ${row(k("6") + k("7") + k("8") + k("9"), "Rifle · SMG · shotgun · LMG")}
-  ${row(k("R"), "Put weapons away")}
+  ${row(k("R"), "Gun ⇄ fists", "Put the weapon away, press again to draw it back")}
   ${row(k("Right-click", 1), "Aim", "Hold with a gun out")}
   <div class="htp-h">Driving</div>
   ${row(k("W") + k("S"), "Gas / brake")}
@@ -86,7 +88,9 @@ function phonePane() {
   ${row(`<span class="htp-btn">JUMP</span>`, "Jump")}
   ${row(`<span class="htp-btn">RUN</span>`, "Run", "Tap to turn running on or off")}
   ${row(`<span class="htp-btn">FIGHT</span>`, "Fight", "Becomes FIRE or STAB when you have a weapon out")}
+  ${row(`<span class="htp-btn">WEAPON</span><span class="htp-btn">FISTS</span>`, "Gun ⇄ fists", "One tap puts the gun away (FISTS) or draws it again (WEAPON)")}
   ${row(`<span class="htp-btn">✋ ACT</span>`, "Interact · talk · enter · use", "Appears when something is close enough")}
+  ${row(`<span class="htp-btn">SIT</span><span class="htp-btn">USE</span><span class="htp-btn">TAKE</span>`, "Every action nearby", "When you can do several things, each one gets its own button — tap the one you want")}
   ${row(`<span class="htp-btn">USE</span><span class="htp-btn">DROP</span><span class="htp-btn">THROW</span>`, "Item buttons", "Show up while you are holding something")}
   ${row(`<span class="htp-btn round">⋯</span>`, "Menu", "Sit, wardrobe, emotes, weapons, crouch, camera")}
   <div class="htp-h">Chat &amp; phone</div>

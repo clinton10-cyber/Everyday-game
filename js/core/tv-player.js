@@ -84,7 +84,13 @@ function tune(i) {
   root.querySelectorAll(".tv-list button").forEach((b, n) => b.classList.toggle("on", n === idx));
   const st = root.querySelector(".tv-static"); st.classList.remove("off");
   st.firstChild.textContent = "TUNING · CH " + c.ch;
-  frame.onload = () => { clearTimeout(loadTimer); st.classList.add("off"); tidyFrame(); };
+  /* The about:blank reset below fires its own load event. It must NOT cancel the pending channel
+     load (that was the "TV never plays" bug), so only react once the real story page has loaded. */
+  frame.onload = () => {
+    let href = ""; try { href = frame.contentWindow.location.href; } catch (_) {}
+    if (!href || href === "about:blank") return;
+    st.classList.add("off"); tidyFrame();
+  };
   frame.src = "about:blank";
   clearTimeout(loadTimer);
   loadTimer = setTimeout(() => { frame.src = url(c.file); }, 260);   /* a short "static" before the picture */

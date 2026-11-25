@@ -1032,7 +1032,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     try { window.__ph3d_phone && window.__ph3d_phone._toast(jet.on ? "Jetpack on. Hold JUMP to fly" : "Jetpack off"); } catch (e) {}
   };
   walkFlyBtn.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); toggleJet(); }, { passive: false });
-  const _onKeyFly = e => { if (e.code === "KeyF" && !e.repeat && mode === "walk") toggleJet(); };
+  const _onKeyFly = e => { if (e.code === "KeyJ" && !e.repeat && mode === "walk") toggleJet();   /* J = jetpack (F is Fight/Fire only) */ };
   window.addEventListener("keydown", _onKeyFly);
 
   const walkEnterBtn = document.createElement("button");

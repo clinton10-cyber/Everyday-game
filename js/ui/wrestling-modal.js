@@ -110,7 +110,8 @@ function showCombo(name, n, mul) {
 function onKey(e) {
   if (!_open || e.repeat) return;
   const t = e.target; if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-  for (const L of SKILL_ORDER) if (SKILLS[L].key === e.code) { e.preventDefault(); FightSkills.press(L); refresh(); return; }
+  /* The fight overlay owns its keys while open: capture phase + stop, so E/T/G/S… never ALSO act in the game */
+  for (const L of SKILL_ORDER) if (SKILLS[L].key === e.code) { e.preventDefault(); e.stopImmediatePropagation(); FightSkills.press(L); refresh(); return; }
 }
 
 export const WrestlingModal = {
@@ -129,7 +130,7 @@ export const WrestlingModal = {
       }),
       FightSkills.on((ev) => { if (ev.type === "combo") showCombo(ev.name, WrestlingCombat.comboCount(), WrestlingCombat.comboMul()); refresh(); }),
     ];
-    _keyH = onKey; window.addEventListener("keydown", _keyH);
+    _keyH = onKey; window.addEventListener("keydown", _keyH, true);
     refresh();
     const fight = document.getElementById("ph3d-walk-attack");
     if (fight) {
@@ -150,7 +151,7 @@ export const WrestlingModal = {
     if (_walker) _walker._guard = false;
     FightSkills.unmount();
     _off.forEach((f) => f()); _off = [];
-    if (_keyH) window.removeEventListener("keydown", _keyH); _keyH = null;
+    if (_keyH) window.removeEventListener("keydown", _keyH, true); _keyH = null;
     place();
     const fight = document.getElementById("ph3d-walk-attack");
     if (fight) {

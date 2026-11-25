@@ -142,7 +142,7 @@ export const ZoneDrive = {
     S._kd = (e) => {
       if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
       S.keys[e.code] = true;
-      if (S.mode === "drive" && (e.code === "KeyE" || e.code === "KeyF")) { e.preventDefault(); this._exit(); }
+      if (S.mode === "drive" && (e.code === "KeyE")) { e.preventDefault(); this._exit(); }
     };
     S._ku = (e) => { S.keys[e.code] = false; };
     window.addEventListener("keydown", S._kd);

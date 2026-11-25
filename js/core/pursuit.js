@@ -480,3 +480,6 @@ export const Pursuit = {
 };
 
 window.addEventListener("ph3d:player-dead", () => Pursuit.endAll());
+
+/* lets scenes that cannot import this module (circular deps) include pursuers as gun targets */
+try { window.__ph3d_pursuit = Pursuit; } catch (e) {}
