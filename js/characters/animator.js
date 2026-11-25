@@ -460,6 +460,7 @@ function seatedPose(a, ctl, P) {
     P.aL.sh[2] = -0.10; P.aR.sh[2] = 0.10;
     set3(P.aL.el, -1.45, 0, 0); set3(P.aR.el, -1.45, 0, 0);
     P.spine[0] = 0.06;
+    if (ctl.driving) { set3(P.aL.sh, -0.95, 0, 0.14); set3(P.aR.sh, -0.95, 0, -0.14); set3(P.aL.el, -0.65, 0, 0); set3(P.aR.el, -0.65, 0, 0); }
     P.hL = HAND.relaxed; P.hR = HAND.relaxed;
     idleLayer(a, P, 0.7);
   } else if (st === "kneel") {

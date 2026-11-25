@@ -1009,7 +1009,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     walker.y = seatW.y - HIP_HEIGHT + 0.10;
     walker.yaw = yawOverride !== undefined ? yawOverride : heading;
     walker.vy = 0; walker.onGround = true;
-    walker.state = "sitting";
+    walker.state = "sitting"; walker.driving = true;
     walker.sitTarget = { x: seatW.x, z: seatW.z, h: seatW.y, yaw: walker.yaw };
     walker.level = 0;
     const floorY = seatW.y - SEAT_DROP;
@@ -1021,6 +1021,19 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     character.position.set(walker.x, walker.y, walker.z);
     character.rotation.y = walker.yaw;
     try { Animator.animate(walker, dt); } catch (err) { console.error("[car sit]", err); }
+  }
+  /* drive the avatar with the REAL animator: legs walk because the measured ground speed is real */
+  function stepAnim(tr, dt, state) {
+    const d = Math.hypot(walker.x - (tr.lx === undefined ? walker.x : tr.lx), walker.z - (tr.lz === undefined ? walker.z : tr.lz));
+    tr.lx = walker.x; tr.lz = walker.z;
+    walker.state = state || "standing"; walker.sitTarget = null; walker.driving = false;
+    walker.pos = walker; walker.rig = charRig; walker.onGround = true; walker.vy = 0;
+    walker._groundInfo = () => ({ y: walker.y }); walker._ul = () => {};
+    walker._intentSpeed = dt > 0 ? Math.min(2.2, d / dt) : 0;
+    character.visible = true;
+    character.position.set(walker.x, walker.y, walker.z);
+    character.rotation.y = walker.yaw;
+    try { Animator.animate(walker, dt); } catch (err) { console.error("[car walk]", err); }
   }
   function clearSeated() {
     walker.sitTarget = null; walker.state = "idle";
@@ -1057,6 +1070,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     carTransit = {
       kind: "enter", t: 0, phase: 0, side,
       from: { x: walker.x, z: walker.z }, stand, door,
+      d0: Math.max(0.7, Math.hypot(stand.x - walker.x, stand.z - walker.z) / 1.7),
       seat: dPts.seat,                            /* car-frame seat (follows the car) */
     };
     try { setDoorTarget(carMesh, side, 1); } catch (e) {}
@@ -1109,21 +1123,21 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     if (tr.kind === "enter") {
       /* phase 0: walk up to the door while it swings open */
       if (tr.phase === 0) {
-        const u = Math.min(1, tr.t / 0.8), e = easeIO(u);
-        const p = lerpPt(tr.from, tr.stand, e);
+        const u = Math.min(1, tr.t / tr.d0);
+        const p = lerpPt(tr.from, tr.stand, u);          /* constant speed = a real walking gait */
         walker.x = p.x; walker.z = p.z;
         walker.y = sampleTerrainMeshHeight(walker.x, walker.z);
-        walker.yaw = yawToward(walker.x, walker.z, tr.door.x, tr.door.z);
-        character.visible = true; clearSeated();
-        character.position.set(walker.x, walker.y, walker.z);
-        character.rotation.y = walker.yaw;
-        try { Animator.update(charRig, { move: u < 1 ? 0.55 : 0, dt }); } catch (_) {}
-        if (u >= 1 && tr.t > 0.8) { tr.phase = 1; tr.t = 0; tr.from = { x: walker.x, z: walker.z }; }
+        const faceDoor = yawToward(walker.x, walker.z, tr.door.x, tr.door.z);
+        let dy0 = faceDoor - walker.yaw; while (dy0 > Math.PI) dy0 -= 2 * Math.PI; while (dy0 < -Math.PI) dy0 += 2 * Math.PI;
+        walker.yaw += dy0 * Math.min(1, dt * 9);
+        stepAnim(tr, dt, "standing");
+        if (u >= 1) { tr.hold = (tr.hold || 0) + dt; }  /* beat at the door: reach for the handle */
+        if (u >= 1 && tr.hold > 0.3) { tr.phase = 1; tr.t = 0; tr.from = { x: walker.x, z: walker.z }; }
         return true;
       }
       /* phase 1: step into the doorway, turning to face forward */
       if (tr.phase === 1) {
-        const u = Math.min(1, tr.t / 0.4), e = easeIO(u);
+        const u = Math.min(1, tr.t / 0.55), e = easeIO(u);
         const doorNow = carFrameToWorld({ x: doorPoints(carMesh, tr.side).door.x, z: doorPoints(carMesh, tr.side).door.z });
         const p = lerpPt(tr.from, doorNow, e);
         walker.x = p.x; walker.z = p.z;
@@ -1131,15 +1145,13 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
         const yaw0 = yawToward(tr.from.x, tr.from.z, doorNow.x, doorNow.z);
         let dy = heading - yaw0; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
         walker.yaw = yaw0 + dy * e;
-        character.position.set(walker.x, walker.y, walker.z);
-        character.rotation.y = walker.yaw;
-        try { Animator.update(charRig, { move: 0.4, dt }); } catch (_) {}
+        stepAnim(tr, dt, "crouching");                    /* duck the head under the door frame */
         if (u >= 1) { tr.phase = 2; tr.t = 0; tr.from = { x: walker.x, z: walker.z }; }
         return true;
       }
       /* phase 2: lower into the seat (sit pose), sliding across to the driver seat if needed */
       if (tr.phase === 2) {
-        const u = Math.min(1, tr.t / 0.7), e = easeIO(u);
+        const u = Math.min(1, tr.t / 0.95), e = easeIO(u);
         const seatW = seatWorld(tr.seat);
         const doorY = sampleTerrainMeshHeight(tr.from.x, tr.from.z);
         const p = lerpPt(tr.from, seatW, e);
@@ -1178,7 +1190,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       }
       /* phase 1: swing out of the seat to the doorway */
       if (tr.phase === 1) {
-        const u = Math.min(1, tr.t / 0.6), e = easeIO(u);
+        const u = Math.min(1, tr.t / 0.85), e = easeIO(u);
         const seatW = seatWorld(tr.seat);
         const doorNow = carFrameToWorld({ x: tr.ptsCar.door.x, z: tr.ptsCar.door.z });
         const p = lerpPt(seatW, doorNow, e);
@@ -1186,27 +1198,31 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
         const yTop = gy + HIP_HEIGHT - 0.10;
         const yNow = seatW.y + (yTop - seatW.y) * e;
         const outYaw = heading + Math.PI / 2;      /* turn toward the open door (left of the car) */
-        poseSeated(dt, { x: p.x, z: p.z, y: yNow }, heading + (outYaw - heading) * e);
-        if (u >= 1) { tr.phase = 2; tr.t = 0; clearSeated(); tr.from = { x: p.x, z: p.z }; }
+        if (u < 0.45) poseSeated(dt, { x: p.x, z: p.z, y: yNow }, heading + (outYaw - heading) * e);
+        else {
+          walker.x = p.x; walker.z = p.z; walker.y = gy; walker.yaw = heading + (outYaw - heading) * e;
+          stepAnim(tr, dt, "crouching");               /* lean out under the door frame */
+        }
+        if (u >= 1) { tr.phase = 2; tr.t = 0; tr.from = { x: p.x, z: p.z }; tr.lx = p.x; tr.lz = p.z; }
         return true;
       }
       /* phase 2: step away from the car */
       if (tr.phase === 2) {
-        const u = Math.min(1, tr.t / 0.5), e = easeIO(u);
-        const p = lerpPt(tr.from, tr.stand, e);
+        const away = carFrameToWorld({ x: tr.ptsCar.stand.x + 0.7, z: tr.ptsCar.stand.z - 0.15 });
+        const u = Math.min(1, tr.t / 1.0);
+        const p = lerpPt(tr.from, away, u);
         walker.x = p.x; walker.z = p.z;
         walker.y = sampleTerrainMeshHeight(walker.x, walker.z);
         walker.yaw = heading + Math.PI / 2;
-        character.position.set(walker.x, walker.y, walker.z);
-        character.rotation.y = walker.yaw;
-        try { Animator.update(charRig, { move: 0.5, dt }); } catch (_) {}
+        stepAnim(tr, dt, "standing");
+        if (u >= 0.55 && !tr.shut) { tr.shut = true; try { setDoorTarget(carMesh, "left", 0); } catch (e2) {} }
         if (u >= 1) { tr.phase = 3; tr.t = 0; try { setDoorTarget(carMesh, "left", 0); } catch (e2) {} }
         return true;
       }
       /* phase 3: turn, door closes behind you */
       if (tr.phase === 3) {
-        try { Animator.update(charRig, { move: 0, dt }); } catch (_) {}
-        if (tr.t >= 0.6 && !isDoorOpen(carMesh, "left")) {
+        stepAnim(tr, dt, "standing");
+        if (tr.t >= 0.4 && !isDoorOpen(carMesh, "left")) {
           mode = "walk";
           try { Sfx.play("car_engine_stop"); } catch (_) {}
           walker.yaw = heading + Math.PI / 2; walker.pitch = 0; walker.vy = 0; walker.onGround = true;

@@ -36,6 +36,32 @@ if(q.get("seated")){try{
   w.pos=w;ch.position.set(w.x,w.y,w.z);ch.rotation.y=0;
   for(let i=0;i<30;i++)An.animate(w,0.03);
 }catch(e){console.error("seat:",e.stack)}}
+
+if(q.get("seq")){try{
+  const {buildCharacter,HIP_HEIGHT}=await import("../js/characters/lowpoly.js");
+  const An=await import("../js/characters/animator.js");
+  const cb=buildCharacter(null);const ch=cb.root;sc.add(ch);
+  const T=+q.get("seq"); const P=mod.doorPoints(car,"left"); const dr=car.userData.carDoors;
+  mod.setDoorTarget(car,"left",1);
+  const w={pos:null,x:0,z:0,y:0,yaw:0,state:"standing",level:0,rig:cb.rig,onGround:true,_ul(){},_groundInfo:()=>({y:0})};w.pos=w;
+  const start={x:P.stand.x+2.2,z:P.stand.z}, d0=Math.hypot(2.2,0)/1.7;
+  const ease=u=>u*u*(3-2*u);
+  let last={x:start.x,z:start.z}; w.x=start.x;w.z=start.z;w.yaw=-Math.PI/2;
+  const dt=1/30;
+  for(let t=0;t<=T;t+=dt){
+    mod.updateDoors(car,dt);
+    let st="standing";
+    if(t<d0){const u=t/d0;w.x=start.x+(P.stand.x-start.x)*u;w.z=start.z;w.yaw=-Math.PI/2;}
+    else if(t<d0+0.3){w.x=P.stand.x;w.z=P.stand.z;}
+    else if(t<d0+0.85){const u=ease((t-d0-0.3)/0.55);w.x=P.stand.x+(P.door.x-P.stand.x)*u;w.z=P.stand.z+(P.door.z-P.stand.z)*u;st="crouching";
+      const yy=-Math.PI/2+(0-(-Math.PI/2))*u;w.yaw=yy;}
+    else {const u=Math.min(1,(t-d0-0.85)/0.95),e=ease(u);w.x=P.door.x+(P.seat.x-P.door.x)*e;w.z=P.door.z+(P.seat.z-P.door.z)*e;w.yaw=0;
+      st="sitting";const yTop=HIP_HEIGHT-0.10;w.y=(yTop+(P.seat.y-yTop)*e)-HIP_HEIGHT+0.10;w.sitTarget={x:w.x,z:w.z,h:P.seat.y,yaw:0};w._groundInfo=()=>({y:P.seat.y-0.46});w.driving=u>=1;}
+    if(st!=="sitting"){w.y=0;w.sitTarget=null;}
+    w.state=st;w._intentSpeed=Math.min(2.2,Math.hypot(w.x-last.x,w.z-last.z)/dt);last={x:w.x,z:w.z};
+    ch.position.set(w.x,w.y,w.z);ch.rotation.y=w.yaw;An.animate(w,dt);
+  }
+}catch(e){console.error("seq:",e.stack)}}
 let cam=new THREE.PerspectiveCamera(35,900/560,.1,100);
 const ov=document.createElement("canvas");ov.width=900;ov.height=560;ov.style.cssText="position:absolute;left:0;top:0;pointer-events:none";document.body.appendChild(ov);
 const D=6.2;
