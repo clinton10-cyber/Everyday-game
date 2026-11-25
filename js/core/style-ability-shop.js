@@ -20,12 +20,79 @@ export const BODY_STYLES = [
   {id:"angular",name:"Angular",price:8500,look:"faceted",desc:"Shoulder spikes, chest ridge, forearm fins and knee wedges."},
   {id:"refined",name:"Refined",price:11000,look:"classic",desc:"Elegant frame with a gold collar, belt, cuffs, ankle rings and brooch."}
 ];
-export function getBodyOwnership(){try{return JSON.parse(localStorage.getItem(BODY_KEY)||'{"types":[],"styles":[]}')}catch{return {types:[],styles:[]};}}
-export function ownsBodyItem(kind,id){const s=getBodyOwnership();return (s[kind]||[]).includes(id);}
-export function purchaseBodyItem(kind,id){const list=kind==="types"?BODY_TYPES:BODY_STYLES,item=list.find(x=>x.id===id);if(!item)return {ok:false,reason:"unknown"};if(ownsBodyItem(kind,id))return {ok:false,reason:"owned"};if(!Economy.withdraw(item.price))return {ok:false,reason:"funds"};const s=getBodyOwnership();s[kind]=[...(s[kind]||[]),id];try{localStorage.setItem(BODY_KEY,JSON.stringify(s));}catch{}return {ok:true,item};}
-export function getBodySelection(){try{return JSON.parse(localStorage.getItem(BODY_KEY+".selected")||'{"type":"faceted","style":"faceted"}')}catch{return {type:"faceted",style:"faceted"};}}
-export function setBodySelection(kind,id){const s=getBodySelection();s[kind]=id;try{localStorage.setItem(BODY_KEY+".selected",JSON.stringify(s));return true;}catch{return false;}}
-export function applyBodySelection(config){const s=getBodySelection();const t=BODY_TYPES.find(x=>x.id===s.type);const st=BODY_STYLES.find(x=>x.id===s.style);config=config||{};config.build=t?t.build:0;config.bodyHeight=t?t.height:1;config.bodyStyle=s.style||"faceted";config.bodyType=t?t.id:"faceted";config.look=s.style==="faceted"?"faceted":(st?.look||"faceted");return config;}
+/* Purchasable body tattoos — each design can be owned and equipped independently */
+export const TATTOOS = [
+  { id:"tribal_arm",   name:"Tribal Armband",     price:3500,  slot:"armL",  color:"#1a1a1a", desc:"Bold black tribal band around the upper left arm." },
+  { id:"rose_chest",   name:"Rose Chest",         price:5500,  slot:"chest", color:"#8b1e3f", desc:"A classic red rose with stem across the upper chest." },
+  { id:"dragon_back",  name:"Dragon Spine",       price:9000,  slot:"back",  color:"#2d4a3e", desc:"Coiled dragon motif running down the upper back." },
+  { id:"geo_sleeve",   name:"Geo Sleeve",         price:7000,  slot:"armR",  color:"#111827", desc:"Sharp geometric lines wrapping the right upper arm." },
+  { id:"flame_fore",   name:"Flame Forearm",      price:4500,  slot:"armR",  color:"#c2410c", desc:"Rising flame shapes along the right forearm." },
+  { id:"star_map",     name:"Star Map",           price:4000,  slot:"chest", color:"#1e3a5f", desc:"Constellation dots and lines across the collarbone." },
+  { id:"ankara_band",  name:"Ankara Band",        price:6000,  slot:"armL",  color:"#b45309", desc:"Warm ankara-inspired pattern band on the left arm." },
+  { id:"infinity",     name:"Infinity Heart",     price:3000,  slot:"chest", color:"#9f1239", desc:"Infinity symbol with a small heart at the centre of the chest." },
+  { id:"cross_faith",  name:"Faith Cross",        price:3200,  slot:"chest", color:"#1f2937", desc:"Simple cross tattoo on the upper chest." },
+  { id:"wave_hip",     name:"Ocean Wave",         price:3800,  slot:"hip",   color:"#0e7490", desc:"Stylised wave curling over the left hip." },
+];
+export function getBodyOwnership(){
+  try {
+    const s = JSON.parse(localStorage.getItem(BODY_KEY) || '{"types":[],"styles":[],"tattoos":[]}');
+    if (!s.tattoos) s.tattoos = [];
+    return s;
+  } catch { return { types: [], styles: [], tattoos: [] }; }
+}
+export function ownsBodyItem(kind, id) {
+  const s = getBodyOwnership();
+  return (s[kind] || []).includes(id);
+}
+export function purchaseBodyItem(kind, id) {
+  const list = kind === "types" ? BODY_TYPES : kind === "styles" ? BODY_STYLES : kind === "tattoos" ? TATTOOS : null;
+  const item = list && list.find(x => x.id === id);
+  if (!item) return { ok: false, reason: "unknown" };
+  if (ownsBodyItem(kind, id)) return { ok: false, reason: "owned" };
+  if (!Economy.withdraw(item.price)) return { ok: false, reason: "funds" };
+  const s = getBodyOwnership();
+  s[kind] = [...(s[kind] || []), id];
+  try { localStorage.setItem(BODY_KEY, JSON.stringify(s)); } catch {}
+  return { ok: true, item };
+}
+export function getBodySelection() {
+  try {
+    return JSON.parse(localStorage.getItem(BODY_KEY + ".selected") || '{"type":"faceted","style":"faceted","tattoos":[]}');
+  } catch { return { type: "faceted", style: "faceted", tattoos: [] }; }
+}
+export function setBodySelection(kind, id) {
+  const s = getBodySelection();
+  s[kind] = id;
+  try { localStorage.setItem(BODY_KEY + ".selected", JSON.stringify(s)); return true; } catch { return false; }
+}
+/** Toggle a tattoo in the equipped list (multi-select). Returns the new equipped array. */
+export function toggleEquippedTattoo(id) {
+  const s = getBodySelection();
+  const list = Array.isArray(s.tattoos) ? s.tattoos.slice() : [];
+  const i = list.indexOf(id);
+  if (i >= 0) list.splice(i, 1);
+  else list.push(id);
+  s.tattoos = list;
+  try { localStorage.setItem(BODY_KEY + ".selected", JSON.stringify(s)); } catch {}
+  return list;
+}
+export function getEquippedTattoos() {
+  const s = getBodySelection();
+  return Array.isArray(s.tattoos) ? s.tattoos : [];
+}
+export function applyBodySelection(config) {
+  const s = getBodySelection();
+  const t = BODY_TYPES.find(x => x.id === s.type);
+  const st = BODY_STYLES.find(x => x.id === s.style);
+  config = config || {};
+  config.build = t ? t.build : 0;
+  config.bodyHeight = t ? t.height : 1;
+  config.bodyStyle = s.style || "faceted";
+  config.bodyType = t ? t.id : "faceted";
+  config.look = s.style === "faceted" ? "faceted" : (st?.look || "faceted");
+  config.tattoos = Array.isArray(s.tattoos) ? s.tattoos.slice() : [];
+  return config;
+}
 const ITEMS = [
   { id:"jetpack", name:"Jetpack Access", category:"Mobility", price:25000, desc:"Unlock the existing jetpack flight controls and back-mounted rocket pack." },
   { id:"flip_pack", name:"Acrobat Flip Pack", category:"Emotes", price:12000, desc:"Unlock backflip, double flip, layout, pike, gainer and twist moves." },
