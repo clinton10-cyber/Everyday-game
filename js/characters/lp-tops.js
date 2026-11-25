@@ -80,24 +80,25 @@ export function buildTop(ctx) {
   /* ── Bra (consent-only): cups + band + straps ── */
   if (S.bra) {
     const bust = (B.breastK || 1.0);
-    const cupR = 0.072 * Math.max(0.85, Math.min(1.35, bust));
+    const cupR = 0.068 * Math.max(0.85, Math.min(1.35, bust));
     const bandY = 0.22;
-    const cupY = 0.285;
-    const cupZ = 0.095 * sz;
-    const cupX = 0.070 * sx;
+    const cupY = 0.278;
+    const cupZ = 0.112 * sz;
+    const cupX = 0.095 * Math.max(sx, 0.95);   /* match separated breast blobs */
     /* underband */
     ring(spine, M.top, 0.155 + e, 0.012, bandY, sx * 1.05, sz * 0.95, 20);
-    /* cups (sit over breast blobs) */
+    /* cups (sit over each breast — clear gap in the middle) */
     for (const s of [-1, 1]) {
       const cup = mk(sphere(cupR, 12, 10), M.top, spine, cupX * s, cupY, cupZ);
-      cup.scale.set(1.05, 0.88, 0.78);
+      cup.scale.set(1.12, 0.92, 0.82);
+      cup.rotation.set(0.12, s * 0.18, s * 0.06);
       cup.castShadow = true;
-      /* small centre gore */
-      mk(box(0.012, 0.045, 0.010), M.top, spine, 0, cupY - 0.02, cupZ * 0.85).castShadow = false;
     }
+    /* centre gore / bridge between cups */
+    mk(box(0.028, 0.040, 0.010), M.top, spine, 0, cupY - 0.015, cupZ * 0.72).castShadow = false;
     /* shoulder straps */
     for (const s of [-1, 1]) {
-      const strap = mk(box(0.018, 0.16, 0.012), M.top, spine, s * 0.095 * sx, 0.36, -0.01, 0, 0, s * -0.15);
+      const strap = mk(box(0.018, 0.16, 0.012), M.top, spine, s * 0.105 * sx, 0.36, -0.01, 0, 0, s * -0.15);
       strap.castShadow = false;
     }
     /* thin back band */
