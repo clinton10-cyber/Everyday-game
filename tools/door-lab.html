@@ -1,0 +1,64 @@
+<!doctype html><meta charset="utf-8"><title>door lab</title>
+<style>html,body{margin:0;background:#8aa}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.min.js","three/addons/":"../vendor/three/addons/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { buildScrappy3D } from "../js/vehicles/scrappy3d.js";
+import { buildTaxi, buildHilux } from "../js/vehicles/models.js";
+import { buildCybertruck3D } from "../js/vehicles/cybertruck3d.js";
+import { buildRangeRover3D } from "../js/vehicles/rangerover_compound.js";
+import { buildGWagon3D } from "../js/vehicles/gwagon3d.js";
+import { buildMercedes3D } from "../js/vehicles/mercedes3d.js";
+import { buildBMW3D } from "../js/vehicles/bmw3d.js";
+import { buildChiron3D } from "../js/vehicles/chiron3d.js";
+const M=-Math.PI/2;
+const CARS={scrappy:[()=>buildScrappy3D("#b33","#999"),0],taxi:[()=>buildTaxi(),M],hilux:[()=>buildHilux(),M],cybertruck:[()=>buildCybertruck3D("#b8bcc2","#333"),0],rangerover:[()=>buildRangeRover3D("#f2f4f7","#111"),0],gwagon:[()=>buildGWagon3D("#24282e","#9aa3ad"),Math.PI],mercedes:[()=>buildMercedes3D("#b9c3cd","#c9ced6"),M],bmw:[()=>buildBMW3D("#1f3a93","#2b2b2b"),M],chiron:[()=>buildChiron3D("#0e2138","#c9ced6"),M]};
+const q=new URLSearchParams(location.search);
+const id=q.get("car")||"bmw", view=q.get("view")||"side", open=+(q.get("open")||0);
+const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setSize(900,560);document.body.appendChild(r.domElement);
+const sc=new THREE.Scene();sc.background=new THREE.Color(0x9fb4c4);
+sc.add(new THREE.HemisphereLight(0xffffff,0x556070,1.3));const dl=new THREE.DirectionalLight(0xffffff,2);dl.position.set(5,9,6);sc.add(dl);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshStandardMaterial({color:0x667}));floor.rotation.x=-Math.PI/2;sc.add(floor);
+const root=new THREE.Group(),car=CARS[id][0]();car.rotation.y=CARS[id][1];root.add(car);sc.add(root);
+window.__car=car;window.__THREE=THREE;window.__root=root;
+let mod=null;try{mod=await import("../js/vehicles/car-doors.js");}catch(e){console.warn(e)}
+car.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(car),size=new THREE.Vector3();box.getSize(size);
+window.__size=size;
+if(mod&&mod.addCarDoors){try{mod.addCarDoors(car,{size,model:id});}catch(e){console.warn("doors",e)}
+ if(mod.setDoorTarget&&open){mod.setDoorTarget(car,q.get("side")||"both",open);for(let i=0;i<200;i++)mod.updateDoors(car,0.02);}}
+if(q.get("seated")){try{
+  const {buildCharacter,HIP_HEIGHT}=await import("../js/characters/lowpoly.js");
+  const An=await import("../js/characters/animator.js");
+  const cb=buildCharacter(null);const ch=cb.root;sc.add(ch);
+  const sp=mod.doorPoints(car,"left").seat;
+  const w={pos:null,x:sp.x,z:sp.z,y:sp.y-HIP_HEIGHT+0.10,yaw:0,state:"sitting",level:0,rig:cb.rig,_intentSpeed:0,_ul(){}};
+  w.sitTarget={x:sp.x,z:sp.z,h:sp.y,yaw:0};w._groundInfo=()=>({y:sp.y-0.46});
+  w.pos=w;ch.position.set(w.x,w.y,w.z);ch.rotation.y=0;
+  for(let i=0;i<30;i++)An.animate(w,0.03);
+}catch(e){console.error("seat:",e.stack)}}
+let cam=new THREE.PerspectiveCamera(35,900/560,.1,100);
+const ov=document.createElement("canvas");ov.width=900;ov.height=560;ov.style.cssText="position:absolute;left:0;top:0;pointer-events:none";document.body.appendChild(ov);
+const D=6.2;
+if(view==="side"){cam.position.set(D,1.2,0);}   // car's left side (-x)
+else if(view==="top"){cam.position.set(-size.x*0.9,D*0.9,size.z*0.05);}
+else if(view==="front34"){cam.position.set(D*.75,1.6,D*.55);}
+else {cam.position.set(D*.75,1.6,-D*.55);}
+if(view==="oside"||view==="otop"){
+  const h=2.0, asp=900/560;
+  cam=new THREE.OrthographicCamera(-h*asp,h*asp,h,-h,.1,100);
+  if(view==="oside"){cam.position.set(30,1.0,0);cam.up.set(0,1,0);cam.lookAt(0,1.0,0);}
+  else{cam.position.set(0,30,0);cam.up.set(1,0,0);cam.lookAt(0,0,0);}
+  cam.updateProjectionMatrix();cam.updateMatrixWorld(true);
+  r.render(sc,cam);
+  const c2=ov.getContext("2d");c2.font="12px monospace";c2.strokeStyle="rgba(255,255,0,.55)";c2.fillStyle="#ff0";
+  const P=(x,y,z)=>{const v=new THREE.Vector3(x,y,z).project(cam);return [(v.x+1)*450,(1-v.y)*280];};
+  for(let z=-4;z<=4;z+=0.5){ // lines along length axis z
+    if(view==="oside"){const a=P(0,0,z),b=P(0,3,z);c2.beginPath();c2.moveTo(a[0],a[1]);c2.lineTo(b[0],b[1]);c2.stroke();c2.fillText(z.toFixed(1),a[0]-10,a[1]+14);}
+    else{const a=P(-2,0,z),b=P(2,0,z);c2.beginPath();c2.moveTo(a[0],a[1]);c2.lineTo(b[0],b[1]);c2.stroke();c2.fillText(z.toFixed(1),a[0]-30,a[1]+4);}
+  }
+  if(view==="oside")for(let y=0;y<=2.5;y+=0.25){const a=P(0,y,-4),b=P(0,y,4);c2.beginPath();c2.moveTo(a[0],a[1]);c2.lineTo(b[0],b[1]);c2.stroke();c2.fillText(y.toFixed(2),b[0]-34,b[1]-2);}
+  else for(let x=-1.5;x<=1.5;x+=0.25){const a=P(x,0,-4),b=P(x,0,4);c2.beginPath();c2.moveTo(a[0],a[1]);c2.lineTo(b[0],b[1]);c2.stroke();c2.fillText(x.toFixed(2),a[0]-14,a[1]-4);}
+} else {cam.lookAt(0,0.7,0);r.render(sc,cam);}
+window.__done=1;
+document.title=id+" "+size.x.toFixed(2)+"x"+size.y.toFixed(2)+"x"+size.z.toFixed(2);
+</script>

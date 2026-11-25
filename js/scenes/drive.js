@@ -16,7 +16,7 @@ import { buildBMW3D } from "../vehicles/bmw3d.js";
 import { buildChiron3D } from "../vehicles/chiron3d.js";
 import { buildVehicle as buildVehicleSimple } from "../vehicles/models.js";
 import { buildScrappy3D } from "../vehicles/scrappy3d.js";
-import { addCarDoors, setDoorTarget, updateDoors, doorStandPoint } from "../vehicles/car-doors.js";
+import { addCarDoors, setDoorTarget, updateDoors, doorPoints, isDoorOpen } from "../vehicles/car-doors.js";
 import { buildCharacter, HIP_HEIGHT, attachPhone, liveApplyConfig } from "../characters/lowpoly.js";
 import { Wardrobe } from "../core/wardrobe.js";
 import { Combat } from "../core/combat.js";
@@ -570,7 +570,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   const IS_CAR = !["nk250", "hoverboard"].includes(model);
   if (IS_CAR) {
     try {
-      addCarDoors(carMesh, { size: carSize, bodyColor: State.vehicle && State.vehicle.body });
+      addCarDoors(carMesh, { size: carSize, model });
     } catch (e) { console.warn("[doors]", e); }
   }
 
@@ -988,8 +988,46 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     else router.go("interior", { id: "myhouse" });
   };
 
-  /* ── Enter / exit vehicle animation (doors + walk-in) ── */
-  let carTransit = null; /* { kind:"enter"|"exit", t, phase, from, to, doorSide } */
+  /* ── Enter / exit vehicle animation: real doors open, walk up, sit down, door closes ── */
+  let carTransit = null; /* { kind:"enter"|"exit", t, phase, side, stand, door, seat } */
+  const SEAT_DROP = 0.46; /* seat cushion height above the car floor (leg length for the sit pose) */
+
+  /* car-frame point (+X left, +Z fwd, y up) → world */
+  function carFrameToWorld(p) {
+    const cH = Math.cos(heading), sH = Math.sin(heading);
+    const gy = sampleTerrainMeshHeight(carPos.x, carPos.z);
+    return { x: carPos.x + p.x * cH + p.z * sH, z: carPos.z - p.x * sH + p.z * cH, y: gy + (p.y || 0) };
+  }
+  function easeIO(u) { return u * u * (3 - 2 * u); }
+  function lerpPt(a, b, e) { return { x: a.x + (b.x - a.x) * e, z: a.z + (b.z - a.z) * e }; }
+  /* yaw that makes the character face the world point (tx,tz) */
+  function yawToward(fx, fz, tx, tz) { return Math.atan2(tx - fx, tz - fz); }
+
+  /* put the avatar in the seat with the real seated pose */
+  function poseSeated(dt, seatW, yawOverride) {
+    walker.x = seatW.x; walker.z = seatW.z;
+    walker.y = seatW.y - HIP_HEIGHT + 0.10;
+    walker.yaw = yawOverride !== undefined ? yawOverride : heading;
+    walker.vy = 0; walker.onGround = true;
+    walker.state = "sitting";
+    walker.sitTarget = { x: seatW.x, z: seatW.z, h: seatW.y, yaw: walker.yaw };
+    walker.level = 0;
+    const floorY = seatW.y - SEAT_DROP;
+    walker._groundInfo = () => ({ y: floorY });
+    walker._ul = () => {};
+    walker.rig = charRig;
+    walker._intentSpeed = 0;
+    character.visible = true;
+    character.position.set(walker.x, walker.y, walker.z);
+    character.rotation.y = walker.yaw;
+    try { Animator.animate(walker, dt); } catch (err) { console.error("[car sit]", err); }
+  }
+  function clearSeated() {
+    walker.sitTarget = null; walker.state = "idle";
+    try { if (charRig.hips) { charRig.hips.rotation.set(0, 0, 0); charRig.hips.position.y = HIP_HEIGHT; } } catch (e) {}
+    try { if (charRig.spine) charRig.spine.rotation.set(0, 0, 0); } catch (e) {}
+  }
+  function seatWorld(seat) { const w = carFrameToWorld(seat); return w; }
 
   function beginEnterCar(force) {
     if (mode !== "walk" || carTransit) return;
@@ -1008,20 +1046,20 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
       return;
     }
-    const stand = doorStandPoint(carRoot, carMesh, heading, carPos, carSize, "left");
-    const seat = doorStandPoint(carRoot, carMesh, heading, carPos, carSize, "left");
-    /* seat is closer to center */
+    /* use whichever front door is on the player's side of the car */
     const cH = Math.cos(heading), sH = Math.sin(heading);
-    const seatLX = -carSize.x * 0.22, seatLZ = -carSize.z * 0.05;
-    seat.x = carPos.x + seatLX * cH + seatLZ * sH;
-    seat.z = carPos.z - seatLX * sH + seatLZ * cH;
+    const lx = dx * cH - dz * sH;                 /* player's lateral offset in the car frame (+ = left) */
+    const side = lx >= 0 ? "left" : "right";
+    const pts = doorPoints(carMesh, side);
+    const stand = carFrameToWorld({ x: pts.stand.x, z: pts.stand.z });
+    const door = carFrameToWorld({ x: pts.door.x, z: pts.door.z });
+    const dPts = doorPoints(carMesh, "left");     /* driver seat is always the left one */
     carTransit = {
-      kind: "enter", t: 0, phase: 0,
-      from: { x: walker.x, z: walker.z, y: walker.y },
-      stand, seat,
-      doorSide: "left",
+      kind: "enter", t: 0, phase: 0, side,
+      from: { x: walker.x, z: walker.z }, stand, door,
+      seat: dPts.seat,                            /* car-frame seat (follows the car) */
     };
-    try { setDoorTarget(carMesh, "left", 1); } catch (e) {}
+    try { setDoorTarget(carMesh, side, 1); } catch (e) {}
     getOutBtn.style.pointerEvents = "none";
     joyBaseEl.style.display = "none";
     input.joyX = 0; input.joyY = 0;
@@ -1046,26 +1084,10 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       joyBaseEl.style.display = "block";
       return;
     }
-    const stand = doorStandPoint(carRoot, carMesh, heading, carPos, carSize, "left");
-    const cH = Math.cos(heading), sH = Math.sin(heading);
-    const seatLX = -carSize.x * 0.22, seatLZ = -carSize.z * 0.05;
-    const seat = {
-      x: carPos.x + seatLX * cH + seatLZ * sH,
-      z: carPos.z - seatLX * sH + seatLZ * cH,
-      y: sampleTerrainMeshHeight(carPos.x, carPos.z),
-    };
-    stand.y = sampleTerrainMeshHeight(stand.x, stand.z);
-    carTransit = {
-      kind: "exit", t: 0, phase: 0,
-      from: { x: seat.x, z: seat.z, y: seat.y },
-      stand, seat,
-      doorSide: "left",
-    };
+    const pts = doorPoints(carMesh, "left");
+    carTransit = { kind: "exit", t: 0, phase: 0, side: "left", seat: pts.seat, ptsCar: pts };
     speed = 0;
     try { setDoorTarget(carMesh, "left", 1); } catch (e) {}
-    character.visible = true;
-    character.position.set(seat.x, seat.y, seat.z);
-    character.rotation.y = heading;
     getOutBtn.style.pointerEvents = "none";
   }
 
@@ -1085,43 +1107,57 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     try { updateDoors(carMesh, dt); } catch (e) {}
 
     if (tr.kind === "enter") {
-      /* phase 0: open door + walk to stand (~0.55s) */
+      /* phase 0: walk up to the door while it swings open */
       if (tr.phase === 0) {
-        const u = Math.min(1, tr.t / 0.55);
-        const e = u * u * (3 - 2 * u);
-        walker.x = tr.from.x + (tr.stand.x - tr.from.x) * e;
-        walker.z = tr.from.z + (tr.stand.z - tr.from.z) * e;
+        const u = Math.min(1, tr.t / 0.8), e = easeIO(u);
+        const p = lerpPt(tr.from, tr.stand, e);
+        walker.x = p.x; walker.z = p.z;
         walker.y = sampleTerrainMeshHeight(walker.x, walker.z);
-        walker.yaw = heading;
-        character.visible = true;
+        walker.yaw = yawToward(walker.x, walker.z, tr.door.x, tr.door.z);
+        character.visible = true; clearSeated();
         character.position.set(walker.x, walker.y, walker.z);
         character.rotation.y = walker.yaw;
-        try {
-          if (charRig) Animator.update(charRig, { move: 0.6, dt });
-        } catch (e) {}
-        if (u >= 1) { tr.phase = 1; tr.t = 0; tr.from = { x: walker.x, z: walker.z, y: walker.y }; }
+        try { Animator.update(charRig, { move: u < 1 ? 0.55 : 0, dt }); } catch (_) {}
+        if (u >= 1 && tr.t > 0.8) { tr.phase = 1; tr.t = 0; tr.from = { x: walker.x, z: walker.z }; }
         return true;
       }
-      /* phase 1: step into seat (~0.5s) */
+      /* phase 1: step into the doorway, turning to face forward */
       if (tr.phase === 1) {
-        const u = Math.min(1, tr.t / 0.5);
-        const e = u * u * (3 - 2 * u);
-        walker.x = tr.from.x + (tr.seat.x - tr.from.x) * e;
-        walker.z = tr.from.z + (tr.seat.z - tr.from.z) * e;
-        walker.y = sampleTerrainMeshHeight(walker.x, walker.z) + e * 0.15;
+        const u = Math.min(1, tr.t / 0.4), e = easeIO(u);
+        const doorNow = carFrameToWorld({ x: doorPoints(carMesh, tr.side).door.x, z: doorPoints(carMesh, tr.side).door.z });
+        const p = lerpPt(tr.from, doorNow, e);
+        walker.x = p.x; walker.z = p.z;
+        walker.y = sampleTerrainMeshHeight(walker.x, walker.z);
+        const yaw0 = yawToward(tr.from.x, tr.from.z, doorNow.x, doorNow.z);
+        let dy = heading - yaw0; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+        walker.yaw = yaw0 + dy * e;
         character.position.set(walker.x, walker.y, walker.z);
-        character.rotation.y = heading;
-        if (u >= 1) { tr.phase = 2; tr.t = 0; try { setDoorTarget(carMesh, "left", 0); } catch (e) {} }
+        character.rotation.y = walker.yaw;
+        try { Animator.update(charRig, { move: 0.4, dt }); } catch (_) {}
+        if (u >= 1) { tr.phase = 2; tr.t = 0; tr.from = { x: walker.x, z: walker.z }; }
         return true;
       }
-      /* phase 2: close door, finish enter (~0.4s) */
+      /* phase 2: lower into the seat (sit pose), sliding across to the driver seat if needed */
       if (tr.phase === 2) {
-        if (tr.t >= 0.35) {
+        const u = Math.min(1, tr.t / 0.7), e = easeIO(u);
+        const seatW = seatWorld(tr.seat);
+        const doorY = sampleTerrainMeshHeight(tr.from.x, tr.from.z);
+        const p = lerpPt(tr.from, seatW, e);
+        /* start standing height at the door, end at seat height (arc: duck then drop) */
+        const yTop = doorY + HIP_HEIGHT - 0.10;
+        const yNow = yTop + (seatW.y - yTop) * e;
+        poseSeated(dt, { x: p.x, z: p.z, y: yNow }, heading);
+        if (u >= 1) { tr.phase = 3; tr.t = 0; try { setDoorTarget(carMesh, tr.side, 0); } catch (e2) {} }
+        return true;
+      }
+      /* phase 3: pull the door shut, then you're driving */
+      if (tr.phase === 3) {
+        poseSeated(dt, seatWorld(tr.seat), heading);
+        if (tr.t >= 0.6 && !isDoorOpen(carMesh, tr.side)) {
           mode = "drive"; speed = 0;
           try { Sfx.play("car_engine_start"); } catch (_) {}
           getOutBtn.textContent = "GET OUT";
           getOutBtn.style.pointerEvents = "auto";
-          character.visible = false;
           carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
           carTransit = null;
         }
@@ -1130,33 +1166,50 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     }
 
     if (tr.kind === "exit") {
-      /* phase 0: open door, sit visible (~0.4s) */
+      /* phase 0: door swings open while seated */
       if (tr.phase === 0) {
-        character.visible = true;
-        character.position.set(tr.seat.x, tr.seat.y, tr.seat.z);
-        character.rotation.y = heading;
-        if (tr.t >= 0.4) { tr.phase = 1; tr.t = 0; tr.from = { x: tr.seat.x, z: tr.seat.z, y: tr.seat.y }; }
+        poseSeated(dt, seatWorld(tr.seat), heading);
+        if (tr.t >= 0.5) {
+          tr.phase = 1; tr.t = 0;
+          tr.door = carFrameToWorld({ x: tr.ptsCar.door.x, z: tr.ptsCar.door.z });
+          tr.stand = carFrameToWorld({ x: tr.ptsCar.stand.x, z: tr.ptsCar.stand.z });
+        }
         return true;
       }
-      /* phase 1: step out to stand (~0.5s) */
+      /* phase 1: swing out of the seat to the doorway */
       if (tr.phase === 1) {
-        const u = Math.min(1, tr.t / 0.5);
-        const e = u * u * (3 - 2 * u);
-        walker.x = tr.from.x + (tr.stand.x - tr.from.x) * e;
-        walker.z = tr.from.z + (tr.stand.z - tr.from.z) * e;
+        const u = Math.min(1, tr.t / 0.6), e = easeIO(u);
+        const seatW = seatWorld(tr.seat);
+        const doorNow = carFrameToWorld({ x: tr.ptsCar.door.x, z: tr.ptsCar.door.z });
+        const p = lerpPt(seatW, doorNow, e);
+        const gy = sampleTerrainMeshHeight(doorNow.x, doorNow.z);
+        const yTop = gy + HIP_HEIGHT - 0.10;
+        const yNow = seatW.y + (yTop - seatW.y) * e;
+        const outYaw = heading + Math.PI / 2;      /* turn toward the open door (left of the car) */
+        poseSeated(dt, { x: p.x, z: p.z, y: yNow }, heading + (outYaw - heading) * e);
+        if (u >= 1) { tr.phase = 2; tr.t = 0; clearSeated(); tr.from = { x: p.x, z: p.z }; }
+        return true;
+      }
+      /* phase 2: step away from the car */
+      if (tr.phase === 2) {
+        const u = Math.min(1, tr.t / 0.5), e = easeIO(u);
+        const p = lerpPt(tr.from, tr.stand, e);
+        walker.x = p.x; walker.z = p.z;
         walker.y = sampleTerrainMeshHeight(walker.x, walker.z);
-        walker.yaw = heading;
+        walker.yaw = heading + Math.PI / 2;
         character.position.set(walker.x, walker.y, walker.z);
         character.rotation.y = walker.yaw;
-        if (u >= 1) { tr.phase = 2; tr.t = 0; try { setDoorTarget(carMesh, "left", 0); } catch (e) {} }
+        try { Animator.update(charRig, { move: 0.5, dt }); } catch (_) {}
+        if (u >= 1) { tr.phase = 3; tr.t = 0; try { setDoorTarget(carMesh, "left", 0); } catch (e2) {} }
         return true;
       }
-      /* phase 2: close door, finish exit */
-      if (tr.phase === 2) {
-        if (tr.t >= 0.35) {
+      /* phase 3: turn, door closes behind you */
+      if (tr.phase === 3) {
+        try { Animator.update(charRig, { move: 0, dt }); } catch (_) {}
+        if (tr.t >= 0.6 && !isDoorOpen(carMesh, "left")) {
           mode = "walk";
           try { Sfx.play("car_engine_stop"); } catch (_) {}
-          walker.yaw = heading; walker.pitch = 0; walker.vy = 0; walker.onGround = true;
+          walker.yaw = heading + Math.PI / 2; walker.pitch = 0; walker.vy = 0; walker.onGround = true;
           speed = 0;
           getOutBtn.textContent = "GET IN CAR";
           getOutBtn.style.pointerEvents = "auto";
@@ -1756,7 +1809,16 @@ try {
       window.__ph3d_player = walker;
 
       if (mode === "drive") {
-        if (RIDE) poseRider(dt); else character.visible = false;
+        if (RIDE) poseRider(dt);
+        else {
+          /* driver stays visibly seated behind the wheel (follows the car's pitch/roll) */
+          try {
+            carRoot.updateMatrixWorld(true);
+            const sp = doorPoints(carMesh, "left").seat;
+            const w = carRoot.localToWorld(new THREE.Vector3(sp.x, sp.y, sp.z));
+            poseSeated(dt, { x: w.x, z: w.z, y: w.y }, heading);
+          } catch (e) { character.visible = false; }
+        }
         carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
 
         const th = (input.throttle || keys.KeyW || keys.ArrowUp) ? 1 : 0;
