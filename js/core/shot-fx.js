@@ -15,6 +15,7 @@
    ════════════════════════════════════════════════════════════════ */
 import * as THREE from "three";
 import { Blood } from "./blood.js";
+import { FlashPool } from "./flash-pool.js";
 
 /* ── per-weapon feel ─────────────────────────────────────────── */
 const FEEL = {
@@ -199,9 +200,8 @@ function dustPuff(scene, p, color, n, size, op, lifeK) {
 }
 
 function flash(scene, p, color, intensity, dist, life) {
-  const l = new THREE.PointLight(color, intensity, dist); l.position.copy(p); scene.add(l);
-  let t = 0;
-  run({ update(dt) { t += dt; l.intensity = intensity * Math.max(0, 1 - t / life); return t < life; }, dispose() { scene.remove(l); } });
+  /* pooled light: never add/remove a PointLight at runtime (forces every lit material to recompile) */
+  FlashPool.fire(scene, p, color, intensity, dist, life);
 }
 
 function impact(scene, p, dir, kind, dmg, type, floorY) {

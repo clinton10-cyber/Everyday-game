@@ -13,6 +13,7 @@
    Scenes can opt out with  scene.userData.__dnOptOut = true.
    ============================================================ */
 import * as THREE from "three";
+import { FlashPool } from "./flash-pool.js";
 
 /* Routes that are always outdoors. */
 const OPEN_ROUTES = new Set([
@@ -162,6 +163,7 @@ export const DayNight = {
     if (scene !== this._scene) {
       this._scene = scene;
       this._buildSky(scene, cur.camera);
+      try { FlashPool.prime(scene); } catch (e) {}   /* constant light count: gunfire flashes never trigger shader recompiles */
       const SL = window.__ph3d_streetLights;
       if (SL && SL.autoFromScene) SL.autoFromScene(scene, cur.camera);
     }

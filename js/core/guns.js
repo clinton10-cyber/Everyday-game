@@ -9,6 +9,7 @@ import { Combat } from "./combat.js";
 import { Knife } from "./knife.js";
 import { Sfx } from "./sfx.js";
 import { ShotFX } from "./shot-fx.js";
+import { FlashPool } from "./flash-pool.js";
 import { RocketLauncher } from "./bazooka.js";
 import { GUN_STANCE, STANCE_PITCHES, STANCE_LEGS, STANCE_DROP } from "./gun-stances.js";
 
@@ -388,6 +389,8 @@ function applyPose(R, pose) {
 }
 
 /* ── Gun runtime ─────────────────────────────────────────────── */
+const GunsFlashShared = { geo: null, mat: null };
+
 export class Gun {
   constructor(controls, type) {
     this.controls = controls;
@@ -406,6 +409,7 @@ export class Gun {
     this.hitDone = false;
     this.onStateChange = null;
     this._pendingTimers = [];
+    try { FlashPool.prime(this.controls && this.controls.scene); } catch (e) {}
 
     const rig = controls.rig;
     if (rig && rig.armR && rig.armR.grip) {
@@ -636,26 +640,20 @@ export class Gun {
     const scene = this.controls.scene;
     if (!scene) return;
 
-    const light = new THREE.PointLight(
-      0xffcc66,
-      this.type === "sniper" ? 6 : 3,
-      2.5
-    );
-    light.position.copy(pos);
-    scene.add(light);
+    /* pooled light + shared sprite-free flash mesh: no PointLight add/remove, no per-shot geometry/material */
+    FlashPool.fire(scene, pos, 0xffcc66, this.type === "sniper" ? 6 : 3, 2.5, 0.11);
 
-    const flash = new THREE.Mesh(
-      new THREE.SphereGeometry(this.type === "sniper" ? 0.05 : 0.03, 6, 4),
-      new THREE.MeshBasicMaterial({ color: 0xffdd88, transparent: true, opacity: 1 })
-    );
+    if (!GunsFlashShared.geo) {
+      GunsFlashShared.geo = new THREE.SphereGeometry(1, 6, 4);
+      GunsFlashShared.mat = new THREE.MeshBasicMaterial({ color: 0xffdd88, transparent: true, opacity: 1 });
+    }
+    const flash = new THREE.Mesh(GunsFlashShared.geo, GunsFlashShared.mat);
+    flash.scale.setScalar(this.type === "sniper" ? 0.05 : 0.03);
     flash.position.copy(pos);
     scene.add(flash);
 
     const timer = setTimeout(() => {
-      try { if (light.parent) light.parent.remove(light); } catch (e) {}
       try { if (flash.parent) flash.parent.remove(flash); } catch (e) {}
-      try { flash.geometry.dispose(); } catch (e) {}
-      try { flash.material.dispose(); } catch (e) {}
       const i = this._pendingTimers.indexOf(timer);
       if (i >= 0) this._pendingTimers.splice(i, 1);
     }, 110);

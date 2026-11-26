@@ -302,6 +302,7 @@
 "js/core/scenes.js",
 "js/core/sfx.js",
 "js/core/shot-fx.js",
+"js/core/flash-pool.js",
 "js/core/speed-fx.js",
 "js/core/state.js",
 "js/core/story-campaign.js",
