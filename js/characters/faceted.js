@@ -323,17 +323,12 @@ export const HAIR_STYLES = ["short", "buzz", "bob", "long", "ponytail", "bun", "
 function buildHair(rig, B, M, o, rings) {
   const head = rig.head, style = HAIR_STYLES.includes(o.hairStyle || o.hair) ? (o.hairStyle || o.hair) : "short";
   if (style === "bald") return;
-  const off = style === "buzz" ? 0.005 : 0.012;
+  const off = style === "buzz" ? 0.005 : style === "afro" ? 0.050 : 0.012;   /* afro = the normal hairline cap, puffed outward (a solid ball used to cover the face) */
   const hk = B.head.h;
   const front = style === "short" ? 0.168 : 0.172, back = style === "buzz" ? 0.082 : 0.050;
   const edge = (a) => lerp(back, front, sstep((Math.cos(a) + 1) / 2)) * hk;
   const yTop = rings[rings.length - 1].y;
 
-  if (style === "afro") {
-    const g = blobGeo(0.150, 1); g.scale(1.0, 0.92, 1.02);
-    mesh(g, M.hair, head, 0, 0.115 * hk, -0.012);
-    return;
-  }
   /* cap: rings from the lower edge up to the crown, following the head shape */
   const hr = [];
   const n = 9;
@@ -351,6 +346,14 @@ function buildHair(rig, B, M, o, rings) {
   };
   const cap = loft(hr, { seg: 10, caps: "top", shape: capShape });
   mesh(cap, M.hair, head);
+  if (style === "afro") {
+    /* round puffy crown on top of the hairline cap; its flat underside stays above the brow so the face is clear */
+    const g = blobGeo(0.150, 1);
+    const pa = g.attributes.position;
+    for (let i = 0; i < pa.count; i++) if (pa.getY(i) < -0.035) pa.setY(i, -0.035);
+    g.scale(1.0, 1.0, 1.0); g.computeVertexNormals();
+    mesh(g, M.hair, head, 0, yTop - 0.012, -0.030);
+  }
 
   /* a swept fringe */
   if (!o.hat && (style === "short" || style === "bob" || style === "long" || style === "ponytail" || style === "bun")) {   /* no fringe under a hat: it poked through the crown */
