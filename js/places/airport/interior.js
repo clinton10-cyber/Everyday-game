@@ -1,4 +1,4 @@
-/* airport/interior.js -- Omagwa Airport · Terminal 3 in THIRD PERSON.
+/* airport/interior.js -- LIFEX Airport · Terminal 3 in THIRD PERSON.
    Full reference Terminal 3 layout (check-in counters, departure
    boards, security lanes, café, duty free, seating blocks, glass
    curtain wall onto the apron) driven by ThirdPersonControls.
@@ -514,9 +514,9 @@ function buildTerminal(router) {
         if (flight && flight.checkedIn && !flight.departed) { toast(`BOARDING PASS ${flight.code} · ${flight.from} → ${flight.to}. Proceed to security.`); return; }
         const fare = 25000;
         if (Economy.balance < fare || !Economy.withdraw(fare)) { toast("CHECK-IN: ₦25,000 ticket fare required. Visit Everyday Pay to check your balance."); return; }
-        flight = { code: "GA" + String(200 + Math.floor(Math.random() * 700)), airline: "GARDEN AIR", from: "PORT LIFEX", to: "LAGOS", gate: "A04", fare, checkedIn: true, securityCleared: false, boarded: false, createdAt: Date.now() };
+        flight = { code: "GA" + String(200 + Math.floor(Math.random() * 700)), airline: "GARDEN AIR", from: "PORT LIFEX", to: "NORTHPORT", gate: "A04", fare, checkedIn: true, securityCleared: false, boarded: false, createdAt: Date.now() };
         saveFlight(flight);
-        toast(`CHECK-IN COMPLETE · ${flight.code} · PORT LIFEX → LAGOS · GATE A04. Collect your boarding pass and proceed to security.`);
+        toast(`CHECK-IN COMPLETE · ${flight.code} · PORT LIFEX → NORTHPORT · GATE A04. Collect your boarding pass and proceed to security.`);
       } else if (use.kind === "flight_security") {
         if (!flight || !flight.checkedIn || flight.departed) { toast("SECURITY: Check in and collect a boarding pass first."); return; }
         if (flight.securityCleared) { toast("SECURITY CLEARED · Proceed to Gate A04."); return; }

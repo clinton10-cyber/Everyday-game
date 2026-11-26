@@ -1,6 +1,6 @@
 export default {
   id: "airport",
-  name: "OMAGWA AIRPORT",
+  name: "LIFEX AIRPORT",
   sub: "INTERNATIONAL",
   color: 0xbfd3e2,
   entrance: "checkin",

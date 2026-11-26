@@ -116,7 +116,7 @@ export const CHAT_PLUS = [
 
   /* ── Port LIFEX flavour ── */
   { id: "ph_areas", em: "neu", pats: ["bonny", "trans amadi", "gra", "rumuola", "diobu", "mile 1", "mile 3", "borokiri", "choba", "eleme", "ikwerre road", "aba road", "rumuokoro", "woji", "elelenwo", "rumuigbo", "old gra", "d-line", "peter odili"],
-    reps: ["Central Market dey busy, o.", "Crestline na where big men dey stay.", "Lifdane Row dey alive 24/7.", "Trans Lifmere dey full of companies.", "Lifmora Junction traffic na another level.", "Choba na student area."] },
+    reps: ["Central Market dey busy, o.", "Crestline na where big men dey stay.", "Lifdane Row dey alive 24/7.", "Trans Lifmere dey full of companies.", "Lifmora Junction traffic na another level.", "Uni Town na student area."] },
   { id: "oil_gas", em: "neu", pats: ["oil", "refinery", "pipeline", "bunkering", "niger delta", "gas flare", "crude", "shell", "chevron", "oil money", "oil company", "oil spill", "oil boom"],
     reps: ["Oil don make us rich, but the people still suffer.", "Gas flare dey blacken everything.", "Oil company staff dey enjoy.", "Pipeline wahala no dey end."] },
   { id: "bole", em: "pos", pats: ["bole", "boli and fish", "roasted bole", "waterfront", "fisherman", "fishing", "creek", "river", "boat", "canoe", "ferry"],

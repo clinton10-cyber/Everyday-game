@@ -4,7 +4,7 @@ import { Engagement } from './engagement.js';
 const KEY='everyday_banking_v1';
 const DAY=86400000;
 const STOCKS=[
- {id:'nigerian-energy',name:'Nigerian Energy Co.',symbol:'NEC',base:1250},
+ {id:'nigerian-energy',name:'LIFEX Energy Co.',symbol:'NEC',base:1250},
  {id:'garden-city',name:'Garden City Foods',symbol:'GCF',base:840},
  {id:'naija-telecom',name:'Naija Telecom',symbol:'NTL',base:2150},
  {id:'ph-industries',name:'LIFEX Industries',symbol:'PHI',base:560}

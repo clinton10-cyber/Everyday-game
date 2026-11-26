@@ -1,4 +1,4 @@
-/* Isaac Boro Memorial Park — rebuilt exterior landmark.
+/* Heritage Memorial Park — rebuilt exterior landmark.
  * Bright, walkable-looking memorial frontage with layered landscaping,
  * ceremonial gate, monument, water feature and recreation silhouettes. */
 import * as THREE from "three";
@@ -18,7 +18,7 @@ export function buildExterior() {
   // Monumental entrance portal with green-and-gold identity.
   for(const x of [-8,8]){box(1.25,5.8,1.2,x,2.9,20,stone);box(1.5,.28,1.45,x,5.85,20,mat(0x1f6a42));box(.18,5.2,.18,x,2.9,19.32,mat(0xcaa64a));}
   box(18,1.0,1.5,0,6.0,20,mat(0x1e6740));box(18.4,.22,1.65,0,6.55,20,mat(0xd8b653));
-  const gateLabel=textLabel("ISAAC BORO PARK","MEMORIAL GARDENS · PORT LIFEX");gateLabel.position.set(0,7.25,20);gateLabel.scale.setScalar(1.05);g.add(gateLabel);
+  const gateLabel=textLabel("HERITAGE PARK","MEMORIAL GARDENS · PORT LIFEX");gateLabel.position.set(0,7.25,20);gateLabel.scale.setScalar(1.05);g.add(gateLabel);
   // Low perimeter walls, decorative piers and railings.
   for(const z of [-22,22]){box(52,.75,.5,0,.38,z,stone);for(let x=-24;x<=24;x+=4){box(.55,1.45,.65,x,.72,z,mat(0xe9e1d2));box(.68,.16,.78,x,1.52,z,mat(0x267348));}}
   for(const x of [-26,26]) box(.5,.8,43,x,.4,0,stone);
@@ -55,6 +55,6 @@ export function buildExterior() {
   const slide=add(new THREE.BoxGeometry(2.8,.16,3.4),mat(0xf2a53a),-17,1.25,9,.48,0,0);
   // Park signboards and flagpoles.
   for(const x of [-11,11]){box(1.8,2.2,.2,x,1.5,17,dark);box(1.55,1.85,.08,x,1.55,16.87,mat(0x1b6842));}
-  const lbl=textLabel("ISAAC BORO MEMORIAL PARK","GARDENS · CULTURE · RECREATION");lbl.position.set(0,8.4,20);g.add(lbl);
+  const lbl=textLabel("HERITAGE MEMORIAL PARK","GARDENS · CULTURE · RECREATION");lbl.position.set(0,8.4,20);g.add(lbl);
   return g;
 }

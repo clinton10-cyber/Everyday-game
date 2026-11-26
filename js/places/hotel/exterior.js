@@ -1,5 +1,5 @@
 /* hotel/exterior.js — Hotel Presidential. 5-star curved glass tower on
-   Woji Road: rounded drum + flanking wings, gold crown, porte-cochère,
+   Central Avenue: rounded drum + flanking wings, gold crown, porte-cochère,
    pool deck and palm-lined driveway. */
 import * as THREE from "three";
 import { M, EM, textLabel, windowTexture, getEnv } from "../../core/kit.js";

@@ -1,4 +1,4 @@
-/* boropark/interior.js -- Isaac Boro Memorial Park interior.
+/* boropark/interior.js -- Heritage Memorial Park interior.
    Full third-person walkable with:
      • Memorial garden (monument + placards, 3 benches)
      • Central plaza with fountain and 6 benches around it
@@ -162,7 +162,7 @@ export async function buildInterior(router) {
   /* ═══════════════════════════════════════════════════════════
      MEMORIAL GARDEN
      ═══════════════════════════════════════════════════════════ */
-  // Central monument (Isaac Boro bust on a stone plinth)
+  // Central monument (founder bust on a stone plinth)
   B(2.4, 0.6, 2.4, 11, 0.3, 9, M(0xc8c0a8, .9));
   B(1.6, 0.5, 1.6, 11, 0.85, 9, M(0xb8b0a0, .9));
   B(1.2, 2.4, 0.8, 11, 2.15, 9, M(0x6a4a2a, .9));
@@ -503,7 +503,7 @@ export async function buildInterior(router) {
     camera,
     controls: { update: () => {} },
     crumb: meta.name,
-    title: "ISAAC BORO PARK",
+    title: "HERITAGE PARK",
     subtitle: "MEMORIAL GROUNDS",
     hint: "LEFT: MOVE \u00B7 RIGHT: LOOK \u00B7 E: INTERACT",
     isInterior: true,

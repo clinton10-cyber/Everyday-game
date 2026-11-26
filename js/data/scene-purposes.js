@@ -46,11 +46,11 @@ export const SCENE_PURPOSES = {
   statejail:  { name: "State Jail", purpose: "crime", services: ["visitation"], links: [ L("city", "Walk out", "door") ] },
   vastcity:   { name: "Vast City", purpose: "travel", services: ["travel"], links: [] },
   duplex:     { name: "Modern Duplex", purpose: "home", services: ["rest"], links: [] },
-  lagosflat:  { name: "Lagos Life Apartment", purpose: "home", services: ["rest"], links: [] },
+  lagosflat:  { name: "Skyline Life Apartment", purpose: "home", services: ["rest"], links: [] },
   canteen:    { name: "Canteen", purpose: "shopping", services: ["food"], links: [ L("market", "Central Market nearby") ] },
   beach:      { name: "Beach", purpose: "leisure", services: ["walk", "photos"], links: [ L("city", "Back to the city", "taxi", 2000) ] },
   forest:     { name: "Forest Trail", purpose: "leisure", services: ["walk", "campfire"], links: [ L("beach", "Beach nearby") ] },
-  citypark:   { name: "City Park", purpose: "leisure", services: ["walk", "fountain"], links: [ L("boropark", "Isaac Boro Park across the road") ] },
+  citypark:   { name: "City Park", purpose: "leisure", services: ["walk", "fountain"], links: [ L("boropark", "Heritage Park across the road") ] },
   village:    { name: "Village", purpose: "leisure", services: ["market"], links: [] },
   mansion:    { name: "The Mansion", purpose: "home", services: ["rest", "pool"], links: [ L("city", "Head to the city", "door"), L("myhouse", "Your flat next door") ] },
   governor:   { name: "Governor's Mansion", purpose: "government", services: ["audience"], links: [] },
@@ -63,10 +63,10 @@ export const SCENE_PURPOSES = {
   govhouse:   { name: "Government House", purpose: "government", services: ["audience"], links: [ L("statehouse", "State House") ] },
   hotel:      { name: "Hotel Presidential", purpose: "nightlife", services: ["rooms", "dining", "bar", "spa"], links: [
     L("nightclub", "Club Eclipse is nearby"), L("city", "Call a taxi", "taxi", 1500) ] },
-  boropark:   { name: "Isaac Boro Park", purpose: "leisure", services: ["walk", "monument"], links: [ L("citypark", "City Park across the road") ] },
+  boropark:   { name: "Heritage Park", purpose: "leisure", services: ["walk", "monument"], links: [ L("citypark", "City Park across the road") ] },
   market:     { name: "Central Market", purpose: "shopping", services: ["food", "goods", "unique-stalls"], links: [
     L("phoneshop", "Phone Shop around the corner"), L("canteen", "Get a hot meal"), L("jobcenter", "Find work nearby") ] },
-  airport:    { name: "Omagwa Airport", purpose: "travel", services: ["flights", "checkin"], links: [ L("city", "Call a taxi", "taxi", 4500) ] },
+  airport:    { name: "LIFEX Airport", purpose: "travel", services: ["flights", "checkin"], links: [ L("city", "Call a taxi", "taxi", 4500) ] },
   university: { name: "University of Port LIFEX", purpose: "education", services: ["lectures", "library"], links: [
     L("computerlab", "Practise coding"), L("classroom", "Sit in on a class") ] },
 

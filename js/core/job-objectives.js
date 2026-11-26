@@ -44,7 +44,7 @@ const FALLBACK_POIS = [
   { x: 215, z: 100,  name: "Central Market" },
   { x: 150, z: 220,  name: "Job Center" },
   { x: -115, z: -155, name: "Hotel Presidential" },
-  { x: 400, z: 90,   name: "Omagwa Airport" },
+  { x: 400, z: 90,   name: "LIFEX Airport" },
   { x: 60, z: -215,  name: "City Zoo" },
   { x: -230, z: -10, name: "University of P.H." },
   { x: 250, z: 165,  name: "Real Estate Office" },

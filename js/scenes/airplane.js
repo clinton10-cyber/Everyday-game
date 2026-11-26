@@ -425,7 +425,7 @@ const world = {
     controls: { update: function () {} },
     crumb: "AIRPLANE",
     title: "BOEING 787-9",
-    subtitle: flightInfo ? `${flightInfo.airline || "GARDEN AIR"} · ${flightInfo.from || "PORT LIFEX"} → ${flightInfo.to || "LAGOS"} · ${flightInfo.code || "FLIGHT"}` : "CABIN - REAL SCALE",
+    subtitle: flightInfo ? `${flightInfo.airline || "GARDEN AIR"} · ${flightInfo.from || "PORT LIFEX"} → ${flightInfo.to || "NORTHPORT"} · ${flightInfo.code || "FLIGHT"}` : "CABIN - REAL SCALE",
     hint: "",
     update: function (dt) {
       ctl.update(dt);
