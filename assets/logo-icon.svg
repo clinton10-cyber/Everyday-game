@@ -1,51 +1,70 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Everyday in LIFEX icon">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Everyday">
   <defs>
-    <linearGradient id="bgGrad2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#FFD60A"/>
-      <stop offset="48%"  stop-color="#FF9C1A"/>
-      <stop offset="100%" stop-color="#FF5C00"/>
+    <linearGradient id="sky" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#0B1B3A"/>
+      <stop offset="45%" stop-color="#1A3A6E"/>
+      <stop offset="75%" stop-color="#3D7AB8"/>
+      <stop offset="100%" stop-color="#F0A55A"/>
     </linearGradient>
-    <linearGradient id="sunGrad2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#FFFFFF"/>
-      <stop offset="100%" stop-color="#FFF3C4"/>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#67E8F9"/>
+      <stop offset="40%" stop-color="#A78BFA"/>
+      <stop offset="75%" stop-color="#FB7185"/>
+      <stop offset="100%" stop-color="#FBBF24"/>
     </linearGradient>
-    <linearGradient id="waveGrad2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#0057A8"/>
-      <stop offset="100%" stop-color="#002A4A"/>
+    <linearGradient id="glow" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#7CF0FF"/>
+      <stop offset="100%" stop-color="#FBBF24"/>
     </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10"/>
+    </filter>
+    <clipPath id="round">
+      <rect x="0" y="0" width="512" height="512" rx="112" ry="112"/>
+    </clipPath>
   </defs>
 
-  <rect x="0" y="0" width="512" height="512" rx="118" ry="118" fill="url(#bgGrad2)"/>
+  <g clip-path="url(#round)">
+    <rect width="512" height="512" fill="url(#sky)"/>
+    <ellipse cx="160" cy="130" rx="170" ry="110" fill="#5EEAD4" opacity="0.2" filter="url(#soft)"/>
+    <ellipse cx="380" cy="180" rx="150" ry="100" fill="#A78BFA" opacity="0.18" filter="url(#soft)"/>
 
-  <g fill="#FFFFFF" opacity="0.18">
-    <circle cx="80"  cy="80"  r="6"/>
-    <circle cx="120" cy="60"  r="4"/>
-    <circle cx="420" cy="90"  r="5"/>
-    <circle cx="440" cy="60"  r="3"/>
+    <!-- Flowing ribbon -->
+    <path d="M -30 370 C 70 300, 140 430, 250 360 S 390 280, 450 350 S 560 410, 560 350"
+          fill="none" stroke="url(#ribbon)" stroke-width="34" stroke-linecap="round"/>
+    <path d="M -30 370 C 70 300, 140 430, 250 360 S 390 280, 450 350 S 560 410, 560 350"
+          fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" opacity="0.3"/>
+
+    <!-- Sun -->
+    <circle cx="256" cy="210" r="78" fill="#FFF7E6"/>
+    <circle cx="256" cy="210" r="96" fill="#FBBF24" opacity="0.25" filter="url(#soft)"/>
+
+    <!-- Flowing E monogram -->
+    <g transform="translate(256 210)">
+      <path d="M -42 -36
+               C -8 -52, 28 -48, 40 -26
+               C 50 -10, 44 12, 20 20
+               L -12 20
+               M -42 0 L 28 0
+               M -42 36
+               C -6 52, 30 48, 42 24"
+            fill="none" stroke="#0B1B3A" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M -42 -36
+               C -8 -52, 28 -48, 40 -26
+               C 50 -10, 44 12, 20 20
+               L -12 20
+               M -42 0 L 28 0
+               M -42 36
+               C -6 52, 30 48, 42 24"
+            fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Small EVERYDAY arc label -->
+    <text x="256" y="455"
+          font-family="Segoe UI, Inter, Helvetica Neue, Arial, sans-serif"
+          font-size="42" font-weight="800" fill="#FFFFFF"
+          text-anchor="middle" letter-spacing="8">EVERYDAY</text>
   </g>
-
-  <circle cx="256" cy="210" r="105" fill="url(#sunGrad2)"/>
-
-  <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity="0.85">
-    <line x1="256" y1="62" x2="256" y2="88"/>
-    <line x1="130" y1="105" x2="150" y2="126"/>
-    <line x1="382" y1="105" x2="362" y2="126"/>
-    <line x1="72"  y1="210" x2="100" y2="210"/>
-    <line x1="440" y1="210" x2="412" y2="210"/>
-  </g>
-
-  <path d="M 0 360 Q 85 340 170 360 T 340 360 Q 425 340 512 360 L 512 512 L 0 512 Z"
-        fill="url(#waveGrad2)"/>
-
-  <path d="M 0 363 Q 85 343 170 363 T 340 363 Q 425 343 512 363"
-        stroke="#FFFFFF" stroke-width="4" fill="none" opacity="0.7"/>
-
-  <!-- Bold "EPH" initials on the wave -->
-  <text x="256" y="470"
-        font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
-        font-size="112" font-weight="900" fill="#FFFFFF"
-        text-anchor="middle" letter-spacing="8">
-    EPH
-  </text>
+  <rect x="3" y="3" width="506" height="506" rx="110" ry="110"
+        fill="none" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="6"/>
 </svg>
-
