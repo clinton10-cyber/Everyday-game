@@ -34,6 +34,8 @@ import { InteriorPoses } from "./interior-poses.js";
 import { AnimationAutomation } from "./animation-automation.js";
 import { pickFall, poseFall, restY } from "./death-pose.js";
 import { NpcCollider } from "./npc-collider.js";
+import { HitReact } from "../characters/hit-react.js";
+import { ShotFX } from "./shot-fx.js";
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -332,6 +334,16 @@ function makeCtl(rig, x, z, yaw) {
 
 let _onKillCb = null;
 
+/* NPC toughness. They used to die in 2-3 shots (60 hp); now civilians soak ~4x that, some are bruisers, police are tougher still.
+   Guns do 19-85 per shot x4 on the head, so: pistol ~9 body shots, rifle ~7, sniper 3, headshots 2-3. */
+const NPC_BASE_HP = 220;
+function _npcMaxHp(role) {
+  if (role === "police") return 340 + Math.round(Math.random() * 60);
+  let hp = NPC_BASE_HP * (0.85 + Math.random() * 0.3);
+  if (Math.random() < 0.12) hp *= 1.45;               /* the occasional bruiser */
+  return Math.round(hp);
+}
+
 /* ── Smart hit reactions ──────────────────────────────────── */
 function _getShooterPos() {
   try {
@@ -351,7 +363,9 @@ function _getShooterPos() {
 
 function _startHit(npc, opts) {
   if (!npc || npc.dead) return;
-  const dur = opts.dur != null ? opts.dur : 0.4;
+  /* long enough for the body-part hit animation to play out (HitReact told us how long it needs) */
+  const dur = Math.max(opts.dur != null ? opts.dur : 0.4, npc._hrMinDur || 0);
+  npc._hrMinDur = 0;
   npc.reaction = {
     timer: dur,
     totalDur: dur,
@@ -802,7 +816,8 @@ export const NPCs = {
       talkCd: 0,
       hitCd: 0,
       age: 0,
-      hp: 60,
+      hp: _npcMaxHp(role),
+      maxHp: 0,
       dead: false,
       deadT: 0,
       maxDist: 32,
@@ -810,6 +825,7 @@ export const NPCs = {
       groupLabel: null,
       _cfg: cfg,
     };
+    npc.maxHp = npc.hp;
 
     try { Animator.animate(ctl, 0.016); } catch (e) {}
     return npc;
@@ -1070,7 +1086,7 @@ export const NPCs = {
           get alive() { return !npc.dead; },
           hp: npc.hp,
           _npc: npc,
-          onHit(dmg, type, part) { self._onHit(npc, dmg, type, { part }); },
+          onHit(dmg, type, part, info) { self._onHit(npc, dmg, type, { part, info }); },
           /* high-precision per-body-part ray test (head/torso/arms/legs/feet follow the live skeleton) */
           rayTest(ox, oy, oz, dx, dy, dz, maxT, pad) { return NpcCollider.raycast(npc, ox, oy, oz, dx, dy, dz, maxT, pad); },
         };
@@ -1138,7 +1154,7 @@ export const NPCs = {
     const tgt = npc._tgt;
     npc.hp = tgt ? tgt.hp : npc.hp - dmg;
     npc.hitCount = (npc.hitCount || 0) + 1;
-    npc.wounded = npc.hp < (npc.maxHp || 60) * 0.4;
+    npc.wounded = npc.hp < (npc.maxHp || NPC_BASE_HP) * 0.4;
 
     let shooter = (opts && opts.shooter) || _getShooterPos();
     const shooterX = shooter ? shooter.x : null;
@@ -1148,6 +1164,23 @@ export const NPCs = {
     try { Blood.spray(_scene, px, 1.2, pz, { count: 18, spread: 3 }); } catch (e) {}
 
     const part = (opts && opts.part) || "torso";
+    /* per-body-part reaction (head snap, chest fold, arm whip, knee buckle…) + maybe a dislocated limb */
+    try {
+      const info = opts && opts.info;
+      if (npc.hp > 0 && npc.rig) {
+        const hr = HitReact.hit(npc, part, dmg, { dir: info && info.dir, point: info && info.point, type });
+        if (hr) {
+          npc._hrMinDur = Math.max(npc._hrMinDur || 0, Math.min(1.1, hr.dur));
+          if (hr.dislocated) {
+            npc.crippled = npc.crippled || hr.dislocated.startsWith("leg");
+            npc.disarmed = npc.disarmed || hr.dislocated.startsWith("arm");
+            try { ShotFX.dislocate(info && info.point); } catch (e) {}
+          }
+        }
+      } else if (info && info.dir) {
+        npc._deathKick = { x: info.dir.x * 70, y: 14 + (part === "head" ? 8 : 0), z: info.dir.z * 70 };   /* body is thrown the way the bullet travelled */
+      }
+    } catch (e) { console.warn("[hit-react]", e); }
     try {
       const gen = npc._cfg && npc._cfg.gender;
       if (npc.hp > 0) Sfx.pain(dmg >= 25 || part === "head" ? "heavy" : dmg >= 10 ? "medium" : "light", { x: px, z: pz, gender: gen, who: npc.id || "", maxRange: 25 });
@@ -1182,7 +1215,7 @@ export const NPCs = {
     const nAx = awayRawX / awLen;
     const nAz = awayRawZ / awLen;
 
-    const hpFrac      = npc.hp / (npc.maxHp || 60);
+    const hpFrac      = npc.hp / (npc.maxHp || NPC_BASE_HP);
     const isSniper    = (opts && opts.sniper) || dmg >= 55;
     const nearDeath   = npc.hp < 12;
     const isPolice    = npc.role === "police";
@@ -1322,6 +1355,7 @@ export const NPCs = {
     npc.dead = true;
     npc.deadT = 0;
     npc.hp = 0;
+    try { HitReact.clear(npc); } catch (e) {}          /* Limp takes the body over now */
     npc.state = "dying";          /* animated fall, then "dead" */
     npc.dyingPhase = 0;
     npc._deathDir = Math.random() < 0.5 ? -1 : 1;
@@ -1410,7 +1444,7 @@ export const NPCs = {
         g.position.y = restY(fy, ef) + 0.10 * Math.sin(Math.PI * Math.min(1, p * 1.2)) * (1 - ef) + bounce;
         if (rig) {
           Limp.step(rig, g, dt);
-          if (!npc._limpKicked) { npc._limpKicked = true; const sx = Math.sin(npc.ctl.yaw || 0), sz = Math.cos(npc.ctl.yaw || 0); Limp.kick(rig, -sx * 60, 15, -sz * 60, 1); }
+          if (!npc._limpKicked) { npc._limpKicked = true; const sx = Math.sin(npc.ctl.yaw || 0), sz = Math.cos(npc.ctl.yaw || 0); const dk = npc._deathKick; if (dk) Limp.kick(rig, dk.x, dk.y, dk.z, 1); else Limp.kick(rig, -sx * 60, 15, -sz * 60, 1); }
         }
         if (p >= 1) { npc.state = "dead"; g.position.y = restY(npc._deathY || 0, 1); }
         continue;
