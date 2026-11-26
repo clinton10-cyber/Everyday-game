@@ -136,7 +136,8 @@ export const Cats = {
     return { ok:true };
   },
 
-  /* Kill — used by weapons and crime system */
+  /* Kill — used by weapons and crime system.
+     Hitting / killing a cat is NOT a crime that raises the police alert. */
   kill(catId, byId){
     const c = this.list.find(x => x.id === catId);
     if(!c || !c.alive) return false;
@@ -145,9 +146,8 @@ export const Cats = {
     if(Multiplayer.ready){
       Multiplayer.action("cat-kill", { catId, by: byId || (Multiplayer.self && Multiplayer.self.id) });
     }
-    if(window.__ph3d_crime && byId === (Multiplayer.self && Multiplayer.self.id)){
-      window.__ph3d_crime.addEvent("kill", 25, "You");
-    }
+    /* Previously this called Crime.addEvent("kill", 25) which could get the player arrested.
+       Cats are wildlife / pets — no wanted level for hitting them. */
     return true;
   },
 
@@ -322,4 +322,3 @@ export const Cats = {
     return best;
   },
 };
-

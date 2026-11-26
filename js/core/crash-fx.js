@@ -439,18 +439,18 @@ CrashFX.stepWreckBody = function (b, dt, gy) {
     b.c.y = gy - low;
     if (b.vy < 0) {
       const vn = -b.vy;
-      const e = vn > 3 ? 0.32 : 0;                           /* restitution: small impacts just stop */
+      const e = vn > 4 ? 0.08 : 0;                           /* heavy car: low restitution, almost no bounce */
       b.vy = vn * e;
-      const j = vn * (1 + e) * 0.1;                          /* the contact corner kicks the spin (r × up) */
+      const j = vn * (1 + e) * 0.06;                         /* less spin kick on impact */
       b.wx += -lz * j; b.wz += lx * j;
       if (vn > 4) {
-        b.vx *= 0.75; b.vz *= 0.75;
+        b.vx *= 0.55; b.vz *= 0.55;                          /* more energy loss on heavy impact */
         try { CrashFX.impact(b.c.x, gy + 0.3, b.c.z, { power: Math.min(0.5, vn / 30), color: b.color, groundY: gy }); } catch (e) {}
       }
     }
-    const fr = Math.max(0, 1 - 3 * dt);                      /* road friction + spin damping */
+    const fr = Math.max(0, 1 - 5 * dt);                      /* heavier road friction + spin damping */
     b.vx *= fr; b.vz *= fr;
-    const ad = Math.max(0, 1 - 3 * dt);
+    const ad = Math.max(0, 1 - 5 * dt);
     b.wx *= ad; b.wy *= ad; b.wz *= ad;
   } else {
     const air = Math.max(0, 1 - 0.15 * dt);

@@ -1,13 +1,15 @@
 /* arrest-watch.js — "police are on top of you" countdown.
    Any police car within RADIUS of the player starts a 10 s countdown.
    Out of range for ESCAPE_GRACE seconds cancels it. At 0 → onArrest().
-   While counting, the player's top speed is capped (speedMultiplier()). */
+   While counting, the player's top speed is capped (speedMultiplier()).
+   Only active when crime alert is meaningfully high (prevents random arrests). */
 
 import { Sfx } from "./sfx.js";
 const RADIUS         = 6.0;
 const ESCAPE_GRACE   = 1.5;
 const COUNTDOWN_SECS = 10;
 const SLOW_FACTOR    = 0.20;
+const MIN_ALERT      = 35;   /* need at least this much wanted before proximity arrest */
 
 let _opts = null, _counting = false, _remaining = 0, _outTimer = 0;
 let _hud = null, _hudText = null, _hudBar = null;
@@ -71,6 +73,13 @@ export const ArrestWatch = {
     const player = _opts.getPlayer && _opts.getPlayer();
     if (!player) { this.cancel(); return; }
 
+    /* Only allow proximity arrest when the player is actually wanted */
+    const alert = (window.__ph3d_crime && window.__ph3d_crime.alert) || 0;
+    if (alert < MIN_ALERT) {
+      if (_counting) this.cancel();
+      return;
+    }
+
     const cars = _opts.getPoliceCars ? _opts.getPoliceCars() : [];
     let inRange = false, nearest = null, nearestD = Infinity;
     for (const pc of cars) {
@@ -118,4 +127,3 @@ export const ArrestWatch = {
     if (_hud) _hud.style.opacity = "0";
   },
 };
-

@@ -2037,8 +2037,8 @@ try {
           const fDotN = fwdX * nxn + fwdZ * nzn;
           const vn = speed * fDotN;                              /* < 0 = driving into the obstacle */
           if (vn < 0) {
-            /* velocity after the hit = old velocity minus the into-obstacle part (+12% bounce) */
-            const k = 1.12 * vn;
+            /* velocity after the hit = old velocity minus the into-obstacle part (heavy: absorb energy) */
+            const k = 0.88 * vn;
             const wx = speed * fwdX - k * nxn, wz = speed * fwdZ - k * nzn;
             const wl = Math.hypot(wx, wz) || 1e-6;
             const dir = speed >= 0 ? 1 : -1;                      /* driving forwards or reversing */
