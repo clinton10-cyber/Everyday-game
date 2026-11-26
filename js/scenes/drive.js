@@ -667,7 +667,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     return !!(walkerWeapons && walkerWeapons.isArmed() &&
       ["pistol", "sniper", "rifle", "smg", "shotgun", "lmg", "bazooka"].includes(walkerWeapons.current));
   }
-  let walkShoulder = -1;                /* +1 / -1: which shoulder the aim camera sits over (B swaps) */
+  let walkShoulder = -1;                /* locked: player always on RIGHT of crosshair (-1). B no longer flips. */
   /* ray vs. a vertical cylinder (a person): distance t, or -1 */
   function rayVertCyl(ox, oy, oz, dx, dy, dz, cx, cz, r, y0, y1, maxT) {
     const px = ox - cx, pz = oz - cz, a = dx * dx + dz * dz;
@@ -1296,7 +1296,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     try { window.__ph3d_phone && window.__ph3d_phone._toast(jet.on ? "Jetpack on. Hold JUMP to fly" : "Jetpack off"); } catch (e) {}
   };
   walkFlyBtn.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); toggleJet(); }, { passive: false });
-  const _onKeyFly = e => { if (e.code === "KeyB" && !e.repeat && mode === "walk") walkShoulder = -walkShoulder; if (e.code === "KeyJ" && !e.repeat && mode === "walk") toggleJet();   /* J = jetpack (F is Fight/Fire only) */ };
+  const _onKeyFly = e => { /* shoulder locked to right — B no longer swaps */ if (e.code === "KeyJ" && !e.repeat && mode === "walk") toggleJet();   /* J = jetpack (F is Fight/Fire only) */ };
   window.addEventListener("keydown", _onKeyFly);
 
   const walkEnterBtn = document.createElement("button");
@@ -2394,10 +2394,11 @@ try {
           const pp = walker.pitch || 0, cpp = Math.cos(pp), spp = Math.sin(pp);
           const fx = Math.sin(walkCameraYaw) * cpp, fy = spp, fz = Math.cos(walkCameraYaw) * cpp;
           const rx = Math.cos(walkCameraYaw), rz = -Math.sin(walkCameraYaw);
+          /* Player locked on RIGHT of screen; larger lateral offset so body never covers crosshair */
           _aimCamP.set(
-            walker.x - fx * 2.7 + rx * 0.95 * walkShoulder,
-            walker.y + 1.55 - fy * 2.7 + 0.25,
-            walker.z - fz * 2.7 + rz * 0.95 * walkShoulder);
+            walker.x - fx * 2.85 + rx * 1.25 * walkShoulder,
+            walker.y + 1.55 - fy * 2.85 + 0.22,
+            walker.z - fz * 2.85 + rz * 1.25 * walkShoulder);
           const gh = sampleTerrainMeshHeight(_aimCamP.x, _aimCamP.z) + 0.45;
           if (_aimCamP.y < gh) _aimCamP.y = gh;
           camera.position.lerp(_aimCamP, Math.min(1, dt * 16));

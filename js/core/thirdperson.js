@@ -569,6 +569,7 @@ export class ThirdPersonControls {
 
   setAiming(value) {
     this.aiming = !!value && this._isGunWeapon();
+    if (this.aiming) this.shoulderSide = 1;  /* always right side when aiming */
     if (this._aimBtn) {
       this._aimBtn.classList.toggle("is-on", this.aiming);
       this._aimBtn.textContent = this.aiming ? "AIMING" : "AIM";
@@ -585,7 +586,7 @@ export class ThirdPersonControls {
     const armed = this._isGunWeapon();
     document.body.classList.toggle("gun-out", armed);   /* compact combat HUD (css/hud-landscape.css) */
     if (this._aimBtn) this._aimBtn.style.display = armed ? "" : "none";
-    if (this._shoulderBtn) this._shoulderBtn.style.display = armed && this.cameraMode !== "first" ? "" : "none";
+    if (this._shoulderBtn) this._shoulderBtn.style.display = "none";  /* shoulder locked to right — no swap UI */
     if (!armed) this.setAiming(false);
   }
 
@@ -617,7 +618,7 @@ export class ThirdPersonControls {
       if (e.code === "KeyJ" && !e.repeat) this.toggleJet();
       if (e.code === "KeyC") this.crouch();
       if (e.code === "KeyV" && !e.repeat) this.toggleCameraMode();
-      if (e.code === "KeyB" && !e.repeat) this.swapShoulder();
+      /* KeyB shoulder swap disabled — player stays on the right */
       if (e.code === "Mouse2") this.setAiming(true);
       if (e.code === "Digit1") { this.weapons.select("fists");  this._ul(); }
       if (e.code === "Digit2") { this.weapons.select("knife");  this._ul(); }
@@ -1595,7 +1596,7 @@ _updateCamera(dt, snap) {
     const right = new THREE.Vector3(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
     /* Player body shifts RIGHT (gun-hand side); camera sits behind the LEFT shoulder,
        so the gun shows on the right of the screen and the crosshair is clear of the body. */
-    const bodyShift = this.aiming ? 0.26 : 0.36;      /* (kept) gun-hand side of the body */
+    const bodyShift = this.aiming ? 0.38 : 0.48;      /* body further to gun-hand (right) so crosshair stays clear */
     const eye = new THREE.Vector3(
       this.pos.x + right.x * bodyShift,
       this.floorY + 1.55,
@@ -1607,8 +1608,8 @@ _updateCamera(dt, snap) {
        at the exact screen centre because the camera looks straight down the aim ray. Walls may shorten
        the pull-back distance, but never the sideways offset; if a wall blocks the preferred shoulder the
        camera tries the other shoulder. */
-    const aimDistance = this.aiming ? 1.45 : 2.00;
-    const MIN_LAT = this.aiming ? 0.52 : 0.62;
+    const aimDistance = this.aiming ? 1.55 : 2.15;
+    const MIN_LAT = this.aiming ? 0.72 : 0.82;   /* keep body well clear of screen-centre crosshair */
     const lift = this.aiming ? 0.04 : 0.14;
     const wallDist = (ox, oy, oz, dx, dy, dz, maxT) => {
       let nearest = maxT;
@@ -1624,7 +1625,7 @@ _updateCamera(dt, snap) {
       return nearest;
     };
     const placeCam = (side) => {
-      const want = (this.aiming ? 0.78 : 0.98);
+      const want = (this.aiming ? 0.95 : 1.15);  /* more lateral offset so player never covers crosshair */
       const sgn = -side;                       /* camera sits on the opposite shoulder to the gun hand */
       let reach = want;
       const hitSide = wallDist(eye.x, eye.y, eye.z, right.x * sgn, 0, right.z * sgn, want);
@@ -1638,11 +1639,17 @@ _updateCamera(dt, snap) {
       const lat = ((pos.x - this.pos.x) * right.x + (pos.z - this.pos.z) * right.z) * sgn;
       return { pos, lat };
     };
-    const pref = this.shoulderSide || 1;
+    /* Always keep the player on the RIGHT side of the screen (gun-hand side).
+       Never auto-switch shoulders — user wants a fixed right-side view.
+       If a wall clips the camera, pull it closer but stay on the same side. */
+    const pref = 1;   /* force right; ignore left auto-flip */
+    this.shoulderSide = 1;
     let pick = placeCam(pref);
+    /* If lateral clearance is still low, push the sideways reach harder instead of flipping */
     if (pick.lat < MIN_LAT) {
-      const alt = placeCam(-pref);
-      if (alt.lat > pick.lat) pick = alt;
+      const extra = placeCam(pref);
+      /* placeCam already maxes the side reach against walls; accept it on the right */
+      pick = extra;
     }
     let camPos = pick.pos;
     this._camClearLat = pick.lat;
