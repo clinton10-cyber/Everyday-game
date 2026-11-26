@@ -17,6 +17,7 @@ import { buildChiron3D } from "../vehicles/chiron3d.js";
 import { buildVehicle as buildVehicleSimple } from "../vehicles/models.js";
 import { buildTaxi3D } from "../vehicles/taxi3d.js";
 import { buildScrappy3D } from "../vehicles/scrappy3d.js";
+import { buildSkyfury, updateSkyfuryThrottle } from "../vehicles/skyfury.js";
 import { addCarDoors, setDoorTarget, updateDoors, doorPoints, isDoorOpen } from "../vehicles/car-doors.js";
 import { buildCharacter, HIP_HEIGHT, attachPhone, liveApplyConfig } from "../characters/lowpoly.js";
 import { Wardrobe } from "../core/wardrobe.js";
@@ -552,7 +553,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   }
 
   /* -------- car selection -------- */
-  const FRONT_CORRECTION = { nk250: 0, hoverboard: 0, gwagon: Math.PI, cybertruck: 0, rangerover: 0, mercedes: -Math.PI / 2, chiron: -Math.PI / 2, scrappy: 0 };
+  const FRONT_CORRECTION = { nk250: 0, hoverboard: 0, skyfury: 0, gwagon: Math.PI, cybertruck: 0, rangerover: 0, mercedes: -Math.PI / 2, chiron: -Math.PI / 2, scrappy: 0 };
   const MODELS_JS_CORRECTION = -Math.PI / 2;
   const model = (State.vehicle && State.vehicle.model) || "scrappy";
   let carMesh, frontCorrection;
@@ -564,6 +565,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   else if (model === "mercedes") { carMesh = buildMercedes3D(State.vehicle.body, State.vehicle.rim); frontCorrection = FRONT_CORRECTION.mercedes; }
   else if (model === "bmw") { carMesh = buildBMW3D(State.vehicle.body, State.vehicle.rim); frontCorrection = MODELS_JS_CORRECTION; }
   else if (model === "chiron") { carMesh = buildChiron3D(State.vehicle.body, State.vehicle.rim); frontCorrection = FRONT_CORRECTION.chiron; }
+  else if (model === "skyfury") { carMesh = buildSkyfury(State.vehicle.body || "#9aa7b4", State.vehicle.rim || "#27313d"); frontCorrection = FRONT_CORRECTION.skyfury; }
   else { carMesh = buildVehicleSimple(model, State.vehicle.body, State.vehicle.rim, { riderless: true }) || buildTaxi(); frontCorrection = FRONT_CORRECTION[model] !== undefined ? FRONT_CORRECTION[model] : MODELS_JS_CORRECTION; }
 
   const carRoot = new THREE.Group();
@@ -580,7 +582,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   for (const n of hiddenForBox) n.visible = true;
 
   /* Hinged doors on every car (not bikes / hoverboard) */
-  const IS_CAR = !["nk250", "hoverboard"].includes(model);
+  const IS_CAR = !["nk250", "hoverboard", "skyfury"].includes(model);
   if (IS_CAR) {
     try {
       addCarDoors(carMesh, { size: carSize, model });
@@ -611,12 +613,17 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   });
 
   /* ── Bike / hoverboard: the PLAYER'S own avatar rides it; the vehicle itself is empty ── */
-  const RIDE = (model === "nk250" || model === "hoverboard") ? model : null;
+  const RIDE = (model === "nk250" || model === "hoverboard" || model === "skyfury") ? model : null;
   function mountRider() {
     if (!RIDE) return;
     const parent = RIDE === "hoverboard" ? ((carMesh.userData && carMesh.userData.hoverBoard) || carMesh) : carMesh;
     if (character.parent !== parent) parent.add(character);
     if (RIDE === "nk250") { character.position.set(0, 0.93 - HIP_HEIGHT, -0.3); character.rotation.set(0, 0, 0); }
+    else if (RIDE === "skyfury") {
+      const s = (carMesh.userData && carMesh.userData.seatLocal) || { x: 0, y: 0.95, z: 1.35 };
+      character.position.set(s.x, s.y - HIP_HEIGHT, s.z);
+      character.rotation.set(0, 0, 0);
+    }
     else { character.position.set(0, 0.04 - 0.035, 0); character.rotation.set(0, -Math.PI / 2, 0); }
     character.visible = true;
   }
@@ -632,6 +639,12 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       const sh = -(0.92 + 0.35 + tuck * 0.35);
       if (r.armL) { set(r.armL.shoulder, sh, 0, 0.12); set(r.armL.elbow, -0.15, 0, 0); }
       if (r.armR) { set(r.armR.shoulder, sh, 0, -0.12); set(r.armR.elbow, -0.15, 0, 0); }
+    } else if (RIDE === "skyfury") {
+      /* seated pilot: hands on stick/throttle, knees bent in cockpit */
+      set(r.spine, 0.12, 0, 0); set(r.neck, -0.08, 0, 0); set(r.head, 0.05, 0, 0);
+      for (const leg of [r.legL, r.legR]) if (leg) { set(leg.hip, -0.85, 0, 0); set(leg.knee, 1.35, 0, 0); set(leg.ankle, -0.45, 0, 0); }
+      if (r.armL) { set(r.armL.shoulder, -0.55, 0, 0.25); set(r.armL.elbow, -0.85, 0, 0); }
+      if (r.armR) { set(r.armR.shoulder, -0.55, 0, -0.25); set(r.armR.elbow, -0.85, 0, 0); }
     } else {
       set(r.spine, 0.08, 0, 0); set(r.neck, 0, 0, 0); set(r.head, 0, 0, 0);
       for (const [leg, s] of [[r.legL, 1], [r.legR, -1]]) if (leg) { set(leg.hip, -0.12, 0, s * 0.28); set(leg.knee, 0.24, 0, 0); set(leg.ankle, -0.12, 0, 0); }
@@ -1064,6 +1077,21 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       return;
     }
     if (RIDE) {
+      if (RIDE === "skyfury") {
+        /* climb into the cockpit: walk to the wing, step up, settle in the seat */
+        const cH = Math.cos(heading), sH = Math.sin(heading);
+        const stand = { x: carPos.x - cH * 2.8, z: carPos.z + sH * 2.8 }; /* left wing side */
+        carTransit = {
+          kind: "enter_jet", t: 0, phase: 0,
+          from: { x: walker.x, z: walker.z },
+          stand,
+          d0: Math.max(0.6, Math.hypot(stand.x - walker.x, stand.z - walker.z) / 1.8),
+        };
+        getOutBtn.style.pointerEvents = "none";
+        joyBaseEl.style.display = "none";
+        input.joyX = 0; input.joyY = 0;
+        return;
+      }
       mode = "drive"; speed = 0;
       try { Sfx.play("car_engine_start"); } catch (_) {}
       getOutBtn.textContent = "GET OUT";
@@ -1096,6 +1124,27 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   function beginExitCar() {
     if (mode !== "drive" || carTransit) return;
     if (RIDE) {
+      if (RIDE === "skyfury") {
+        /* climb out of the cockpit onto the wing, then step to the ground */
+        if (character.parent !== three) {
+          three.add(character);
+          try { charRig.hips.rotation.set(0, 0, 0); charRig.spine.rotation.set(0, 0, 0); } catch (e) {}
+        }
+        character.visible = true;
+        const cH = Math.cos(heading), sH = Math.sin(heading);
+        const wing = { x: carPos.x - cH * 2.4, z: carPos.z + sH * 2.4 };
+        const stand = { x: carPos.x - cH * 3.6, z: carPos.z + sH * 3.6 };
+        const seatY = (carRoot.position.y || 0) + 1.0;
+        carTransit = {
+          kind: "exit_jet", t: 0, phase: 0,
+          from: { x: carPos.x, z: carPos.z, y: seatY },
+          wing, stand,
+        };
+        getOutBtn.style.pointerEvents = "none";
+        joyBaseEl.style.display = "none";
+        input.joyX = 0; input.joyY = 0;
+        return;
+      }
       mode = "walk";
       try { Sfx.play("car_engine_stop"); } catch (_) {}
       const cH = Math.cos(heading), sH = Math.sin(heading);
@@ -1133,6 +1182,80 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     const tr = carTransit;
     tr.t += dt;
     try { updateDoors(carMesh, dt); } catch (e) {}
+
+
+    if (tr.kind === "enter_jet") {
+      if (tr.phase === 0) {
+        const u = Math.min(1, tr.t / Math.max(0.55, tr.d0 || 0.8));
+        const e = u * u * (3 - 2 * u);
+        const p = { x: tr.from.x + (tr.stand.x - tr.from.x) * e, z: tr.from.z + (tr.stand.z - tr.from.z) * e };
+        walker.x = p.x; walker.z = p.z;
+        walker.y = sampleTerrainMeshHeight(p.x, p.z);
+        walker.yaw = Math.atan2(tr.stand.x - tr.from.x, tr.stand.z - tr.from.z);
+        stepAnim(tr, dt, "standing");
+        if (u >= 1) { tr.phase = 1; tr.t = 0; }
+        return true;
+      }
+      if (tr.phase === 1) {
+        const u = Math.min(1, tr.t / 0.85);
+        const e = u * u * (3 - 2 * u);
+        const seatY = (carRoot.position.y || 0) + 1.05;
+        const gy = sampleTerrainMeshHeight(tr.stand.x, tr.stand.z);
+        walker.x = tr.stand.x + (carPos.x - tr.stand.x) * e * 0.55;
+        walker.z = tr.stand.z + (carPos.z - tr.stand.z) * e * 0.55;
+        walker.y = gy + (seatY - gy) * e;
+        walker.yaw = heading;
+        stepAnim(tr, dt, "crouching");
+        if (u >= 1) {
+          mode = "drive"; speed = 0;
+          try { Sfx.play("car_engine_start"); } catch (_) {}
+          getOutBtn.textContent = "GET OUT";
+          getOutBtn.style.pointerEvents = "auto";
+          mountRider();
+          carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
+          carTransit = null;
+        }
+        return true;
+      }
+      return true;
+    }
+
+    if (tr.kind === "exit_jet") {
+      if (tr.phase === 0) {
+        const u = Math.min(1, tr.t / 0.7);
+        const e = u * u * (3 - 2 * u);
+        walker.x = tr.from.x + (tr.wing.x - tr.from.x) * e;
+        walker.z = tr.from.z + (tr.wing.z - tr.from.z) * e;
+        const gy = sampleTerrainMeshHeight(tr.wing.x, tr.wing.z);
+        walker.y = tr.from.y + (gy + 0.9 - tr.from.y) * e;
+        walker.yaw = heading + Math.PI / 2;
+        stepAnim(tr, dt, "crouching");
+        if (u >= 1) { tr.phase = 1; tr.t = 0; tr.from2 = { x: walker.x, z: walker.z }; }
+        return true;
+      }
+      if (tr.phase === 1) {
+        const u = Math.min(1, tr.t / 0.75);
+        const e = u * u * (3 - 2 * u);
+        walker.x = tr.from2.x + (tr.stand.x - tr.from2.x) * e;
+        walker.z = tr.from2.z + (tr.stand.z - tr.from2.z) * e;
+        walker.y = sampleTerrainMeshHeight(walker.x, walker.z);
+        walker.yaw = heading + Math.PI / 2;
+        stepAnim(tr, dt, "standing");
+        if (u >= 1) {
+          mode = "walk";
+          try { Sfx.play("car_engine_stop"); } catch (_) {}
+          walker.pitch = 0; walker.vy = 0; walker.onGround = true;
+          speed = 0;
+          getOutBtn.textContent = "GET IN CAR";
+          getOutBtn.style.pointerEvents = "auto";
+          character.visible = true;
+          joyBaseEl.style.display = "block";
+          carTransit = null;
+        }
+        return true;
+      }
+      return true;
+    }
 
     if (tr.kind === "enter") {
       /* phase 0: walk up to the door while it swings open */
@@ -1818,7 +1941,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
                model === "bmw" ? "M4" :
                model === "chiron" ? "CHIRON" :
                model === "nk250" ? "QLINK NK250" :
-               model === "hoverboard" ? "HOVERBOARD X-1" : "G-WAGON"),
+               model === "hoverboard" ? "HOVERBOARD X-1" : model === "skyfury" ? "SKYFURY JET" : "G-WAGON"),
     hint: "",
     dispose: function () {
       try { _unWardrobe(); if (_wdRaf) cancelAnimationFrame(_wdRaf); } catch (_) {}
@@ -2005,6 +2128,84 @@ try {
         /* (the seated driver is posed further down, AFTER the car has moved this frame — posing
            here used last frame's car matrix, so at speed the owner lagged behind and slid out) */
         carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
+
+
+        /* ── SKYFURY free-flight (aircraft) ───────────────────────── */
+        if (model === "skyfury" || (carMesh && carMesh.userData && carMesh.userData.isSkyfury)) {
+          const th = (input.throttle || keys.KeyW || keys.ArrowUp) ? 1 : 0;
+          const br = (input.brake || keys.KeyS || keys.ArrowDown) ? 1 : 0;
+          let steerIn = 0;
+          if (input.steerL || keys.KeyA || keys.ArrowLeft) steerIn -= 1;
+          if (input.steerR || keys.KeyD || keys.ArrowRight) steerIn += 1;
+          if (input.joyX) steerIn = input.joyX;
+          let pitchIn = 0;
+          if (input.joyY) pitchIn = -input.joyY; /* stick up = nose up */
+          if (keys.KeyR) pitchIn += 1;
+          if (keys.KeyF) pitchIn -= 1;
+
+          const _arrestMul = (typeof ArrestWatch !== "undefined" && ArrestWatch.speedMultiplier) ? ArrestWatch.speedMultiplier() : 1;
+          const targetSpd = 40 + th * 160 - br * 30;
+          speed += (targetSpd * _arrestMul - speed) * Math.min(1, dt * 1.2);
+          speed = Math.max(25, Math.min(220 * _arrestMul, speed));
+
+          /* roll from steer, pitch from stick; yaw couples to bank */
+          const rollRate = -steerIn * 1.8 * dt;
+          const pitchRate = pitchIn * 1.1 * dt;
+          carRoot.rotation.z += (rollRate - carRoot.rotation.z) * Math.min(1, dt * 4);
+          carRoot.rotation.z = Math.max(-0.85, Math.min(0.85, carRoot.rotation.z));
+          let pitch = carRoot.rotation.x || 0;
+          pitch += pitchRate;
+          pitch = Math.max(-0.9, Math.min(0.75, pitch));
+          /* auto-level when hands off */
+          if (Math.abs(steerIn) < 0.08 && Math.abs(pitchIn) < 0.08) {
+            carRoot.rotation.z *= Math.max(0, 1 - dt * 1.6);
+            pitch *= Math.max(0, 1 - dt * 0.7);
+          }
+          carRoot.rotation.x = pitch;
+
+          /* banked turn */
+          heading += (-carRoot.rotation.z) * 1.35 * dt;
+          while (heading > Math.PI) heading -= Math.PI * 2;
+          while (heading < -Math.PI) heading += Math.PI * 2;
+
+          const fx = Math.sin(heading), fz = Math.cos(heading);
+          const climb = -Math.sin(pitch); /* nose up (neg euler X in YXZ?) — use pitch sign carefully */
+          /* With rotation.x positive = nose up in YXZ order typically */
+          const forwardClimb = Math.sin(carRoot.rotation.x);
+          carPos.x += fx * speed * dt;
+          carPos.z += fz * speed * dt;
+          let cy = carRoot.position.y;
+          if (cy == null || !isFinite(cy)) cy = sampleTerrainMeshHeight(carPos.x, carPos.z) + 8;
+          cy += forwardClimb * speed * 0.55 * dt;
+          cy += (th > 0.5 ? 2.5 : -1.2) * dt; /* slight climb under power */
+          const ground = sampleTerrainMeshHeight(carPos.x, carPos.z);
+          if (cy < ground + 6) {
+            cy = ground + 6;
+            carRoot.rotation.x = Math.max(0.05, carRoot.rotation.x);
+          }
+          if (cy > 900) cy = 900;
+
+          carPos.x = Math.max(-1900, Math.min(1900, carPos.x));
+          carPos.z = Math.max(-1900, Math.min(1900, carPos.z));
+
+          carRoot.position.set(carPos.x, cy, carPos.z);
+          carRoot.rotation.y = heading;
+          try { updateSkyfuryThrottle(carMesh, th); } catch (e) {}
+
+          /* camera chase behind jet */
+          const camDist = 18 + Math.abs(speed) * 0.04;
+          const camH = cy + 5;
+          const cx = carPos.x - Math.sin(heading + cameraYaw) * camDist;
+          const cz = carPos.z - Math.cos(heading + cameraYaw) * camDist;
+          camera.position.lerp(new THREE.Vector3(cx, camH, cz), Math.min(1, dt * 6));
+          camera.lookAt(carPos.x, cy + 1.2, carPos.z);
+
+          if (hudEl) hudEl.textContent = Math.round(speed * 3.6) + " km/h · ALT " + Math.round(cy - ground) + " m";
+          if (RIDE) { try { poseRider(dt); } catch (e) {} }
+          /* skip ground-car physics for this frame */
+          window.__ph3d_player = { x: carPos.x, z: carPos.z, yaw: heading, y: cy };
+          return;
+        }
 
         const th = (input.throttle || keys.KeyW || keys.ArrowUp) ? 1 : 0;
         const br = (input.brake || keys.KeyS || keys.ArrowDown) ? 1 : 0;
