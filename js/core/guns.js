@@ -471,7 +471,7 @@ export class Gun {
     if (!R) return;
     const kick  = ({ pistol: PISTOL_KICK, sniper: SNIPER_KICK, rifle: RIFLE_KICK, smg: SMG_KICK, shotgun: SHOTGUN_KICK, lmg: LMG_KICK })[this.type] || PISTOL_KICK;
     const c = this.controls || {};
-    const aimPitch = c.aimPitch || 0;
+    const aimPitch = (c._gunVisPitch != null) ? c._gunVisPitch : (c.aimPitch || 0);
     const sets = GUN_STANCE[this.type] || GUN_STANCE.pistol;
 
     /* hip -> aimed blend, eased over ~0.12 s so raising the gun is a motion, not a snap */

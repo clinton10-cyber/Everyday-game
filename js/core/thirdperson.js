@@ -1539,7 +1539,7 @@ this._lastVy = vyBeforeSnap;
       const HP = 1.0, c = Math.cos(tl), sn = Math.sin(tl);
       this.avatar.position.set(avX - Math.sin(this.yaw) * HP * sn, this.floorY + HP * (1 - c) - 0.52 * swimBlend + swimBob, avZ - Math.cos(this.yaw) * HP * sn);
     }
-    this.avatar.rotation.y = this.yaw;
+    this.avatar.rotation.y = this.yaw + ((this.state === "standing" && this.cameraMode !== "first" && this._isGunWeapon()) ? (this._gunConvYaw || 0) : 0);
 
     this._nearCar = (this.state === "standing") ? this._nearestCar() : null;
     this.nearSit = this._nearestSeat();
@@ -1574,6 +1574,7 @@ _updateCamera(dt, snap) {
     this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, Math.max(0, dt) * 12);
     this.camera.updateProjectionMatrix();
     this._aimOrigin = eye; this._aimDir = aimDir;
+    this._gunConvYaw = 0; this._gunVisPitch = null;
     return;
   } else {
     this._setFirstPersonVisibility(false);
@@ -1601,35 +1602,50 @@ _updateCamera(dt, snap) {
       this.pos.z + right.z * bodyShift
     );
 
-    /* Camera sits well to the side of the body (≈0.37 m off its centre line) so neither the head nor the
-       shoulders sit on the crosshair — before, it was ~0.1 m off and the body blocked the target. */
+    /* Crosshair clearance: the aim ray (camera -> crosshair) always passes at least MIN_LAT metres to the
+       side of the body axis, so the player can never sit under the crosshair. The crosshair itself stays
+       at the exact screen centre because the camera looks straight down the aim ray. Walls may shorten
+       the pull-back distance, but never the sideways offset; if a wall blocks the preferred shoulder the
+       camera tries the other shoulder. */
     const aimDistance = this.aiming ? 1.45 : 2.00;
-    const shoulderOffset = -(this.aiming ? 0.62 : 0.98) * (this.shoulderSide || 1);
-    let camPos = eye.clone()
-      .addScaledVector(aimDir, -aimDistance)
-      .addScaledVector(right, shoulderOffset)
-      .add(new THREE.Vector3(0, this.aiming ? 0.04 : 0.14, 0));
-
-    if (this.world.colliders) {
-      const backDir = new THREE.Vector3().subVectors(camPos, eye);
-      const backLen = backDir.length();
-      if (backLen > 0.01) {
-        backDir.divideScalar(backLen);
-        let nearest = backLen;
+    const MIN_LAT = this.aiming ? 0.52 : 0.62;
+    const lift = this.aiming ? 0.04 : 0.14;
+    const wallDist = (ox, oy, oz, dx, dy, dz, maxT) => {
+      let nearest = maxT;
+      if (this.world.colliders) {
         for (const c of this.world.colliders) {
           if (c.level !== this.level) continue;
-          const t = rayAABB(
-            eye.x, eye.y, eye.z, backDir.x, backDir.y, backDir.z,
+          const t = rayAABB(ox, oy, oz, dx, dy, dz,
             c.minX, c.y0 != null ? c.y0 : 0, c.minZ,
-            c.maxX, c.y1 != null ? c.y1 : TALL, c.maxZ,
-            nearest
-          );
+            c.maxX, c.y1 != null ? c.y1 : TALL, c.maxZ, nearest);
           if (t > 0 && t < nearest) nearest = t;
         }
-        if (flyCam) { const mh = this._meshRay(eye.x, eye.y, eye.z, backDir.x, backDir.y, backDir.z, backLen); if (mh && mh.point.y > baseY + 1.2 && mh.distance < nearest) nearest = mh.distance; }
-        if (nearest < backLen) camPos.copy(eye).addScaledVector(backDir, Math.max(0.35, nearest - 0.15));
       }
+      return nearest;
+    };
+    const placeCam = (side) => {
+      const want = (this.aiming ? 0.78 : 0.98);
+      const sgn = -side;                       /* camera sits on the opposite shoulder to the gun hand */
+      let reach = want;
+      const hitSide = wallDist(eye.x, eye.y, eye.z, right.x * sgn, 0, right.z * sgn, want);
+      if (hitSide < want) reach = Math.max(0, hitSide - 0.15);
+      const A = eye.clone().addScaledVector(right, sgn * reach).add(new THREE.Vector3(0, lift, 0));
+      let back = aimDistance;
+      let nearest = wallDist(A.x, A.y, A.z, -aimDir.x, -aimDir.y, -aimDir.z, aimDistance);
+      if (flyCam) { const mh = this._meshRay(A.x, A.y, A.z, -aimDir.x, -aimDir.y, -aimDir.z, aimDistance); if (mh && mh.point.y > baseY + 1.2 && mh.distance < nearest) nearest = mh.distance; }
+      if (nearest < aimDistance) back = Math.max(0, nearest - 0.15);
+      const pos = A.clone().addScaledVector(aimDir, -back);
+      const lat = ((pos.x - this.pos.x) * right.x + (pos.z - this.pos.z) * right.z) * sgn;
+      return { pos, lat };
+    };
+    const pref = this.shoulderSide || 1;
+    let pick = placeCam(pref);
+    if (pick.lat < MIN_LAT) {
+      const alt = placeCam(-pref);
+      if (alt.lat > pick.lat) pick = alt;
     }
+    let camPos = pick.pos;
+    this._camClearLat = pick.lat;
 
     if (this.world.groundAt) { const gy = this.world.groundAt(camPos.x, camPos.z) + 0.3; if (camPos.y < gy) camPos.y = gy; }
     this.camera.position.copy(camPos);
@@ -1661,10 +1677,31 @@ _updateCamera(dt, snap) {
     if (shotDir.lengthSq() > 0.25 && shotDir.normalize().dot(aimDir) > 0.6) { /* ok */ } else shotDir.copy(aimDir);
     this._aimOrigin = chest;
     this._aimDir = shotDir;
+
+    /* Make the gun itself point at the crosshair target: aim from the gun hand to the point under the
+       crosshair and ease the visual yaw/pitch toward it (the body heading used for movement is untouched). */
+    const gunO = new THREE.Vector3(this.pos.x + right.x * 0.22, this.floorY + 1.35, this.pos.z + right.z * 0.22);
+    const gd = aimPoint.clone().sub(gunO);
+    let cYaw = 0, cPitch = this.aimPitch;
+    if (gd.lengthSq() > 0.36) {
+      gd.normalize();
+      if (gd.dot(aimDir) > 0.6) {
+        cYaw = Math.atan2(gd.x, gd.z) - this.yaw;
+        while (cYaw > Math.PI) cYaw -= Math.PI * 2;
+        while (cYaw < -Math.PI) cYaw += Math.PI * 2;
+        cYaw = Math.max(-0.5, Math.min(0.5, cYaw));
+        cPitch = Math.max(-1.05, Math.min(1.05, Math.asin(Math.max(-1, Math.min(1, gd.y)))));
+      }
+    }
+    const k = snap ? 1 : 1 - Math.exp(-18 * Math.max(0, dt || 0));
+    this._gunConvYaw = (this._gunConvYaw || 0) + (cYaw - (this._gunConvYaw || 0)) * k;
+    this._gunVisPitch = (this._gunVisPitch == null ? cPitch : this._gunVisPitch) + (cPitch - (this._gunVisPitch == null ? cPitch : this._gunVisPitch)) * k;
     return;
   }
   this._aimOrigin = null;
   this._aimDir = null;
+  this._gunConvYaw = 0;
+  this._gunVisPitch = null;
 
   const seated = this.state !== "standing" && this.state !== "crouching";
   const zen = this._emoteTimer > 0 && this._emoteName === "meditate";
