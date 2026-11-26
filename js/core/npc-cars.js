@@ -619,8 +619,11 @@ export const NPC_Cars = {
     const dl = Math.hypot(dir.x, dir.z) || 1;
     const pw = o.power == null ? 1 : _clamp(o.power, 0.3, 1.3);
     car.wreck = {
-      vx: dir.x / dl * (6 + 12 * pw), vz: dir.z / dl * (6 + 12 * pw), vy: 7 + 8 * pw,
-      sx: _rnd(-4, 4) * pw, sy: _rnd(-3, 3), sz: _rnd(-4, 4) * pw, t: 0, landed: false, bounces: 0,
+      t: 0, landed: false,
+      body: CrashFX.makeWreckBody(m, { x: CAR_HALF_W * 2, y: 1.5, z: CAR_HALF_L * 2 }, {
+        vx: dir.x / dl * (6 + 12 * pw), vz: dir.z / dl * (6 + 12 * pw), vy: 7 + 8 * pw,
+        wx: _rnd(-4, 4) * pw, wy: _rnd(-3, 3), wz: _rnd(-4, 4) * pw, color: car.colorHex,
+      }),
     };
     CrashFX.explosion(p.x, 0.9, p.z, { scale: 1.15, color: car.colorHex, wheels: 2 });
     try { car._restore = CrashFX.charCar(m); } catch (e) {}
@@ -669,29 +672,13 @@ export const NPC_Cars = {
     const w = car.wreck, m = car.mesh;
     if (!w) return;
     w.t += dt;
-    if (!w.landed) {
-      w.vy -= 20 * dt;
-      let nx = m.position.x + w.vx * dt, nz = m.position.z + w.vz * dt;
-      if (this._insideAABB(nx, nz, _aabbs, 1.2)) { w.vx *= -0.2; w.vz *= -0.2; nx = m.position.x; nz = m.position.z; }
-      m.position.set(nx, m.position.y + w.vy * dt, nz);
-      m.rotation.x += w.sx * dt; m.rotation.y += w.sy * dt; m.rotation.z += w.sz * dt;
-      if (m.position.y <= 0.02 && w.vy < 0) {
-        m.position.y = 0.02;
-        if (Math.abs(w.vy) > 5 && w.bounces < 2) {                  /* heavy bounce with a fresh shower of sparks */
-          w.vy *= -0.3; w.vx *= 0.55; w.vz *= 0.55; w.sx *= 0.4; w.sz *= 0.4; w.bounces++;
-          try { CrashFX.impact(nx, 0.3, nz, { power: 0.45, color: car.colorHex }); } catch (e) {}
-        } else {
-          w.landed = true;
-          const flipped = Math.random() < 0.35;                      /* sometimes it ends up on its roof */
-          m.rotation.x = _rnd(-0.1, 0.1); m.rotation.z = flipped ? Math.PI : _rnd(-0.18, 0.18);
-          if (flipped) m.position.y = 1.4;
-          w.settleY = m.position.y;
-        }
-      }
-    } else {
-      w.vx *= Math.max(0, 1 - 2.5 * dt); w.vz *= Math.max(0, 1 - 2.5 * dt);
-      const nx = m.position.x + w.vx * dt, nz = m.position.z + w.vz * dt;
-      if (!this._insideAABB(nx, nz, _aabbs, 1.2)) { m.position.x = nx; m.position.z = nz; }
+    const bd = w.body;
+    if (!bd.done) {
+      /* buildings stop it dead; everything else is rigid-body physics: it rotates about its centre, bounces,
+         and its lowest corner is always held above the road, so it can never sink */
+      if (this._insideAABB(bd.c.x + bd.vx * dt, bd.c.z + bd.vz * dt, _aabbs, 1.2)) { bd.vx *= -0.2; bd.vz *= -0.2; }
+      CrashFX.stepWreckBody(bd, dt, 0.02);
+      w.landed = bd.landed;
     }
     /* burnt out: remove it and put a fresh car back on the road */
     if (w.t > 16) {

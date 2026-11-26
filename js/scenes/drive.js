@@ -1482,7 +1482,10 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     CrashFX.explosion(carPos.x, y0 + 0.9, carPos.z, { scale: 1.25, color: _carHex(), wheels: 2, groundY: y0 });
     try { carCharRestore = CrashFX.charCar(carMesh); } catch (e) {}
     carBurn = CrashFX.fire(carPos.x, y0, carPos.z, { follow: carRoot, life: 30, scale: 1.2, offsetY: 0.8 });
-    carFly = { vx: dx * 8, vz: dz * 8, vy: 8 + 4 * (o.power || 1), sx: (Math.random() - 0.5) * 5, sz: (Math.random() - 0.5) * 5, y: y0, landed: false, bounces: 0 };
+    carFly = CrashFX.makeWreckBody(carRoot, { x: carSize.x, y: carSize.y, z: carSize.z }, {
+      vx: dx * 8, vz: dz * 8, vy: 8 + 4 * (o.power || 1),
+      wx: (Math.random() - 0.5) * 8, wy: (Math.random() - 0.5) * 4, wz: (Math.random() - 0.5) * 8, color: _carHex(),
+    });
     const driving = (mode === "drive");
     speed = 0;
     if (driving) {                                             /* you are thrown out of the fireball */
@@ -1515,34 +1518,13 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     }
     carWreckT += dt;
     const f = carFly;
-    if (f) {
-      if (!f.landed) {
-        f.vy -= 20 * dt;
-        const res = resolveCarAABBs(carPos.x + f.vx * dt, carPos.z + f.vz * dt, heading, carSize.x * 0.5, carSize.z * 0.5, worldAABBs);
-        if (Math.abs(res[0] - (carPos.x + f.vx * dt)) > 1e-4 || Math.abs(res[1] - (carPos.z + f.vz * dt)) > 1e-4) { f.vx *= -0.2; f.vz *= -0.2; }
-        carPos.x = res[0]; carPos.z = res[1];
-        f.y += f.vy * dt;
-        carRoot.position.set(carPos.x, f.y, carPos.z);
-        carRoot.rotation.x += f.sx * dt; carRoot.rotation.z += f.sz * dt;
-        const gy = sampleTerrainMeshHeight(carPos.x, carPos.z) + 0.02;
-        if (f.y <= gy && f.vy < 0) {
-          f.y = gy;
-          if (Math.abs(f.vy) > 5 && f.bounces < 2) {
-            f.vy *= -0.3; f.vx *= 0.55; f.vz *= 0.55; f.sx *= 0.4; f.sz *= 0.4; f.bounces++;
-            CrashFX.impact(carPos.x, gy + 0.3, carPos.z, { power: 0.45, color: _carHex() });
-          } else {
-            f.landed = true;
-            const flipped = Math.random() < 0.35;
-            carRoot.rotation.set(Math.random() * 0.2 - 0.1, heading, flipped ? Math.PI : Math.random() * 0.3 - 0.15, "YXZ");
-            carRoot.position.y = gy + (flipped ? carSize.y * 0.95 : 0);
-          }
-        }
-      } else {
-        f.vx *= Math.max(0, 1 - 2.5 * dt); f.vz *= Math.max(0, 1 - 2.5 * dt);
-        const res = resolveCarAABBs(carPos.x + f.vx * dt, carPos.z + f.vz * dt, heading, carSize.x * 0.5, carSize.z * 0.5, worldAABBs);
-        carPos.x = res[0]; carPos.z = res[1];
-        carRoot.position.x = carPos.x; carRoot.position.z = carPos.z;
-      }
+    if (f && !f.done) {
+      /* rigid-body wreck: spins about its centre, bounces, lowest corner always above the road (no sinking) */
+      const nx = f.c.x + f.vx * dt, nz = f.c.z + f.vz * dt;
+      const res = resolveCarAABBs(nx, nz, heading, carSize.x * 0.5, carSize.z * 0.5, worldAABBs);
+      if (Math.abs(res[0] - nx) > 1e-4 || Math.abs(res[1] - nz) > 1e-4) { f.vx *= -0.2; f.vz *= -0.2; }
+      CrashFX.stepWreckBody(f, dt, sampleTerrainMeshHeight(f.c.x, f.c.z) + 0.02);
+      carPos.x = f.c.x; carPos.z = f.c.z;
     }
     if (carWreckT > 30) repairPlayerCar();
   }

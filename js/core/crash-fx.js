@@ -395,4 +395,94 @@ export const CrashFX = {
   },
 };
 
+
+/* ───────── wreck rigid body ─────────
+   A tumbling car is a box that spins about its CENTRE of mass. Every step the lowest of its 8 corners is
+   found and the body is lifted so that corner never goes below the ground — so a car can't sink into
+   the road however it rotates. Landing bounces with restitution, kicks the body's spin from the contact
+   point, rubs off speed, then eases the nearest flat face (wheels, side or roof) flat on the ground. */
+const _UP = new THREE.Vector3(0, 1, 0);
+const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion(), _tq2 = new THREE.Quaternion(), _ident = new THREE.Quaternion();
+const _AX = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
+
+CrashFX.makeWreckBody = function (obj, size, o) {
+  o = o || {};
+  const q = obj.quaternion.clone();
+  const c = new THREE.Vector3(0, size.y / 2, 0).applyQuaternion(q).add(obj.position);   /* obj origin = base of the car */
+  return { obj, size, q, c, vx: o.vx || 0, vy: o.vy || 0, vz: o.vz || 0, wx: o.wx || 0, wy: o.wy || 0, wz: o.wz || 0, landed: false, done: false, rest: 0, color: o.color };
+};
+
+/* advance one step; gy = ground height under the car. Returns true once the car has come to rest. */
+CrashFX.stepWreckBody = function (b, dt, gy) {
+  if (b.done) return true;
+  dt = Math.min(dt, 1 / 30);
+  b.vy -= 20 * dt;
+  b.c.x += b.vx * dt; b.c.y += b.vy * dt; b.c.z += b.vz * dt;
+  const wl = Math.hypot(b.wx, b.wy, b.wz);
+  if (wl > 1e-4) {
+    _tv.set(b.wx, b.wy, b.wz).multiplyScalar(1 / wl);
+    _tq.setFromAxisAngle(_tv, wl * dt);
+    b.q.premultiply(_tq).normalize();
+  }
+  /* lowest corner of the rotated box */
+  const hx = b.size.x / 2, hy = b.size.y / 2, hz = b.size.z / 2;
+  let low = 1e9, lx = 0, lz = 0;
+  for (let i = 0; i < 8; i++) {
+    _tv.set(i & 1 ? hx : -hx, i & 2 ? hy : -hy, i & 4 ? hz : -hz).applyQuaternion(b.q);
+    if (_tv.y < low) { low = _tv.y; lx = _tv.x; lz = _tv.z; }
+  }
+  let contact = false;
+  if (b.c.y + low < gy) {                                   /* touching or below the road: lift it out, never sink */
+    contact = true;
+    b.c.y = gy - low;
+    if (b.vy < 0) {
+      const vn = -b.vy;
+      const e = vn > 3 ? 0.32 : 0;                           /* restitution: small impacts just stop */
+      b.vy = vn * e;
+      const j = vn * (1 + e) * 0.1;                          /* the contact corner kicks the spin (r × up) */
+      b.wx += -lz * j; b.wz += lx * j;
+      if (vn > 4) {
+        b.vx *= 0.75; b.vz *= 0.75;
+        try { CrashFX.impact(b.c.x, gy + 0.3, b.c.z, { power: Math.min(0.5, vn / 30), color: b.color, groundY: gy }); } catch (e) {}
+      }
+    }
+    const fr = Math.max(0, 1 - 3 * dt);                      /* road friction + spin damping */
+    b.vx *= fr; b.vz *= fr;
+    const ad = Math.max(0, 1 - 3 * dt);
+    b.wx *= ad; b.wy *= ad; b.wz *= ad;
+  } else {
+    const air = Math.max(0, 1 - 0.15 * dt);
+    b.wx *= air; b.wy *= air; b.wz *= air;
+  }
+  /* come to rest: ease the most-vertical body axis exactly upright (wheels down, on a side, or on its roof) */
+  const sp = Math.hypot(b.vx, b.vz);
+  if (contact && sp < 1.4 && Math.abs(b.vy) < 1.2 && Math.hypot(b.wx, b.wy, b.wz) < 1.8) {
+    let best = 0, bd = -1, bs = 1;
+    for (let i = 0; i < 2; i++) {                            /* wheels/roof (Y) or a side (X) — never balanced on its nose */
+      _tv.copy(_AX[i === 0 ? 1 : 0]).applyQuaternion(b.q);
+      if (Math.abs(_tv.y) > bd) { bd = Math.abs(_tv.y); best = i === 0 ? 1 : 0; bs = Math.sign(_tv.y) || 1; }
+    }
+    _tv.copy(_AX[best]).applyQuaternion(b.q).multiplyScalar(bs);
+    _tq2.setFromUnitVectors(_tv, _UP);
+    const ang = 2 * Math.acos(Math.min(1, Math.abs(_tq2.w)));
+    _tq.copy(_ident).slerp(_tq2, Math.min(1, 6 * dt));
+    b.q.premultiply(_tq).normalize();
+    b.wx *= 0.8; b.wy *= 0.8; b.wz *= 0.8;
+    b.rest += dt;
+    if ((ang < 0.02 && sp < 0.25) || b.rest > 3) { b.landed = true; }
+    if (b.landed && sp < 0.15) { b.vx = b.vy = b.vz = b.wx = b.wy = b.wz = 0; b.done = true; }
+  } else if (!contact) { b.rest = 0; }
+  /* the settle rotation may have dipped a corner: clamp once more so nothing ever sinks */
+  if (contact) {
+    let low2 = 1e9;
+    for (let i = 0; i < 8; i++) { _tv.set(i & 1 ? hx : -hx, i & 2 ? hy : -hy, i & 4 ? hz : -hz).applyQuaternion(b.q); if (_tv.y < low2) low2 = _tv.y; }
+    if (b.c.y + low2 < gy) b.c.y = gy - low2;
+  }
+  /* write back: the object's origin is the base, the body's centre is half a car-height up its own axis */
+  b.obj.quaternion.copy(b.q);
+  _tv.set(0, b.size.y / 2, 0).applyQuaternion(b.q);
+  b.obj.position.set(b.c.x - _tv.x, b.c.y - _tv.y, b.c.z - _tv.z);
+  return b.done;
+};
+
 if (typeof window !== "undefined") window.__ph3d_crashfx = CrashFX;
