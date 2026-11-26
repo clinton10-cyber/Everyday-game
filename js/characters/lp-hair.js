@@ -19,9 +19,10 @@ export function buildHair(cfg, mats, head) {
     case "buzz": cap(g, M, 0.109, 0.068, 1.005, 1.03, 1.02, PHI * 0.92); break;
     case "curly": {
       cap(g, M, 0.120, 0.072, 1.04, 1.10, 1.06);
-      for (let i = 0; i < 14; i++) {
-        const a = (i / 14) * 6.283, phi = 0.12 + (i % 3) * 0.11;
-        S(0.027, Math.cos(a) * Math.sin(phi) * 0.11, 0.115 + Math.cos(phi) * 0.055, Math.sin(a) * Math.sin(phi) * 0.11);
+      for (let i = 0; i < 22; i++) {        /* curls sit ON the cap surface (they used to be buried inside it) */
+        const a = (i / 22) * 6.283 * 2.0, phi = 0.12 + (i % 4) * 0.30;
+        if (Math.cos(a) > 0.5 && phi > 0.9) continue;      /* keep the forehead clear */
+        S(0.030, Math.sin(a) * Math.sin(phi) * 0.128, 0.074 + Math.cos(phi) * 0.138, Math.cos(a) * Math.sin(phi) * 0.132);
       }
       break;
     }
@@ -68,7 +69,7 @@ export function buildHair(cfg, mats, head) {
       mk(sphere(0.094, 12, 5, 0, 6.283, 0, 1.2), M, g, 0, 0.225, -0.005).scale.set(1.02, 0.35, 1.05);
       break;
     }
-    case "bob": cap(g, M, 0.118, 0.07, 1.04, 1.10, 1.08); mk(new THREE.CylinderGeometry(0.118, 0.12, 0.10, 14, 1, true), M, g, 0, 0.02, -0.01).material = M; S(0.1, 0, 0.0, -0.05, 1.12, 0.9, 0.95, 10, 8); break;
+    case "bob": cap(g, M, 0.118, 0.07, 1.04, 1.10, 1.08); mk(new THREE.CylinderGeometry(0.118, 0.12, 0.10, 14, 1, true, 1.1, Math.PI * 2 - 2.2), M, g, 0, 0.02, -0.01).material = M;   /* open at the face (it used to wrap the eyes and nose) */ S(0.1, 0, 0.0, -0.05, 1.12, 0.9, 0.95, 10, 8); break;
     case "pigtails":
       cap(g, M, 0.112);
       for (const s of [-1, 1]) {

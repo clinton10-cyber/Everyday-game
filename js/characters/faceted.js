@@ -319,13 +319,13 @@ function buildHead(rig, B, M, o) {
 }
 
 /* ── hair ───────────────────────────────────────────────────────────── */
-export const HAIR_STYLES = ["short", "buzz", "bob", "long", "ponytail", "bun", "afro", "bald"];
+export const HAIR_STYLES = ["short", "buzz", "bob", "long", "ponytail", "bun", "afro", "curly", "braids", "locs", "mohawk", "hightop", "pigtails", "knots", "pompadour", "bald"];
 function buildHair(rig, B, M, o, rings) {
   const head = rig.head, style = HAIR_STYLES.includes(o.hairStyle || o.hair) ? (o.hairStyle || o.hair) : "short";
   if (style === "bald") return;
-  const off = style === "buzz" ? 0.005 : style === "afro" ? 0.050 : 0.012;   /* afro = the normal hairline cap, puffed outward (a solid ball used to cover the face) */
+  const off = (style === "buzz" || style === "mohawk") ? 0.005 : style === "afro" ? 0.050 : style === "curly" ? 0.020 : 0.012;   /* afro = the normal hairline cap, puffed outward (a solid ball used to cover the face) */
   const hk = B.head.h;
-  const front = style === "short" ? 0.168 : 0.172, back = style === "buzz" ? 0.082 : 0.050;
+  const front = style === "short" ? 0.168 : 0.172, back = (style === "buzz" || style === "mohawk") ? 0.082 : 0.050;
   const edge = (a) => lerp(back, front, sstep((Math.cos(a) + 1) / 2)) * hk;
   const yTop = rings[rings.length - 1].y;
 
@@ -386,6 +386,75 @@ function buildHair(rig, B, M, o, rings) {
     mesh(boxGeo(0.040, 0.014, 0.040), M.top, g, 0, -0.01, -0.01);
   }
   if (style === "bun") mesh(blobGeo(0.050, 0), M.hair, head, 0, yTop + 0.020, -0.018);
+
+  /* ── styles that match the classic look: each sits on the same hairline cap, then adds its signature shape ── */
+  /* point on the hair surface at angle a (0 = front, π = back) and height y, pushed out by `out` */
+  const hp = (a, y, out = 0) => {
+    const sf = headSurface(rings, clamp(y, rings[0].y, yTop));
+    return [Math.sin(a) * (sf.rx + off + out), y, sf.cz + Math.cos(a) * (sf.rz + off + out)];
+  };
+  const part = (g, x, y, z, rx = 0, rz = 0) => { const m = mesh(g, M.hair, head, x, y, z); m.rotation.set(rx, 0, rz); return m; };
+  const strand = (a, y0, len, r, out) => {            /* a hanging braid / loc */
+    const [x, , z] = hp(a, y0, out);
+    const g = new THREE.CylinderGeometry(r, r * 0.65, len, 5);
+    return part(g, x, y0 - len / 2, z);
+  };
+  if (style === "curly") {                              /* soft curls all over the cap */
+    part(blobGeo(0.032, 0), 0, yTop + 0.008, rings[rings.length - 1].cz);
+    for (const [y, n] of [[yTop - 0.040, 7], [yTop - 0.072, 9]]) {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + (y > yTop - 0.06 ? 0.2 : 0);
+        if (Math.cos(a) > 0.55 && y < yTop - 0.06) continue;   /* keep the forehead clear */
+        const [x, yy, z] = hp(a, y, 0.000);
+        part(blobGeo(0.028, 0), x, yy, z);
+      }
+    }
+  }
+  if (style === "braids" || style === "locs") {
+    const loc = style === "locs", n = loc ? 14 : 9;
+    for (let i = 0; i < n; i++) {
+      const a = loc ? (i / n) * Math.PI * 2 : Math.PI + (i - (n - 1) / 2) * 0.36;
+      if (loc && Math.cos(a) > 0.62) continue;                /* locs frame the face but never cover it */
+      const len = loc ? 0.14 + (i % 3) * 0.04 : 0.20;
+      strand(a, 0.075 * hk, len, loc ? 0.014 : 0.010, 0.006);
+    }
+    if (!loc) for (let i = 0; i < 7; i++) {                  /* cornrow ridges running front to back */
+      const x = (i - 3) * 0.024, yy = yTop - Math.abs(x) * 0.5 + 0.004;
+      part(boxGeo(0.009, 0.009, 0.15), x, yy, rings[rings.length - 1].cz - 0.01, -0.12);
+    }
+  }
+  if (style === "mohawk") {
+    for (let i = 0; i < 7; i++) {
+      const t = i / 6, h = 0.095 + Math.sin(t * Math.PI) * 0.05;
+      const g = new THREE.ConeGeometry(0.024, h, 5);
+      part(g, 0, yTop + h * 0.35 - Math.pow(Math.abs(t - 0.5) * 2, 2) * 0.03, lerp(0.075, -0.10, t) + rings[rings.length - 1].cz, (t - 0.5) * 0.7);
+    }
+  }
+  if (style === "hightop") {
+    const g = new THREE.CylinderGeometry(0.090, 0.104, 0.100, 8);
+    part(g, 0, yTop + 0.030, rings[rings.length - 1].cz - 0.004);
+  }
+  if (style === "pompadour") {
+    const g = blobGeo(0.046, 1); g.scale(1.45, 0.80, 1.55);
+    part(g, 0, yTop + 0.004, rings[rings.length - 1].cz + 0.058, 0.30);
+  }
+  if (style === "knots") {
+    part(blobGeo(0.034, 0), 0, yTop + 0.022, rings[rings.length - 1].cz);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + 0.2;
+      if (Math.cos(a) > 0.8) continue;
+      const [x, , z] = hp(a, yTop - 0.045, 0.012);
+      part(blobGeo(0.032, 0), x, yTop - 0.030, z);
+    }
+  }
+  if (style === "pigtails") {
+    for (const sg of [-1, 1]) {
+      const g = new THREE.Group(); g.position.set(sg * 0.108, 0.090 * hk, -0.030); g.rotation.z = sg * 0.22; g.scale.setScalar(0.72); head.add(g);
+      const rr = ringsFrom(-0.20, 0, 6, { rx: [0.010, 0.030, 0.040, 0.034, 0.024], rz: [0.010, 0.026, 0.036, 0.030, 0.022] });
+      mesh(loft(rr, { seg: 6 }), M.hair, g, 0, 0, 0);
+      mesh(boxGeo(0.030, 0.014, 0.030), M.top, g, 0, 0.0, 0);
+    }
+  }
 }
 
 /* ── skirts / dresses: the maths ─────────────────────────────────────
@@ -867,8 +936,8 @@ const BOTTOM_MAP = { jeans: "jeans", shorts: "shorts", tracksuit: "tracksuit", b
   leggings: "leggings", skirt: "skirt", miniskirt: "skirt", palazzo: "palazzo", underwear: "shorts", offcloth: "none" };
 const SHOE_MAP = { sneakers: "sneaker", hightops: "sneaker", cleats: "sneaker", boots: "boot", wellies: "boot", formal: "formal",
   loafers: "formal", heels: "heels", barefoot: "barefoot", sandals: "barefoot", slippers: "barefoot", flipflops: "barefoot" };
-const HAIR_MAP = { short: "short", buzz: "buzz", curly: "afro", long: "long", ponytail: "ponytail", bald: "bald", afro: "afro", bun: "bun",
-  bob: "bob", braids: "long", locs: "long", mohawk: "buzz", hightop: "short", pigtails: "ponytail", knots: "bun", pompadour: "short" };
+const HAIR_MAP = { short: "short", buzz: "buzz", curly: "curly", long: "long", ponytail: "ponytail", bald: "bald", afro: "afro", bun: "bun",
+  bob: "bob", braids: "braids", locs: "locs", mohawk: "mohawk", hightop: "hightop", pigtails: "pigtails", knots: "knots", pompadour: "pompadour" };
 export function facetedOptionsFromConfig(cfg, colors) {
   const c = colors || {};
   const body = cfg.gender === "masculine" ? "male" : cfg.gender === "feminine" ? "female" : "neutral";
