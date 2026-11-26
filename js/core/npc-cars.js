@@ -378,6 +378,7 @@ export const NPC_Cars = {
       const fx = cur.tx, fz = cur.tz;
       for (const o of this.list) {
         if (o === car) continue;
+        if (o.dead && !(o.wreck && o.wreck.landed)) continue;      /* a wreck still in the air is no obstacle */
         const dx = o.mesh.position.x - car.mesh.position.x;
         const dz = o.mesh.position.z - car.mesh.position.z;
         const ahead = dx * fx + dz * fz;
@@ -623,7 +624,7 @@ export const NPC_Cars = {
     };
     CrashFX.explosion(p.x, 0.9, p.z, { scale: 1.15, color: car.colorHex, wheels: 2 });
     try { car._restore = CrashFX.charCar(m); } catch (e) {}
-    car._fire = CrashFX.fire(p.x, p.y, p.z, { follow: m, life: 26, scale: 1.1, offsetY: 0.8 });
+    car._fire = CrashFX.fire(p.x, p.y, p.z, { follow: m, life: 16, scale: 1.1, offsetY: 0.8 });
     try { car._lights && car._lights.setNight(0); } catch (e) {}
     /* the blast hurts whatever is next to it: cars smoke, people are thrown */
     try { CrashFX.blast({ x: p.x, y: 0.8, z: p.z }, { radius: 6.5, damage: 95, power: 0.7, source: "wreck", skip: car }); } catch (e) {}
@@ -693,7 +694,7 @@ export const NPC_Cars = {
       if (!this._insideAABB(nx, nz, _aabbs, 1.2)) { m.position.x = nx; m.position.z = nz; }
     }
     /* burnt out: remove it and put a fresh car back on the road */
-    if (w.t > 27) {
+    if (w.t > 16) {
       const i = this.list.indexOf(car);
       if (i >= 0) this.list.splice(i, 1);
       try { CrashFX.stopFire(car._fire); CrashFX.stopFire(car._smoke); } catch (e) {}

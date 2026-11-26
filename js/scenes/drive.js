@@ -2271,6 +2271,7 @@ try {
             const npcCars = window.__ph3d_npc_cars;
             if (npcCars && npcCars.list) {
               for (const npcCar of npcCars.list) {
+                if (npcCar.dead && !(npcCar.wreck && npcCar.wreck.landed)) continue;   /* flying wreck */
                 const dx = walker.x - npcCar.mesh.position.x;
                 const dz = walker.z - npcCar.mesh.position.z;
                 const r = npcCar.radius + WALK_RADIUS;
