@@ -28,6 +28,10 @@ function safeMerge(geos) {
 }
 import { Blood } from "./blood.js";
 import { disposeObject3D } from "./disposer.js";
+import { CrashFX } from "./crash-fx.js";
+
+const _rnd = (a, b) => a + Math.random() * (b - a);
+const _clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 const CAR_TYPES = [
   { model: "taxi",       mass: 1200 },
@@ -315,6 +319,9 @@ export const NPC_Cars = {
       speed: 0,
       vx: 0, vz: 0,
       radius: CAR_RADIUS,
+      colorHex: new THREE.Color(color).getHex(),
+      hp: 70 + type.mass / 30, maxHp: 70 + type.mass / 30,     /* heavier cars take more punishment */
+      dead: false,
       hitCd: 0,
       blocked: 0,
       bob: Math.random() * Math.PI * 2,
@@ -351,8 +358,10 @@ export const NPC_Cars = {
     const player = _getPlayerState();
 
     /* ── advance every car along its road ──────────────────── */
-    for (const car of this.list) {
+    for (const car of this.list.slice()) {
+      if (car.dead) { this._tickWreck(car, dt); continue; }
       car.hitCd = Math.max(0, car.hitCd - dt);
+      car._cc = Math.max(0, (car._cc || 0) - dt);
       car.bob += dt;
       try {
         const night = (window.__ph3d_daynight && window.__ph3d_daynight.nightAmount) ? window.__ph3d_daynight.nightAmount() : 0;
@@ -369,6 +378,7 @@ export const NPC_Cars = {
       const fx = cur.tx, fz = cur.tz;
       for (const o of this.list) {
         if (o === car) continue;
+        if (o.dead && !(o.wreck && o.wreck.landed)) continue;      /* a wreck still in the air is no obstacle */
         const dx = o.mesh.position.x - car.mesh.position.x;
         const dz = o.mesh.position.z - car.mesh.position.z;
         const ahead = dx * fx + dz * fz;
@@ -440,6 +450,7 @@ export const NPC_Cars = {
       car.mesh.rotation.y += dy * Math.min(1, dt * 7);
 
       car.mesh.position.y = Math.sin(car.bob * 8) * 0.015 + 0.02;
+      if (car.speed > 3) this._runOverPeds(car);
 
       /* ── recycle far cars so roads never go empty ─────────── */
       if (player && !car._recycleCd) {
@@ -487,6 +498,12 @@ export const NPC_Cars = {
           try { C && C.damage && C.damage(dmg, "npc-car"); } catch (e) {}
           try { C && C.flash  && C.flash(0.8); } catch (e) {}
           _toast("\uD83D\uDCA5 Hit by " + (car.model === "taxi" ? "taxi" : "car"));
+          try {
+            CrashFX.impact(player.x, 1.0, player.z, { power: _clamp(0.6 + speed / 30, 0.6, 1.2), dir: { x: impX, z: impZ } });
+            CrashFX.hurt(0.8);
+            CrashFX.slowmo(0.3, 0.55);
+            CrashFX.shake(0.9, 0.7);
+          } catch (e) {}
           car.hitCd = 2.5;
         }
       } else if (player.mode === "drive" && speed > 4.0 &&
@@ -496,14 +513,22 @@ export const NPC_Cars = {
                  boxesOverlap(car.mesh.position.x, car.mesh.position.z, cyaw, CAR_HALF_W, CAR_HALF_L,
                               player.x, player.z, player.heading || 0, (player.halfW || 1.0), (player.halfL || 2.4))) {
 
-        _hitPlayerCar(car.vx, car.vz, car.mass);
+        const rel = Math.hypot(car.vx - Math.sin(player.heading || 0) * (player.speed || 0),
+                               car.vz - Math.cos(player.heading || 0) * (player.speed || 0));
+        _hitPlayerCar(car.vx, car.vz, car.mass, rel);
 
-        Blood.spray(_scene,
-          (player.x + car.mesh.position.x) * 0.5,
-          0.8,
-          (player.z + car.mesh.position.z) * 0.5,
-          { count: 10, spread: 3, color: 0xffcc5e, gravity: -18 }
-        );
+        const cx = (player.x + car.mesh.position.x) * 0.5, cz = (player.z + car.mesh.position.z) * 0.5;
+        Blood.spray(_scene, cx, 0.8, cz, { count: 10, spread: 3, color: 0xffcc5e, gravity: -18 });
+        /* the crash itself: sparks, glass, smoke, camera shake, hit-stop … and the NPC car is hurt too */
+        try {
+          const power = _clamp(rel / 26, 0.25, 1.25);
+          CrashFX.impact(cx, 0.9, cz, { power, color: car.colorHex, dir: { x: car.vx, z: car.vz } });
+          this.hurt(car, rel * 2.6, {
+            power,
+            dir: { x: car.mesh.position.x - player.x + Math.sin(player.heading || 0) * (player.speed || 0) * 0.4,
+                   z: car.mesh.position.z - player.z + Math.cos(player.heading || 0) * (player.speed || 0) * 0.4 },
+          });
+        } catch (e) { console.warn("[npc-cars] crash fx", e); }
 
         /* Crime: player rammed an NPC car */
         try {
@@ -522,6 +547,7 @@ export const NPC_Cars = {
     for (let i = 0; i < this.list.length; i++) {
       for (let j = i + 1; j < this.list.length; j++) {
         const a = this.list[i], b = this.list[j];
+        if (a.dead || b.dead) continue;
         const dx = b.mesh.position.x - a.mesh.position.x;
         const dz = b.mesh.position.z - a.mesh.position.z;
         const d2 = dx * dx + dz * dz;
@@ -532,12 +558,159 @@ export const NPC_Cars = {
         const nx = dx / d, nz = dz / d;
         const overlap = rSum - d;
         const totalMass = a.mass + b.mass;
+        const closing = Math.abs((b.vx - a.vx) * nx + (b.vz - a.vz) * nz);
+        if (closing > 4 && !(a._cc > 0)) {
+          a._cc = b._cc = 1.2;
+          try {
+            CrashFX.impact((a.mesh.position.x + b.mesh.position.x) * 0.5, 0.9, (a.mesh.position.z + b.mesh.position.z) * 0.5, { power: _clamp(closing / 26, 0.2, 0.9), color: a.colorHex });
+            this.hurt(a, closing * 2, { power: 0.5, dir: { x: -nx, z: -nz } });
+            this.hurt(b, closing * 2, { power: 0.5, dir: { x: nx, z: nz } });
+          } catch (e) {}
+        }
 
         a.mesh.position.x -= nx * overlap * (b.mass / totalMass);
         a.mesh.position.z -= nz * overlap * (b.mass / totalMass);
         b.mesh.position.x += nx * overlap * (a.mass / totalMass);
         b.mesh.position.z += nz * overlap * (a.mass / totalMass);
       }
+    }
+  },
+
+  /* ── Damage, wrecks and explosions ─────────────────────────────── */
+
+  /* dent the body a little more each hit */
+  _crumple(car, f) {
+    const m = car.mesh;
+    car._dent = (car._dent || 0) + f;
+    const d = Math.min(0.14, car._dent * 0.2);
+    m.scale.set(1 - d * 0.5, 1 - d * 0.45, 1 - d);
+    car._tilt = _clamp((car._tilt || 0) + _rnd(-0.03, 0.03) * Math.min(1, f * 6), -0.07, 0.07);
+    m.rotation.z = car._tilt;
+  },
+
+  /* returns true if this hit destroyed the car. o: { dir:{x,z}, power } */
+  hurt(car, dmg, o) {
+    if (!car || car.dead || !(dmg > 0)) return false;
+    o = o || {};
+    car.hp -= dmg;
+    this._crumple(car, dmg / car.maxHp);
+    if (car.hp <= 0) { this.wreck(car, o); return true; }
+    if (dmg > 18 && o.dir) {                                    /* a hard knock slews the car sideways */
+      const l = Math.hypot(o.dir.x, o.dir.z) || 1;
+      car.mesh.position.x += o.dir.x / l * Math.min(1.6, dmg * 0.03);
+      car.mesh.position.z += o.dir.z / l * Math.min(1.6, dmg * 0.03);
+      car.mesh.rotation.y += _rnd(-0.4, 0.4);
+      car.speed *= 0.4;
+    }
+    if (car.hp < car.maxHp * 0.55 && !car._smoke) {
+      car._smoke = CrashFX.fire(car.mesh.position.x, 1, car.mesh.position.z, { follow: car.mesh, smokeOnly: true, life: 90, scale: 0.7, offsetY: 1.1 });
+    }
+    return false;
+  },
+
+  /* the car blows up: fireball, flying wheels, thrown into the air, then burns */
+  wreck(car, o) {
+    if (!car || car.dead) return;
+    o = o || {};
+    car.dead = true; car.speed = 0; car.hitCd = 99;
+    const m = car.mesh, p = m.position;
+    if (car._smoke) { CrashFX.stopFire(car._smoke); car._smoke = null; }
+    const dir = o.dir || { x: car.vx, z: car.vz };
+    const dl = Math.hypot(dir.x, dir.z) || 1;
+    const pw = o.power == null ? 1 : _clamp(o.power, 0.3, 1.3);
+    car.wreck = {
+      t: 0, landed: false,
+      body: CrashFX.makeWreckBody(m, { x: CAR_HALF_W * 2, y: 1.5, z: CAR_HALF_L * 2 }, {
+        vx: dir.x / dl * (6 + 12 * pw), vz: dir.z / dl * (6 + 12 * pw), vy: 7 + 8 * pw,
+        wx: _rnd(-4, 4) * pw, wy: _rnd(-3, 3), wz: _rnd(-4, 4) * pw, color: car.colorHex,
+      }),
+    };
+    CrashFX.explosion(p.x, 0.9, p.z, { scale: 1.15, color: car.colorHex, wheels: 2 });
+    try { car._restore = CrashFX.charCar(m); } catch (e) {}
+    car._fire = CrashFX.fire(p.x, p.y, p.z, { follow: m, life: 16, scale: 1.1, offsetY: 0.8 });
+    try { car._lights && car._lights.setNight(0); } catch (e) {}
+    /* the blast hurts whatever is next to it: cars smoke, people are thrown */
+    try { CrashFX.blast({ x: p.x, y: 0.8, z: p.z }, { radius: 6.5, damage: 95, power: 0.7, source: "wreck", skip: car }); } catch (e) {}
+    try {
+      const pl = _getPlayerState();
+      if (pl && Math.hypot(pl.x - p.x, pl.z - p.z) < 60) _toast("\uD83D\uDCA5 Car exploded!");
+    } catch (e) {}
+  },
+
+  /* something exploded at pos: hurt and throw every car in range. o: { radius, damage, power, skip } */
+  blast(pos, o) {
+    o = o || {};
+    const R = o.radius || 9;
+    for (const car of this.list.slice()) {
+      if (car.dead || car === o.skip) continue;
+      const dx = car.mesh.position.x - pos.x, dz = car.mesh.position.z - pos.z;
+      const dy = car.mesh.position.y + 0.8 - pos.y;
+      const d = Math.max(0, Math.hypot(dx, dz, dy) - 1.6);          /* measured from the car's side, not its middle */
+      if (d > R) continue;
+      const k = 1 - d / R;
+      const dmg = (o.damage || 100) * k;
+      const died = this.hurt(car, dmg, { dir: { x: dx, z: dz }, power: (o.power || 1) * (0.5 + k) });
+      if (!died) {
+        car.speed = 0;
+        const l = Math.hypot(dx, dz) || 1;
+        car.mesh.position.x += dx / l * 1.5 * k; car.mesh.position.z += dz / l * 1.5 * k;
+      }
+    }
+  },
+
+  /* a point (x,y,z) inside a live car? (rockets use this to detonate on contact) */
+  hitTest(x, y, z) {
+    if (y < 0.05 || y > 2.4) return null;
+    for (const car of this.list) {
+      if (car.dead) continue;
+      if (outsideBox(car.mesh.position.x, car.mesh.position.z, car.mesh.rotation.y, CAR_HALF_W, CAR_HALF_L, x, z) < 0.15) return car;
+    }
+    return null;
+  },
+
+  _tickWreck(car, dt) {
+    const w = car.wreck, m = car.mesh;
+    if (!w) return;
+    w.t += dt;
+    const bd = w.body;
+    if (!bd.done) {
+      /* buildings stop it dead; everything else is rigid-body physics: it rotates about its centre, bounces,
+         and its lowest corner is always held above the road, so it can never sink */
+      if (this._insideAABB(bd.c.x + bd.vx * dt, bd.c.z + bd.vz * dt, _aabbs, 1.2)) { bd.vx *= -0.2; bd.vz *= -0.2; }
+      CrashFX.stepWreckBody(bd, dt, 0.02);
+      w.landed = bd.landed;
+    }
+    /* burnt out: remove it and put a fresh car back on the road */
+    if (w.t > 16) {
+      const i = this.list.indexOf(car);
+      if (i >= 0) this.list.splice(i, 1);
+      try { CrashFX.stopFire(car._fire); CrashFX.stopFire(car._smoke); } catch (e) {}
+      try { if (m.parent) m.parent.remove(m); disposeObject3D(m); } catch (e) {}
+      setTimeout(() => { try { if (_scene) this._spawnOne(); } catch (e) {} }, 600);
+    }
+  },
+
+  /* a moving car that meets a pedestrian throws them */
+  _runOverPeds(car) {
+    const list = window.__ph3d_npcsList && window.__ph3d_npcsList();
+    const NP = window.__ph3d_NPCs, Col = window.__ph3d_npcCollider;
+    if (!list || !NP || !Col) return;
+    const cx = car.mesh.position.x, cz = car.mesh.position.z, yaw = car.mesh.rotation.y;
+    for (const npc of list) {
+      if (!npc.ctl || npc.dead || npc._fly || npc.state === "sitting" || npc.state === "downed" || npc.state === "dying" || npc.hitCd > 0) continue;
+      const dx = npc.ctl.pos.x - cx, dz = npc.ctl.pos.z - cz;
+      if (dx * dx + dz * dz > 36) continue;
+      const hit = Col.hitByCar(npc, { x: cx, z: cz, heading: yaw, halfW: CAR_HALF_W, halfL: CAR_HALF_L, height: 1.5, groundY: 0 });
+      if (!hit) continue;
+      const sp = Math.hypot(car.vx, car.vz);
+      npc.hitCd = 3;
+      NP.launch(npc, { vx: car.vx * 0.95 + hit.nx * 3, vy: 4 + sp * 0.35, vz: car.vz * 0.95 + hit.nz * 3 }, { damage: sp > 9 ? 220 : 25 + sp * 4, type: "car" });
+      car.speed *= 0.5;
+      try {
+        CrashFX.impact(npc.ctl.pos.x, 1.0, npc.ctl.pos.z, { power: _clamp(sp / 24, 0.3, 0.9) });
+        const pl = _getPlayerState();
+        if (pl && Math.hypot(pl.x - cx, pl.z - cz) < 40) _toast("\uD83D\uDCA5 A car hit a pedestrian");
+      } catch (e) {}
     }
   },
 

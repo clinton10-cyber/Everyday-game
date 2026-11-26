@@ -214,6 +214,7 @@
 "js/core/combat.js",
 "js/core/comics.js",
 "js/core/cooking.js",
+"js/core/crash-fx.js",
 "js/core/crime.js",
 "js/core/crimeSetup.js",
 "js/core/daynight.js",
