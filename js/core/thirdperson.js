@@ -111,6 +111,8 @@ export class ThirdPersonControls {
     this.aimPitch = 0;
     this.cameraMode = "third";
     this.aiming = false;
+    this._adsZoom = 0;          /* 0 = mild ADS, 1 = max optical zoom (sniper/shotgun) */
+    this._scopeEl = null;
     this.shoulderSide = 1;
     this._fpsVisibility = null;
     this._baseCameraFov = camera && Number(camera.fov) || 62;
@@ -570,9 +572,61 @@ export class ThirdPersonControls {
   setAiming(value) {
     this.aiming = !!value && this._isGunWeapon();
     if (this.aiming) this.shoulderSide = 1;  /* always right side when aiming */
+    if (!this.aiming) this._adsZoom = 0;
     if (this._aimBtn) {
       this._aimBtn.classList.toggle("is-on", this.aiming);
       this._aimBtn.textContent = this.aiming ? "AIMING" : "AIM";
+    }
+    this._updateScopeOverlay();
+    try { if (this.weapons && this.weapons._syncCrosshair) this.weapons._syncCrosshair(); } catch (e) {}
+  }
+
+  _scopeGun() {
+    const w = this.weapons && this.weapons.current;
+    if (w === "sniper") return "sniper";
+    if (w === "shotgun") return "shotgun";
+    return null;
+  }
+
+  _ensureScopeEl() {
+    if (this._scopeEl && this._scopeEl.parentNode) return this._scopeEl;
+    const el = document.createElement("div");
+    el.id = "ph3d-scope";
+    el.style.cssText = "position:fixed;inset:0;z-index:28;pointer-events:none;display:none;";
+    el.innerHTML = `
+      <div class="ph3d-scope-mask" style="position:absolute;inset:0;background:radial-gradient(circle at 50% 50%, transparent 0 22vmin, rgba(0,0,0,.92) 28vmin, #000 36vmin);"></div>
+      <div class="ph3d-scope-ring" style="position:absolute;left:50%;top:50%;width:46vmin;height:46vmin;margin:-23vmin 0 0 -23vmin;border-radius:50%;border:2px solid rgba(255,255,255,.35);box-shadow:inset 0 0 40px rgba(0,0,0,.55),0 0 0 9999px rgba(0,0,0,.55);"></div>
+      <div class="ph3d-scope-reticle" style="position:absolute;left:50%;top:50%;width:42vmin;height:42vmin;margin:-21vmin 0 0 -21vmin;">
+        <i style="position:absolute;left:50%;top:8%;bottom:8%;width:1px;margin-left:-0.5px;background:rgba(255,40,40,.85);"></i>
+        <i style="position:absolute;top:50%;left:8%;right:8%;height:1px;margin-top:-0.5px;background:rgba(255,40,40,.85);"></i>
+        <i style="position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;border:1px solid rgba(255,60,60,.9);"></i>
+        <i data-tick style="position:absolute;left:50%;top:28%;width:10px;height:1px;margin-left:-5px;background:rgba(255,255,255,.55);"></i>
+        <i data-tick style="position:absolute;left:50%;top:72%;width:10px;height:1px;margin-left:-5px;background:rgba(255,255,255,.55);"></i>
+        <i data-tick style="position:absolute;top:50%;left:28%;width:1px;height:10px;margin-top:-5px;background:rgba(255,255,255,.55);"></i>
+        <i data-tick style="position:absolute;top:50%;left:72%;width:1px;height:10px;margin-top:-5px;background:rgba(255,255,255,.55);"></i>
+      </div>
+      <div class="ph3d-scope-label" style="position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);font:700 10px ui-monospace,monospace;letter-spacing:.2em;color:rgba(255,255,255,.55);text-shadow:0 1px 3px #000;">SCOPE · PINCH / SCROLL TO ZOOM</div>`;
+    document.body.appendChild(el);
+    this._scopeEl = el;
+    return el;
+  }
+
+  _updateScopeOverlay() {
+    const kind = this.aiming ? this._scopeGun() : null;
+    const el = this._ensureScopeEl();
+    if (!kind) { el.style.display = "none"; return; }
+    el.style.display = "block";
+    const ring = el.querySelector(".ph3d-scope-ring");
+    const mask = el.querySelector(".ph3d-scope-mask");
+    const label = el.querySelector(".ph3d-scope-label");
+    if (kind === "sniper") {
+      if (mask) mask.style.background = "radial-gradient(circle at 50% 50%, transparent 0 20vmin, rgba(0,0,0,.94) 26vmin, #000 34vmin)";
+      if (ring) ring.style.borderColor = "rgba(200,220,255,.4)";
+      if (label) label.textContent = "SNIPER SCOPE · PINCH / SCROLL TO ZOOM";
+    } else {
+      if (mask) mask.style.background = "radial-gradient(circle at 50% 50%, transparent 0 26vmin, rgba(0,0,0,.75) 34vmin, rgba(0,0,0,.88) 42vmin)";
+      if (ring) ring.style.borderColor = "rgba(255,200,120,.45)";
+      if (label) label.textContent = "SHOTGUN SIGHT · PINCH / SCROLL TO ZOOM";
     }
   }
 
@@ -632,6 +686,36 @@ export class ThirdPersonControls {
       if (e.code === "Space") { e.preventDefault(); this.jump(); }
     };
     this._ku = e => { this.keys[e.code] = false; if (e.code === "Mouse2") this.setAiming(false); };
+    this._onAdsWheel = (e) => {
+      if (!this.aiming || !this._scopeGun()) return;
+      e.preventDefault();
+      const step = (e.deltaY > 0 ? -0.08 : 0.08);
+      this._adsZoom = Math.max(0, Math.min(1, (this._adsZoom || 0) + step));
+      this._updateScopeOverlay();
+    };
+    window.addEventListener("wheel", this._onAdsWheel, { passive: false });
+    this._adsPinch = { id0: null, id1: null, d0: 0, z0: 0 };
+    this._onAdsTouchStart = (e) => {
+      if (!this.aiming || !this._scopeGun()) return;
+      if (e.touches && e.touches.length >= 2) {
+        const a = e.touches[0], b = e.touches[1];
+        this._adsPinch.d0 = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        this._adsPinch.z0 = this._adsZoom || 0;
+      }
+    };
+    this._onAdsTouchMove = (e) => {
+      if (!this.aiming || !this._scopeGun()) return;
+      if (e.touches && e.touches.length >= 2 && this._adsPinch.d0 > 0) {
+        const a = e.touches[0], b = e.touches[1];
+        const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        const ratio = d / this._adsPinch.d0;
+        /* pinch out → more zoom */
+        this._adsZoom = Math.max(0, Math.min(1, this._adsPinch.z0 + (ratio - 1) * 0.85));
+        this._updateScopeOverlay();
+      }
+    };
+    window.addEventListener("touchstart", this._onAdsTouchStart, { passive: true });
+    window.addEventListener("touchmove", this._onAdsTouchMove, { passive: true });
     window.addEventListener("keydown", this._kd);
     window.addEventListener("keyup", this._ku);
     this._typ = () => { for (const k of Object.keys(this.keys)) this.keys[k] = false; };
@@ -1571,19 +1655,36 @@ _updateCamera(dt, snap) {
     const aimDir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)).normalize();
     this.camera.position.copy(eye);
     this.camera.lookAt(eye.clone().addScaledVector(aimDir, 30));
-    const targetFov = this.aiming ? (this.weapons.current === "sniper" ? 34 : 48) : this._baseCameraFov;
+    const scopeKind = this.aiming ? this._scopeGun() : null;
+    let targetFov = this._baseCameraFov;
+    if (this.aiming) {
+      const z = Math.max(0, Math.min(1, this._adsZoom || 0));
+      if (scopeKind === "sniper") targetFov = 28 - z * 16;       /* 28° → 12° deep zoom */
+      else if (scopeKind === "shotgun") targetFov = 44 - z * 12; /* 44° → 32° tube sight */
+      else targetFov = 48;
+    }
     this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, Math.max(0, dt) * 12);
+    if (scopeKind) this._updateScopeOverlay();
     this.camera.updateProjectionMatrix();
     this._aimOrigin = eye; this._aimDir = aimDir;
     this._gunConvYaw = 0; this._gunVisPitch = null;
     return;
   } else {
     this._setFirstPersonVisibility(false);
-    const targetFov = this._baseCameraFov;
-    if (this.camera && Math.abs(this.camera.fov - targetFov) > 0.05) {
-      this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, Math.max(0, dt) * 10);
+    const scopeKind3 = (this.aiming && gunOut) ? this._scopeGun() : null;
+    let targetFov3 = this._baseCameraFov;
+    if (this.aiming && gunOut) {
+      const z = Math.max(0, Math.min(1, this._adsZoom || 0));
+      if (scopeKind3 === "sniper") targetFov3 = 28 - z * 16;
+      else if (scopeKind3 === "shotgun") targetFov3 = 44 - z * 12;
+      else targetFov3 = 48;
+    }
+    if (this.camera && Math.abs(this.camera.fov - targetFov3) > 0.05) {
+      this.camera.fov += (targetFov3 - this.camera.fov) * Math.min(1, Math.max(0, dt) * 12);
       this.camera.updateProjectionMatrix();
     }
+    if (scopeKind3) this._updateScopeOverlay();
+    else if (this._scopeEl) this._scopeEl.style.display = "none";
   }
 
   if (gunOut && this.state === "standing") {
@@ -1659,31 +1760,29 @@ _updateCamera(dt, snap) {
     /* look along the aim ray from the camera itself so barrel and crosshair line up */
     this.camera.lookAt(camPos.clone().addScaledVector(aimDir, 50));
 
-    /* Bullets leave the chest but fly TOWARD whatever the crosshair is on (wall / person / far point),
-       so the shot lands exactly where you see it even though the camera is offset to the shoulder. */
-    const chest = new THREE.Vector3(this.pos.x, this.floorY + 1.55, this.pos.z);
-    let D = 45;
+    /* True crosshair hitscan: ray starts at the camera and travels exactly along the look direction
+       (screen centre). Muzzle flash still comes from the gun mesh in guns.js. */
+    let D = 80;
     if (this.world.colliders) {
       for (const c of this.world.colliders) {
         if (c.level !== this.level) continue;
         const t = rayAABB(camPos.x, camPos.y, camPos.z, aimDir.x, aimDir.y, aimDir.z,
           c.minX, c.y0 != null ? c.y0 : 0, c.minZ, c.maxX, c.y1 != null ? c.y1 : TALL, c.maxZ, D);
-        if (t > 1.0 && t < D) D = t;
+        if (t > 0.35 && t < D) D = t;
       }
     }
     try {
       for (const tg of this._getWeaponTargets()) {
         if (!tg || !tg.alive) continue;
         const cy = tg.y != null ? tg.y : 0;
-        const t = rayVertCyl(camPos.x, camPos.y, camPos.z, aimDir.x, aimDir.y, aimDir.z, tg.x, tg.z, 0.5, cy, cy + 1.8, D);
-        if (t > 1.0 && t < D) D = t;
+        const t = rayVertCyl(camPos.x, camPos.y, camPos.z, aimDir.x, aimDir.y, aimDir.z, tg.x, tg.z, 0.55, cy, cy + 1.9, D);
+        if (t > 0.35 && t < D) D = t;
       }
     } catch (e) {}
     const aimPoint = camPos.clone().addScaledVector(aimDir, D);
-    const shotDir = aimPoint.clone().sub(chest);
-    if (shotDir.lengthSq() > 0.25 && shotDir.normalize().dot(aimDir) > 0.6) { /* ok */ } else shotDir.copy(aimDir);
-    this._aimOrigin = chest;
-    this._aimDir = shotDir;
+    this._aimOrigin = camPos.clone().addScaledVector(aimDir, 0.35); /* just in front of lens so we don't self-hit */
+    this._aimDir = aimDir.clone();
+    this._aimPoint = aimPoint;
 
     /* Make the gun itself point at the crosshair target: aim from the gun hand to the point under the
        crosshair and ease the visual yaw/pitch toward it (the body heading used for movement is untouched). */
@@ -1856,6 +1955,9 @@ _updateCamera(dt, snap) {
       window.__ph3d_walkCtrl = null;
     }
     window.removeEventListener("keydown", this._kd);
+    try { window.removeEventListener("wheel", this._onAdsWheel); } catch (e) {}
+    try { window.removeEventListener("touchstart", this._onAdsTouchStart); } catch (e) {}
+    try { window.removeEventListener("touchmove", this._onAdsTouchMove); } catch (e) {};
     window.removeEventListener("keyup", this._ku);
     if (this._typ) window.removeEventListener("ph3d-typing", this._typ);
     const el = this.dom;

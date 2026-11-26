@@ -752,7 +752,8 @@ export class Weapons {
   }
 
   _syncCrosshair() {
-    setCrosshairVisible(["pistol", "sniper", "rifle", "smg", "shotgun", "lmg", "bazooka"].includes(this.current));
+    const scoped = this.controls && this.controls.aiming && (this.current === "sniper" || this.current === "shotgun");
+    setCrosshairVisible(["pistol", "sniper", "rifle", "smg", "shotgun", "lmg", "bazooka"].includes(this.current) && !scoped);
   }
 
   cycle() {
