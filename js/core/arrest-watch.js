@@ -75,6 +75,7 @@ export const ArrestWatch = {
     let inRange = false, nearest = null, nearestD = Infinity;
     for (const pc of cars) {
       if (!pc || !pc.mesh) continue;
+      if (_opts.isVisible && !_opts.isVisible(pc)) continue;   /* must be on screen */
       const d = Math.hypot(pc.mesh.position.x - player.x, pc.mesh.position.z - player.z);
       if (d < nearestD) { nearestD = d; nearest = pc; }
     }

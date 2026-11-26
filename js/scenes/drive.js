@@ -405,9 +405,20 @@ let _policeAccum = 0;           /* 30 Hz throttle */
 let _policeCarTemplate = null;  /* built once, cloned per spawn */
 const POLICE_MODEL_CORRECTION = -Math.PI / 2;
 
+  const _arrM = new THREE.Matrix4(), _arrF = new THREE.Frustum(), _arrB = new THREE.Box3();
   ArrestWatch.init({
     getPlayer: () => (window.__ph3d_drive && window.__ph3d_drive.getPos()) || null,
     getPoliceCars: () => policeCars,
+    isVisible: (pc) => {
+      try {
+        if (!camera) return false;
+        camera.updateMatrixWorld();
+        _arrM.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+        _arrF.setFromProjectionMatrix(_arrM);
+        _arrB.setFromObject(pc.mesh);
+        return _arrF.intersectsBox(_arrB);
+      } catch (e) { return false; }
+    },
     onArrest: () => {
       /* Stop the car, charge the fine, then use the normal arrest flow
          (Police.arrive → Prison.sentence → jail clothes → prisonScene). */

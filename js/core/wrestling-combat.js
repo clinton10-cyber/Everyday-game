@@ -156,6 +156,7 @@ function carry(c, t) {
 /* ═══ broadcast-style impact visuals (screen shake · flash · callout) ═══ */
 const LIMBS = new Set(["shL", "shR", "hpL", "hpR", "elL", "elR", "knL", "knR", "hd", "wrL", "wrR", "anL", "anR"]);
 function shake(px, ms) {
+  return;   /* screen shake removed */
   try {
     const cv = document.querySelector("canvas"); if (!cv || !cv.animate) return;
     const k = [], n = 9;

@@ -383,7 +383,7 @@ export const PhoneGames = {
         /* camera: follows lanes, dips + shakes during the slide */
         const dip = slide.t > 0 ? Math.sin(Math.min(1, (1 - slide.t / SLIDE_DUR) * 1.2) * Math.PI) : 0;
         slide.shake = Math.max(0, slide.shake - dt);
-        const sh = slide.shake > 0 ? (Math.random() - 0.5) * 0.18 * (slide.shake / 0.25) : 0;
+        const sh = 0;   /* shake removed */
         if (character) {
           camera.position.x += (character.position.x * 0.3 - camera.position.x) * Math.min(1, dt * 5);
           camera.position.y = CAM_Y - 0.6 * dip + sh;

@@ -307,7 +307,17 @@ export const NPC_Cars = {
       console.warn("[npc-cars] merge failed:", type.model, e);
     }
 
+    /* real footprint from the model itself (not a fixed guess) */
+    let _hw = CAR_HALF_W, _hl = CAR_HALF_L;
+    try {
+      const _ry = mesh.rotation.y; mesh.rotation.y = 0; mesh.updateMatrixWorld(true);
+      const _sz = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
+      mesh.rotation.y = _ry;
+      if (_sz.x > 0.5 && _sz.z > 1) { _hw = Math.min(_sz.x, _sz.z) * 0.5; _hl = Math.max(_sz.x, _sz.z) * 0.5; }
+    } catch (e) {}
+
     const car = {
+      halfW: _hw, halfL: _hl,
       id: "npccar_" + Math.random().toString(36).slice(2, 7),
       model: type.model,
       mass:  type.mass,
@@ -478,7 +488,7 @@ export const NPC_Cars = {
 
       const cyaw = car.mesh.rotation.y;
       if (player.mode === "walk" && !player.ragdoll && speed > 3.0 &&
-          outsideBox(car.mesh.position.x, car.mesh.position.z, cyaw, CAR_HALF_W, CAR_HALF_L, player.x, player.z) < 0.25) {
+          outsideBox(car.mesh.position.x, car.mesh.position.z, cyaw, car.halfW, car.halfL, player.x, player.z) < 0.25) {
 
         const nx = dx / d, nz = dz / d;
         const impX = car.vx * 0.9 + nx * 4;
@@ -510,7 +520,7 @@ export const NPC_Cars = {
                  /* closing speed: touching a car that moves the same way you do is not a crash */
                  Math.hypot(car.vx - Math.sin(player.heading || 0) * (player.speed || 0),
                             car.vz - Math.cos(player.heading || 0) * (player.speed || 0)) > 6.0 &&
-                 boxesOverlap(car.mesh.position.x, car.mesh.position.z, cyaw, CAR_HALF_W, CAR_HALF_L,
+                 boxesOverlap(car.mesh.position.x, car.mesh.position.z, cyaw, car.halfW, car.halfL,
                               player.x, player.z, player.heading || 0, (player.halfW || 1.0), (player.halfL || 2.4))) {
 
         const rel = Math.hypot(car.vx - Math.sin(player.heading || 0) * (player.speed || 0),
@@ -553,10 +563,12 @@ export const NPC_Cars = {
         const d2 = dx * dx + dz * dz;
         const rSum = a.radius + b.radius;
         if (d2 > rSum * rSum) continue;
+        if (!boxesOverlap(a.mesh.position.x, a.mesh.position.z, a.mesh.rotation.y, a.halfW, a.halfL,
+                          b.mesh.position.x, b.mesh.position.z, b.mesh.rotation.y, b.halfW, b.halfL)) continue;
 
         const d = Math.sqrt(d2) || 0.001;
         const nx = dx / d, nz = dz / d;
-        const overlap = rSum - d;
+        const overlap = Math.min(0.5, Math.max(0.05, rSum - d));
         const totalMass = a.mass + b.mass;
         const closing = Math.abs((b.vx - a.vx) * nx + (b.vz - a.vz) * nz);
         if (closing > 4 && !(a._cc > 0)) {
@@ -663,7 +675,7 @@ export const NPC_Cars = {
     if (y < 0.05 || y > 2.4) return null;
     for (const car of this.list) {
       if (car.dead) continue;
-      if (outsideBox(car.mesh.position.x, car.mesh.position.z, car.mesh.rotation.y, CAR_HALF_W, CAR_HALF_L, x, z) < 0.15) return car;
+      if (outsideBox(car.mesh.position.x, car.mesh.position.z, car.mesh.rotation.y, car.halfW, car.halfL, x, z) < 0.15) return car;
     }
     return null;
   },
@@ -700,7 +712,7 @@ export const NPC_Cars = {
       if (!npc.ctl || npc.dead || npc._fly || npc.state === "sitting" || npc.state === "downed" || npc.state === "dying" || npc.hitCd > 0) continue;
       const dx = npc.ctl.pos.x - cx, dz = npc.ctl.pos.z - cz;
       if (dx * dx + dz * dz > 36) continue;
-      const hit = Col.hitByCar(npc, { x: cx, z: cz, heading: yaw, halfW: CAR_HALF_W, halfL: CAR_HALF_L, height: 1.5, groundY: 0 });
+      const hit = Col.hitByCar(npc, { x: cx, z: cz, heading: yaw, halfW: car.halfW || CAR_HALF_W, halfL: car.halfL || CAR_HALF_L, height: 1.5, groundY: 0 });
       if (!hit) continue;
       const sp = Math.hypot(car.vx, car.vz);
       npc.hitCd = 3;

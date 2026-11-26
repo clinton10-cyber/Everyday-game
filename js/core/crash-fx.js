@@ -163,11 +163,13 @@ export const CrashFX = {
     c.position.x += SH.ox; c.position.y += SH.oy; c.position.z += SH.oz;
   },
   shake(amount, dur) {
+    return;   /* camera shake removed */
     dur = dur || 0.5;
     const cur = SH.t > 0 ? SH.amt * Math.pow(SH.t / SH.dur, 2) : 0;
     if (amount >= cur) { SH.amt = amount; SH.dur = dur; SH.t = dur; }
   },
   shakeFrom(x, z, power) {
+    return;   /* camera shake removed */
     const d = camDist(x, z);
     const amp = power * 1.1 * Math.max(0, 1 - d / 28);   /* was 50: far-off traffic bumps no longer shake the camera */
     if (amp > 0.12) this.shake(Math.min(1.6, amp), 0.35 + power * 0.55);
