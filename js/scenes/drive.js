@@ -73,7 +73,7 @@ const RAGDOLL_GROUND_Y  = 0;
 
 const WORLD_HALF = 2000;
 const WORLD_OCEAN_EDGE = 1800;
-const GRID_RADIUS = 3, BLOCK_SIZE = 50, ROAD_W = 14;
+const GRID_RADIUS = 3, BLOCK_SIZE = 50, ROAD_W = 20;
 
 const UP = new THREE.Vector3(0, 1, 0);
 const TAU = Math.PI * 2;
@@ -122,7 +122,7 @@ function buildCity() {
   }));
 
   return {
-    RING_R: 450, RING_RZ: 400, ROAD_W: 14, SW: 4,
+    RING_R: 450, RING_RZ: 400, ROAD_W: 20, SW: 4,
     baseGeometry,
     detailGeometry,
     baseChunks,

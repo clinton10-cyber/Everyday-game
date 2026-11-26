@@ -49,7 +49,7 @@ const PAPER2= "#e3d2a0";
 const RED   = "#9c3a24";
 const SERIF = "Georgia, 'Times New Roman', serif";
 
-const W = { RING_R: 180, RING_RZ: 145, ROAD_W: 10, OFFSET: 10 + 3.5 + 34, LAND_X: 340, LAND_Z: 310 };
+const W = { RING_R: 180, RING_RZ: 145, ROAD_W: 16, BLOCK: 16 + 3.5 + 34, LAND_X: 340, LAND_Z: 310 };
 const MB = { x0: -415, x1: 355, z0: -335, z1: 452 };
 
 /* Per-landmark ink colour used on the map. */

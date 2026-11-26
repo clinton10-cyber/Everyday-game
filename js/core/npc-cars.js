@@ -140,7 +140,7 @@ function carPose(car, lat) {
   return _out;
 }
 
-function laneOffsetFor(edge, bias) { return Math.min(edge.w * 0.25, 3.6) + bias; }
+function laneOffsetFor(edge, bias) { return Math.min(edge.w * 0.28, 5.8) + bias; }
 
 /* pick the road a car continues onto at the end of its current one */
 function chooseNext(car) {
@@ -203,7 +203,7 @@ export const NPC_Cars = {
 
     /* Every AI car is a full vehicle model built from scratch, so 36 of them at once is a big part of the
        walk/drive loading freeze. Build a few now and the rest in the background. */
-    const count = opts.count || 12;
+    const count = opts.count || 18;
     const maxTries = count * 8;
     let spawned = 0, tries = 0;
     const batch = (n) => {
@@ -245,7 +245,7 @@ export const NPC_Cars = {
       const edge = this._randomEdge();
       const fwd = Math.random() < 0.5;
       const s = 6 + Math.random() * Math.max(1, edge.len - 12);
-      const bias = (Math.random() - 0.5) * 0.7;
+      const bias = (Math.random() - 0.5) * 2.0;  /* spread across wider carriageway */
       const car = { edge, fwd, s };
       const p = carPose(car, laneOffsetFor(edge, bias));
       if (this._insideAABB(p.x, p.z, _aabbs, 2.0)) continue;
