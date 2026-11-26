@@ -205,6 +205,7 @@
 "js/core/cooking.js",
 "js/core/crime.js",
 "js/core/crimeSetup.js",
+"js/core/crash-fx.js",
 "js/core/daynight.js",
 "js/core/death-pose.js",
 "js/core/block-world.js",
