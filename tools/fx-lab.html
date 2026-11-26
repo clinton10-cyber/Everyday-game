@@ -1,0 +1,280 @@
+<!doctype html><meta charset="utf-8"><title>FX lab</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.min.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+html,body{margin:0;background:#000;overflow:hidden}
+#app{position:fixed;inset:0;overflow:hidden}canvas{display:block;width:100%;height:100%}
+#cap{position:fixed;left:18px;bottom:16px;right:18px;font:800 22px/1.15 system-ui,sans-serif;color:#fff;text-shadow:0 2px 6px #000,0 0 14px #000;pointer-events:none;z-index:40}
+#cap small{display:block;font:600 14px/1.3 system-ui,sans-serif;color:#ffd9a0;margin-top:4px}
+#tag{position:fixed;left:14px;top:10px;font:700 12px system-ui,sans-serif;color:#fff9;letter-spacing:.12em;z-index:40}
+#hp{position:fixed;right:14px;top:10px;width:190px;font:700 12px system-ui,sans-serif;color:#fff;z-index:40;text-shadow:0 1px 3px #000}
+#hp i{display:block;height:9px;margin-top:3px;border-radius:5px;background:#0006;overflow:hidden}
+#hp b{display:block;height:100%;background:linear-gradient(90deg,#e53,#fb4);width:100%}
+#slow{position:fixed;left:14px;top:30px;font:800 13px system-ui,sans-serif;color:#9fd;z-index:40;letter-spacing:.1em;text-shadow:0 1px 3px #000}
+#title{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:#0b0d12;color:#fff;z-index:60;font:900 38px system-ui,sans-serif;text-align:center}
+#title small{font:600 17px/1.5 system-ui,sans-serif;color:#9aa;margin-top:12px;max-width:80%}
+</style>
+<div id="app"></div><div id="tag">EVERYDAY-GAME · FX REEL</div><div id="hp"></div><div id="slow"></div><div id="cap"></div><div id="title"></div>
+<script>
+/* ── virtual clock: everything time-based (performance.now, rAF, setTimeout, CSS transitions) follows OUR clock,
+      so frames are deterministic however slowly the software renderer runs ── */
+window.__V = { now: 0, raf: [], timers: [] };
+performance.now = () => window.__V.now;
+window.requestAnimationFrame = (cb) => { window.__V.raf.push(cb); return window.__V.raf.length; };
+window.cancelAnimationFrame = () => {};
+window.setTimeout = (fn, ms) => { window.__V.timers.push({ t: window.__V.now + (ms || 0), fn }); return window.__V.timers.length; };
+</script>
+<script type="module">
+import * as THREE from "three";
+import { buildCharacter } from "../js/characters/lowpoly.js";
+import { animate } from "../js/characters/animator.js";
+import { Limp } from "../js/characters/limp.js";
+import { HitReact } from "../js/characters/hit-react.js";
+import { DeathPhysics } from "../js/characters/death-physics.js";
+import { ShotFX } from "../js/core/shot-fx.js";
+import { Blood } from "../js/core/blood.js";
+
+const q = new URLSearchParams(location.search);
+const W = +(q.get("w") || 768), H = +(q.get("h") || 432);
+const V = window.__V;
+const $ = (id) => document.getElementById(id);
+
+/* deterministic randomness */
+let _seed = 1;
+const seedRng = (s) => { _seed = s >>> 0; };
+Math.random = () => { _seed = (_seed + 0x6D2B79F5) >>> 0; let t = _seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+
+/* ── scene ── */
+const app = $("app");
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+R.setPixelRatio(1); R.setSize(W, H, false); app.appendChild(R.domElement);
+R.domElement.style.width = W + "px"; R.domElement.style.height = H + "px";
+app.style.width = W + "px"; app.style.height = H + "px";
+document.body.style.width = W + "px"; document.body.style.height = H + "px";
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xa9bdd0);
+scene.fog = new THREE.Fog(0xa9bdd0, 14, 40);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x6b6f66, 1.5));
+const sun = new THREE.DirectionalLight(0xfff0d8, 1.7); sun.position.set(-4, 7, 5); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshLambertMaterial({ color: 0x77806f })); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+const grid = new THREE.GridHelper(60, 60, 0x5d6657, 0x6a7362); grid.position.y = 0.003; scene.add(grid);
+/* backdrop: a row of simple buildings so depth + blood read against something */
+const bmat = [0x8c8f95, 0x9a8f86, 0x7d8794, 0xa29a8a].map((c) => new THREE.MeshLambertMaterial({ color: c }));
+for (let i = 0; i < 14; i++) { const h = 3 + (i * 37 % 7), w = 3 + (i * 13 % 3); const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 3), bmat[i % 4]); b.position.set(-16 + i * 3.4, h / 2, -7); scene.add(b); }
+const barrier = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2.2, 4.2), new THREE.MeshLambertMaterial({ color: 0x9d9a92 })); barrier.position.set(1.4, 1.1, 0); scene.add(barrier);
+
+/* ── characters ── */
+const S = buildCharacter(null), VC = buildCharacter({ shirt: 0xb04040 });
+scene.add(S.root, VC.root);
+const mkCtl = (b) => ({ rig: b.rig, pos: { x: 0, z: 0 }, yaw: 0, state: "standing", vel: { x: 0, y: 0, z: 0 }, onGround: true, _guard: true });
+const cs = mkCtl(S), cv = mkCtl(VC);
+cv._guard = false; cs._guard = false;                                   /* relaxed stance: the fight-lab guard pose would hide the limb reactions */
+const npc = { group: VC.root, rig: VC.rig, ctl: cv, hp: 220, maxHp: 220, moveSpeed: 0, dead: false, _deathY: 0 };
+
+/* a pistol in the shooter's hand; arms held in an aiming pose */
+const gun = new THREE.Group();
+const gm = new THREE.MeshLambertMaterial({ color: 0x23262b });
+const gb = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.07), gm); gb.position.y = -0.1; gun.add(gb);
+const gg = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.1, 0.06), gm); gg.position.set(0, -0.02, 0.07); gg.rotation.x = 0.3; gun.add(gg);
+const muzzleObj = new THREE.Object3D(); muzzleObj.position.y = -0.24; gun.add(muzzleObj);
+S.rig.armR.wrist.add(gun);
+let recoil = 0;
+cs._overlay = (Rr) => {
+  const r = recoil;
+  Rr.armR.shoulder.rotation.set(-1.5 - r * 0.5, 0.0, -0.04); Rr.armR.elbow.rotation.set(-0.08 - r * 0.25, 0, 0);
+  Rr.armL.shoulder.rotation.set(-1.42 - r * 0.45, 0, -0.30); Rr.armL.elbow.rotation.set(-0.55 - r * 0.2, 0, 0);
+  Rr.spine.rotation.x += -r * 0.06;
+};
+
+const SHOOT_X = -4.2;
+const free = (x, z) => x < 3.6 && Math.abs(z) < 5;
+
+/* ── helpers ── */
+const resetCharacter = () => {
+  try { Limp.release(VC.rig); } catch (e) {}
+  try { HitReact.clear(npc); } catch (e) {}
+  npc._hr = null; npc.dead = false; npc.dying = false; npc._dp = null; npc._deathInfo = null; npc._limpKicked = false; npc.moveSpeed = 0;
+  cv._overlay = null; cv._anim = null; cv._emoteName = null; cv._emoteTimer = 0;
+  VC.root.quaternion.identity(); VC.root.position.set(0, 0, 0);
+  cv.pos.x = 0; cv.pos.z = 0; cv.yaw = -Math.PI / 2;                      /* victim faces the shooter (-x); its LEFT side faces the camera (+z) */
+  cs.pos.x = SHOOT_X; cs.pos.z = 0; cs.yaw = Math.PI / 2;
+  for (let i = 0; i < 24; i++) { animate(cs, 1 / 60); animate(cv, 1 / 60); }
+  place(); recoil = 0;
+};
+function place() {
+  S.root.position.set(cs.pos.x, 0, cs.pos.z); S.root.rotation.y = cs.yaw;
+  if (!npc.dying && !npc.dead) { VC.root.position.set(cv.pos.x, 0, cv.pos.z); VC.root.rotation.y = cv.yaw; }
+}
+const PT = { head: [0, 1.68, 0.02], torso: [0, 1.25, 0.0], arm: [0, 1.3, 0.24], leg: [0, 0.52, 0.1], foot: [0, 0.08, 0.1] };
+const wp = (o) => { const v = new THREE.Vector3(); o.getWorldPosition(v); return v; };
+
+function fireAt(type, part, dmgMul) {
+  S.root.updateMatrixWorld(true);
+  const m = wp(muzzleObj);
+  const p = new THREE.Vector3(PT[part][0] + cv.pos.x, PT[part][1], PT[part][2] + cv.pos.z);
+  const dir = p.clone().sub(m).normalize();
+  const base = { pistol: 26, rifle: 30, shotgun: 62, sniper: 85 }[type];
+  const mult = { head: 4, torso: 1, arm: 0.8, leg: 0.8, foot: 0.7 }[part];
+  const dmg = base * mult * (dmgMul || 1);
+  const was = npc.hp > 0;
+  npc.hp -= dmg;
+  const killed = was && npc.hp <= 0;
+  recoil = 1;
+  try { ShotFX.fire({ scene, muzzle: m, origin: m, dir, end: p, type, part, hit: true, dmg, surface: "flesh", killed, floorY: 0 }); } catch (e) { console.error(e); }
+  const info = { dir: { x: dir.x, y: dir.y, z: dir.z }, point: { x: p.x, y: p.y, z: p.z } };
+  if (npc.hp > 0) {
+    const r = HitReact.hit(npc, part, dmg, { dir: info.dir, point: info.point, type });
+    if (r && r.dislocated) { try { ShotFX.dislocate(info.point); } catch (e) {} }
+    return r;
+  }
+  startDeath({ dir: info.dir, point: info.point, part, dmg, type });
+}
+function startDeath(info) {
+  npc.hp = 0; npc.dead = true; npc.dying = true; HitReact.clear(npc);
+  DeathPhysics.begin(npc, info, free); npc._limpKicked = false;
+}
+function fireWorld(type, tx, ty, tz, surface) {
+  S.root.updateMatrixWorld(true);
+  const m = wp(muzzleObj), p = new THREE.Vector3(tx, ty, tz), dir = p.clone().sub(m).normalize();
+  recoil = 1;
+  try { ShotFX.fire({ scene, muzzle: m, origin: m, dir, end: p, type, part: null, hit: false, dmg: 0, surface, floorY: 0 }); } catch (e) { console.error(e); }
+}
+
+/* ── per-step simulation ── */
+const cam = new THREE.PerspectiveCamera(36, W / H, 0.05, 80);
+let camMode = { pos: [-2.0, 1.4, 5.2], look: [-2.0, 1.0, 0], fov: 36, follow: false };
+function stepSim(dt) {
+  V.now += dt * 1000;
+  for (let i = V.timers.length - 1; i >= 0; i--) if (V.timers[i].t <= V.now) { const t = V.timers.splice(i, 1)[0]; try { t.fn(); } catch (e) {} }
+  const cbs = V.raf; V.raf = []; for (const cb of cbs) { try { cb(V.now); } catch (e) {} }
+  for (const a of document.getAnimations()) { if (a.__t0 === undefined) { a.__t0 = V.now; a.pause(); } a.currentTime = V.now - a.__t0; }
+  recoil *= Math.exp(-dt * 14);
+  animate(cs, dt);
+  if (npc.dying) {
+    DeathPhysics.step(npc, dt, free, (e) => { try { Blood.splat(scene, e.x, e.z, 0); ShotFX.bodyDrop(scene, e.x, 0, e.z, e.strength, true); } catch (er) {} });
+    Limp.step(VC.rig, VC.root, dt);
+    if (!npc._limpKicked) { npc._limpKicked = true; try { DeathPhysics.limbs(npc, Limp); } catch (er) { console.error(er); } }
+  } else if (!npc.dead) animate(cv, dt);
+  else Limp.step(VC.rig, VC.root, dt);
+  place();
+  Blood.tick(dt);
+  const hpf = Math.max(0, npc.hp) / npc.maxHp;
+  $("hp").innerHTML = "NPC HEALTH " + Math.max(0, Math.round(npc.hp)) + " / " + npc.maxHp + "<i><b style='width:" + (hpf * 100).toFixed(1) + "%'></b></i>";
+}
+function render() {
+  const c = camMode;
+  let lx = c.look[0], px = c.pos[0];
+  if (c.follow && npc.dying || (c.follow && npc.dead)) { const f = clamp01((VC.root.position.x + 1) / 4); lx += VC.root.position.x * 0.55; px += VC.root.position.x * 0.45; }
+  cam.fov = c.fov; cam.aspect = W / H; cam.updateProjectionMatrix();
+  cam.position.set(px, c.pos[1], c.pos[2]); cam.lookAt(lx, c.look[1], c.look[2]);
+  R.render(scene, cam);
+}
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+/* ── storyboard ── */
+const seq = [];
+const seg = (o) => seq.push(o);
+const SIDE = { pos: [-2.0, 1.45, 5.3], look: [-2.0, 1.0, 0], fov: 36 };
+const CLOSE = { pos: [-0.6, 1.35, 3.6], look: [-0.5, 1.05, 0], fov: 34 };
+
+seg({ title: "EVERYDAY-GAME", sub: "Shooting FX · hit reactions · dislocation · ragdoll deaths · blood", dur: 2.0, slow: 1, kind: "card" });
+
+seg({
+  name: "SHOOTING EFFECTS", sub: "Muzzle flash, fire jet & smoke · tracers · sparks & dust · screen kick", dur: 7.2, slow: 0.7, seed: 7,
+  cam: { pos: [-1.6, 1.4, 5.6], look: [-1.4, 1.1, 0], fov: 52 }, wall: true, victim: false,
+  acts: [
+    [0.4, () => { $("slow").textContent = "PISTOL"; fireWorld("pistol", 1.19, 1.35, 0.1, "solid"); }],
+    [1.6, () => { $("slow").textContent = "RIFLE"; fireWorld("rifle", 1.19, 1.5, -0.3, "solid"); }],
+    [1.78, () => fireWorld("rifle", 1.19, 1.2, 0.2, "solid")],
+    [1.96, () => fireWorld("rifle", 1.19, 1.0, -0.1, "solid")],
+    [3.4, () => { $("slow").textContent = "SHOTGUN"; fireWorld("shotgun", 1.19, 1.3, 0.0, "solid"); }],
+    [5.0, () => { $("slow").textContent = "SNIPER · ground"; fireWorld("sniper", 0.1, 0.02, 0.0, "ground"); }],
+    [6.1, () => { $("slow").textContent = "SNIPER · wall"; fireWorld("sniper", 1.19, 1.1, 0.4, "solid"); }],
+  ],
+});
+
+seg({
+  name: "HEAD HIT", sub: "Head snaps back with the bullet · dazed wobble · blood sprays along the shot · NPCs now have ~220 hp", dur: 3.6, slow: 0.5, seed: 3, cam: CLOSE, victim: true,
+  acts: [[0.5, () => { $("slow").textContent = "RIFLE · HEADSHOT (survived)"; fireAt("rifle", "head", 0.8); }]],
+});
+seg({
+  name: "TORSO HIT", sub: "Chest folds · hand clutches the wound", dur: 3.6, slow: 0.5, seed: 11, cam: CLOSE, victim: true,
+  acts: [[0.5, () => { $("slow").textContent = "PISTOL · TORSO"; fireAt("pistol", "torso", 3.0); }]],
+});
+seg({
+  name: "ARM HIT → DISLOCATED SHOULDER", sub: "Arm whips along the bullet · pops out of the socket · hangs twisted while the other hand clutches it", dur: 4.6, slow: 0.5, seed: 5, cam: CLOSE, victim: true,
+  acts: [
+    [0.5, () => { $("slow").textContent = "SHOTGUN · ARM"; fireAt("shotgun", "arm"); }],
+    [1.7, () => { $("slow").textContent = "SHOTGUN · ARM (again)"; fireAt("shotgun", "arm"); }],
+  ],
+});
+seg({
+  name: "LEG HIT → DISLOCATED KNEE", sub: "Knee buckles · leg splays out and stays wrong · the NPC drops lower on it", dur: 4.6, slow: 0.5, seed: 9, cam: { pos: [-0.5, 1.0, 3.4], look: [-0.5, 0.8, 0], fov: 38 }, victim: true,
+  acts: [
+    [0.5, () => { $("slow").textContent = "SHOTGUN · LEG"; fireAt("shotgun", "leg"); }],
+    [1.9, () => { $("slow").textContent = "SHOTGUN · LEG (again)"; fireAt("shotgun", "leg"); }],
+  ],
+});
+seg({
+  name: "BADLY WOUNDED", sub: "Below 35% health: hunched, hand on the belly, shaking breath", dur: 3.4, slow: 0.6, seed: 2, cam: CLOSE, victim: true, hp: 60,
+  acts: [[0.6, () => { $("slow").textContent = "PISTOL · TORSO"; fireAt("pistol", "torso", 0.4); }]],
+});
+
+seg({
+  name: "DEATH · HEADSHOT", sub: "Falls the way the bullet sends it: head snaps, chest folds the other way, body slides back", dur: 3.9, slow: 0.55, seed: 4, cam: { pos: [-0.3, 1.3, 4.6], look: [0.5, 0.9, 0], fov: 40, follow: true }, victim: true, hp: 90,
+  acts: [[0.5, () => { $("slow").textContent = "RIFLE · HEADSHOT KILL"; fireAt("rifle", "head"); }]],
+});
+seg({
+  name: "DEATH · SHOTGUN TO THE CHEST", sub: "Big shots launch the body: hop, tumble, skid, rebound", dur: 3.9, slow: 0.55, seed: 8, cam: { pos: [-0.3, 1.3, 4.8], look: [0.7, 0.9, 0], fov: 42, follow: true }, victim: true, hp: 50,
+  acts: [[0.5, () => { $("slow").textContent = "SHOTGUN · TORSO KILL"; fireAt("shotgun", "torso"); }]],
+});
+seg({
+  name: "DEATH · ARM SHOT", sub: "Off-axis hit = real torque: the body spins as it falls", dur: 3.9, slow: 0.55, seed: 6, cam: { pos: [-0.3, 1.3, 4.6], look: [0.4, 0.9, 0], fov: 40, follow: true }, victim: true, hp: 60,
+  acts: [[0.5, () => { $("slow").textContent = "SNIPER · ARM KILL"; fireAt("sniper", "arm"); }]],
+});
+seg({
+  name: "DEATH · LEG SHOT", sub: "Legs swept out: hop, collapse sideways over the injured leg, roll onto the side", dur: 3.9, slow: 0.55, seed: 12, cam: { pos: [-0.3, 1.3, 4.6], look: [0.3, 0.8, 0], fov: 40, follow: true }, victim: true, hp: 40,
+  acts: [[0.5, () => { $("slow").textContent = "SHOTGUN · LEG KILL"; fireAt("shotgun", "leg"); }]],
+});
+
+seg({ title: "Everyday-game", sub: "shot-fx.js · hit-react.js · death-physics.js · blood.js", dur: 2.0, slow: 1, kind: "card" });
+
+/* ── frame driver ── */
+let si = -1, segT = 0, actsLeft = [];
+function beginSeg(i) {
+  const s = seq[i]; si = i; segT = 0;
+  $("title").style.display = s.kind === "card" ? "flex" : "none";
+  if (s.kind === "card") { $("title").innerHTML = s.title + "<small>" + s.sub + "</small>"; $("cap").innerHTML = ""; $("hp").style.display = "none"; $("slow").textContent = ""; return; }
+  seedRng(s.seed || 1);
+  $("cap").innerHTML = s.name + "<small>" + s.sub + "</small>";
+  $("slow").textContent = "";
+  barrier.visible = !!s.wall;
+  VC.root.visible = s.victim !== false;
+  $("hp").style.display = s.victim === false ? "none" : "block";
+  Blood.clear();
+  resetCharacter();
+  npc.maxHp = 220; npc.hp = s.hp || 220;
+  if (s.hp && s.hp < 100) { /* low-hp scenes show a smaller bar scale; keep maxHp at 220 so % is honest */ }
+  camMode = Object.assign({ follow: false }, s.cam || SIDE);
+  actsLeft = (s.acts || []).slice().sort((a, b) => a[0] - b[0]);
+}
+window.__fx = {
+  total: () => seq.length,
+  begin: () => { beginSeg(0); render(); },
+  /* one video frame = `sub` sim steps (slow-mo scales the sim step, not the video) */
+  frame() {
+    if (si >= seq.length) return false;
+    const s = seq[si];
+    const sub = 2, dt = (1 / 60) * (s.slow || 1);
+    for (let k = 0; k < sub; k++) {
+      segT += dt;
+      while (actsLeft.length && actsLeft[0][0] <= segT) actsLeft.shift()[1]();
+      if (s.kind !== "card") stepSim(dt); else V.now += dt * 1000;
+    }
+    render();
+    if (segT >= s.dur) { if (si + 1 >= seq.length) { si = seq.length; return false; } beginSeg(si + 1); render(); }
+    return true;
+  },
+  segIndex: () => si,
+};
+window.__ready = true;
+</script>

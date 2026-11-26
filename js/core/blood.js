@@ -99,7 +99,7 @@ export const Blood = {
         velocities[i * 3 + 1] = 3 + Math.random() * spread;
         velocities[i * 3 + 2] = Math.sin(a) * r;
       }
-      sizes[i] = isBlood ? 0.018 + Math.random() * Math.random() * 0.05 : 0.03 + Math.random() * 0.03;   /* mostly fine drops, a few fat ones */
+      sizes[i] = isBlood ? 0.014 + Math.random() * Math.random() * 0.04 : 0.010 + Math.random() * 0.014;   /* sparks: tiny hot specks */   /* mostly fine drops, a few fat ones */
       _p.set(0, 0, 0); _q.identity(); _s.setScalar(sizes[i]);
       _m.compose(_p, _q, _s);
       inst.setMatrixAt(i, _m);
@@ -172,7 +172,7 @@ export const Blood = {
         const vx = s.velocities[j3], vy = s.velocities[j3 + 1], vz = s.velocities[j3 + 2];
         const sp = Math.sqrt(vx * vx + vy * vy + vz * vz);
         if (sp > 0.5) { _vv.set(vx / sp, vy / sp, vz / sp); s._q.setFromUnitVectors(UPV, _vv); } else s._q.identity();
-        const stretch = 1 + Math.min(5, sp * 0.28);
+        const stretch = 1 + Math.min(3.2, sp * 0.2);
         s._s.set(r * fadeK, r * stretch * fadeK, r * fadeK);
         s._m.compose(s._p, s._q, s._s);
         s.inst.setMatrixAt(j, s._m);

@@ -161,7 +161,7 @@ function tracer(scene, from, to, type) {
   const m = new THREE.Mesh(_tracerGeo, mat); m.frustumCulled = false; scene.add(m);
   const dir = _v.copy(to).sub(from).normalize().clone();
   _q.setFromUnitVectors(_up, dir); m.quaternion.copy(_q);
-  const speed = 520, tail = Math.min(len, type === "sniper" ? 9 : 5);
+  const speed = 380, tail = Math.min(len, type === "sniper" ? 11 : 6.5);
   let d = 0;
   run({
     update(dt) {
@@ -281,7 +281,8 @@ function ac() {
   try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { _ac = null; }
   return _ac;
 }
-function tone(kind) {
+function tone(kind) { try { _tone(kind); } catch (e) {} }     /* audio must never be able to break the visuals */
+function _tone(kind) {
   const a = ac(); if (!a) return;
   if (a.state === "suspended") { try { a.resume(); } catch (e) {} }
   const t0 = a.currentTime, g = a.createGain(); g.connect(a.destination);
