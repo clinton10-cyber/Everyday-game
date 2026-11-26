@@ -1,5 +1,5 @@
 /* Everyday Cinematics — plays 3D story films inside the game's own world.
-   • Uses the real Port Harcourt world, interiors, faceted characters and vehicles.
+   • Uses the real Port LIFEX world, interiors, faceted characters and vehicles.
    • Every location is built ONCE and shared by all acts that use it (a story that visits
      the hotel twice no longer builds two hotels), then shown/hidden per act.
    • Each location has a STAGE: where the cast stands and a 4-shot camera choreography
@@ -23,7 +23,7 @@ export const STAGES = {
       { p: [2.6, 2.1, 8.2], t: 'lead' },
     ],
   },
-  campus: {   // the UNIPORT quad: on the N-S path, main building ahead, cast walking toward camera
+  campus: {   // the UNILIFEX quad: on the N-S path, main building ahead, cast walking toward camera
     set: 'city', anchor: [-230, 0, 8], yaw: 0, sky: '#9dc4e8',
     shots: [
       { p: [-6, 20, 44], t: [0, 5, -28] },
@@ -226,7 +226,7 @@ export async function playCinematic(canvas, config, carBuilder) {
   config.acts.forEach((a) => { const k = stageFor(a.kind || 'street').set; if (!setKeys.includes(k)) setKeys.push(k); });
   const sets = new Map();
   const total = setKeys.length + 1;
-  const LABEL = { city: 'Port Harcourt streets', classroom: 'Classroom', hotel: 'Hotel Presidential', office: 'Property office', park: 'Pleasure Park', hotelExterior: 'Hotel entrance' };
+  const LABEL = { city: 'Port LIFEX streets', classroom: 'Classroom', hotel: 'Hotel Presidential', office: 'Property office', park: 'Pleasure Park', hotelExterior: 'Hotel entrance' };
   const setOf = (k) => stageFor(k).set;
   let done = 0;
   for (const key of setKeys) {

@@ -75,7 +75,7 @@ export const Engagement = {
     return 0;
   },
   ownsPhone(id) { return this.state.phones.owned.includes(id); },
-  /* heat multiplier applied to robbery heat (juju amulet from Mile 1) */
+  /* heat multiplier applied to robbery heat (juju amulet from Central Market) */
   heatMult() { return this.state.flags.jujuProtection ? 1 - CFG.jujuHeatReduce : 1; },
 
   /* ---- phones (called by the phone shop) ---- */

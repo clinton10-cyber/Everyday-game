@@ -52,7 +52,7 @@ export class Phone{
         <div class="thdr">
           <div class="tbr">
             <div class="tlg"><i class="fa-solid fa-city"></i></div>
-            <span>Everyday in PH</span>
+            <span>Everyday in LIFEX</span>
           </div>
           <div class="tcl" id="tclose"><i class="fa-solid fa-xmark"></i></div>
         </div>
@@ -195,8 +195,8 @@ export class Phone{
         <div class="tapp" id="app-about">
           <button class="tbk" data-back><i class="fa-solid fa-chevron-left"></i> Home</button>
           <div style="padding:16px;line-height:1.65;font-size:13px;color:#eaf6ff">
-            <h2 style="font-size:18px;margin:0 0 8px">Everyday in PH</h2>
-            <p>A free open-world game set in Port Harcourt, Nigeria. Walk the streets, drive cars, take jobs, buy a home, and survive the Garden City.</p>
+            <h2 style="font-size:18px;margin:0 0 8px">Everyday in LIFEX</h2>
+            <p>A free open-world game set in Port LIFEX, Nigeria. Walk the streets, drive cars, take jobs, buy a home, and survive the Garden City.</p>
 
             <h3 style="font-size:14px;margin:18px 0 6px">How to play</h3>
             <p>Drag the <b>left half</b> of the screen to walk and the <b>right half</b> to look around. Tap the action button to interact with people, doors, cars, and items. Open this phone any time to check your balance, jobs, and map. In a car, tap the pedals to accelerate and brake; drag the screen to steer.</p>
@@ -209,7 +209,7 @@ export class Phone{
             <p><b>Does it work on mobile?</b> Yes — built mobile-first for iOS and Android.</p>
             <p><b>How is progress saved?</b> Locally in your browser. Clearing data or switching devices resets your profile.</p>
 
-            <p style="margin-top:24px;opacity:.5;font-size:11px">Everyday in PH · clintonbenjamin208@gmail.com</p>
+            <p style="margin-top:24px;opacity:.5;font-size:11px">Everyday in LIFEX · clintonbenjamin208@gmail.com</p>
           </div>
         </div>
 
@@ -339,7 +339,7 @@ export class Phone{
         <div class="tapp" id="app-music">
           <button class="tbk" data-back><i class="fa-solid fa-chevron-left"></i> Home</button>
           <div class="music-art"><i class="fa-solid fa-wave-square"></i></div>
-          <div class="music-title">Port Harcourt Soundscape</div>
+          <div class="music-title">Port LIFEX Soundscape</div>
           <div class="music-sub">EVERYDAY AUDIO · CITY AMBIENCE</div>
           <div class="music-note">The game currently plays location-aware city ambience and environmental sounds rather than licensed songs. Control the in-game sound mix here.</div>
           <div class="music-controls"><button id="music-mute"><i class="fa-solid fa-volume-xmark"></i> Mute / Unmute</button><button id="music-next"><i class="fa-solid fa-location-crosshairs"></i> Current scene</button></div>
@@ -888,7 +888,7 @@ export class Phone{
         const initials=name.split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase();
         return `<article class="people-row"><div class="people-avatar">${initials||"PH"}</div><div class="people-copy"><b>${name}</b><small>${role} · ${n.groupTag?"With a group":"Around the city"}</small></div><span class="people-presence">IN CITY</span></article>`;
       }).join("");
-      el.innerHTML=`<header class="people-head"><div class="people-eyebrow">GARDEN CITY DIRECTORY</div><h2>People around you</h2><p>Meet the residents and characters living in Port Harcourt.</p><div class="people-total"><strong>${people.length}</strong><span>active city characters</span></div></header><div class="people-filters">${chips||'<span class="people-chip">City residents</span>'}</div><div class="people-list-title">CITY DIRECTORY <span>${Math.min(people.length,60)} shown</span></div>${rows||'<div class="tempty">The streets are quiet right now. Explore the city to meet people.</div>'}<div class="people-footnote">These are computer-controlled NPCs, not connected human players. Online multiplayer is a separate feature.</div>`;
+      el.innerHTML=`<header class="people-head"><div class="people-eyebrow">GARDEN CITY DIRECTORY</div><h2>People around you</h2><p>Meet the residents and characters living in Port LIFEX.</p><div class="people-total"><strong>${people.length}</strong><span>active city characters</span></div></header><div class="people-filters">${chips||'<span class="people-chip">City residents</span>'}</div><div class="people-list-title">CITY DIRECTORY <span>${Math.min(people.length,60)} shown</span></div>${rows||'<div class="tempty">The streets are quiet right now. Explore the city to meet people.</div>'}<div class="people-footnote">These are computer-controlled NPCs, not connected human players. Online multiplayer is a separate feature.</div>`;
     }).catch(()=>{el.innerHTML='<div class="tempty">City directory is loading. Try again shortly.</div>';});
   }
 
@@ -1256,7 +1256,7 @@ export class Phone{
     if (!el) return;
     const slots = Pocket.slots.map((slot, slotIndex) => slot ? ({ ...slot, slotIndex }) : null).filter(Boolean);
     if (!slots.length) {
-      el.innerHTML = '<header class="inventory-head"><span>POCKET STORAGE</span><h2>Your carry bag</h2><p>Market purchases and city pickups appear here.</p></header><div class="inventory-empty"><i class="fa-solid fa-box-open"></i><b>Nothing in your bag</b><span>Buy goods at Mile 1 Market or collect items around the city.</span></div>';
+      el.innerHTML = '<header class="inventory-head"><span>POCKET STORAGE</span><h2>Your carry bag</h2><p>Market purchases and city pickups appear here.</p></header><div class="inventory-empty"><i class="fa-solid fa-box-open"></i><b>Nothing in your bag</b><span>Buy goods at Central Market or collect items around the city.</span></div>';
       return;
     }
     const total = slots.reduce((a,it)=>a+(Number(it.qty)||1),0);

@@ -16,7 +16,7 @@ Static inspection of the registered interior scene builders, their visible seati
 ## Existing seating registration reviewed
 Existing seat arrays were found in the church, mosque, classroom, computer lab, airport, village, forest, city park, Boropark, zoo, Vatican, statehouse, state jail, duplex, Lagos flat, mansion, my house, nightclub, canteen, beach, and hotel scenes. Beach seats are appended after the controls world is created, which updates the same shared array reference.
 
-The Mile 1 Market and Phone Shop currently have no actual chair/bench/stool models in their interior builders, so empty seat arrays are intentional there rather than missing interactions.
+The Central Market and Phone Shop currently have no actual chair/bench/stool models in their interior builders, so empty seat arrays are intentional there rather than missing interactions.
 
 ## Validation
 - All JavaScript files pass `node --check`.

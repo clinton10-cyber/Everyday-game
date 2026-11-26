@@ -1,5 +1,5 @@
 /*
- * Career progression for Everyday in PH.
+ * Career progression for Everyday in LIFEX.
  * Careers are separate from the rotating gig-job board: players apply,
  * prepare a CV, train, interview, complete paid shifts and earn promotions.
  * All values are fictional in-game currency.
@@ -9,7 +9,7 @@ import { Economy } from "./economy.js";
 import { Profile } from "./profile.js";
 
 export const CAREER_CATALOG = [
-  { id:"corporate", name:"Corporate Office", field:"Private sector", icon:"🏢", minRep:10, fee:2500, base:14500, recordOK:true, ranks:["Intern","Associate","Executive","Manager","Director"], desc:"Build experience in a Port Harcourt company." },
+  { id:"corporate", name:"Corporate Office", field:"Private sector", icon:"🏢", minRep:10, fee:2500, base:14500, recordOK:true, ranks:["Intern","Associate","Executive","Manager","Director"], desc:"Build experience in a Port LIFEX company." },
   { id:"teacher", name:"Teaching Service", field:"Education", icon:"📚", minRep:20, fee:3000, base:12000, recordOK:true, ranks:["Teaching Assistant","Class Teacher","Senior Teacher","Vice Principal","Principal"], desc:"Teach, mentor students and progress through school leadership." },
   { id:"civil", name:"Civil Service", field:"Government", icon:"🏛️", minRep:30, fee:4000, base:15500, recordOK:false, ranks:["Admin Assistant","Administrative Officer","Senior Officer","Director","Permanent Secretary"], desc:"Serve in public administration and government offices." },
   { id:"police", name:"Police Service", field:"Public safety", icon:"🚓", minRep:35, fee:4500, base:16500, recordOK:false, ranks:["Police Recruit","Constable","Sergeant","Inspector","Chief Inspector"], desc:"Protect residents and uphold the law." },

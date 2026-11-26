@@ -12,7 +12,7 @@ export function buildExterior(){
  // Entrance arch and ticket booths.
  for(const x of [-10,10]){box(1.6,6,1.5,x,3,26,blue);box(1.9,.35,1.8,x,6.15,26,yellow);}
  box(22,1.1,1.7,0,6.0,26,red);box(22.5,.25,1.9,0,6.65,26,yellow);
- const sign=textLabel("PLEASURE PARK","FAMILY FUN · RIDES · GAMES · PORT HARCOURT");sign.position.set(0,7.5,26);sign.scale.setScalar(1.15);g.add(sign);
+ const sign=textLabel("PLEASURE PARK","FAMILY FUN · RIDES · GAMES · PORT LIFEX");sign.position.set(0,7.5,26);sign.scale.setScalar(1.15);g.add(sign);
  for(const x of [-5,5]){box(4,2.4,3,x,1.2,22,white);box(4.1,.25,3.1,x,2.5,22,red);box(2.8,.8,.12,x,1.45,20.43,blue);}
  // Ferris wheel silhouette with gondolas, supports and coloured rim.
  const wx=-20,wz=-5,wy=13;add(new THREE.TorusGeometry(8,.28,10,64),metal,wx,wy,wz,Math.PI/2,0,0);

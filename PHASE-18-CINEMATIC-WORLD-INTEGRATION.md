@@ -3,7 +3,7 @@
 The five story films have been upgraded so they no longer build generic miniature stand-in locations or simplified mannequin characters.
 
 ## Shared game assets now used
-- `js/world/phworld.js` via `buildPHWorld()` for the actual Port Harcourt world mesh, roads, trees and landmark buildings used by the game.
+- `js/world/phworld.js` via `buildPHWorld()` for the actual Port LIFEX world mesh, roads, trees and landmark buildings used by the game.
 - `js/characters/faceted.js` via `buildFaceted()` for the same detailed faceted character system used by the game.
 - `js/places/pleasurepark/exterior.js` for the actual Pleasure Park exterior scene.
 - `js/places/hotel/interior.js` for the actual Hotel Presidential interior.

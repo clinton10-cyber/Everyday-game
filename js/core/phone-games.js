@@ -426,7 +426,7 @@ export const PhoneGames = {
     }).join("");
     el.innerHTML = `
       <div class="wx-hero wx-${S.id}">
-        <div class="wx-city">Port Harcourt</div>
+        <div class="wx-city">Port LIFEX</div>
         <div class="wx-ic">${S.icon}</div>
         <div class="wx-t">${I.temp}°</div>
         <div class="wx-c">${S.label} · ${S.cond}</div>

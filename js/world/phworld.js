@@ -1,4 +1,4 @@
-/* js/world/phworld.js -- shared Port Harcourt reference world.
+/* js/world/phworld.js -- shared Port LIFEX reference world.
    Base layer (grass + patches + river) and detail layer (roads,
    landmarks, buildings, trees) are built separately so the detail
    mesh (with polygonOffset) renders cleanly on top of the base
@@ -1373,12 +1373,12 @@ function bVillage(x,z){
 
 /* ── 9. Landmark table ────────────────────────────────────────── */
 const PLACES = [
-  ["courthouse",    "Rivers State High Court", -410,   -70, bStatehouse],
-  ["courthouse",    "Rivers State High Court", -410,   -70, bStatehouse],
+  ["courthouse",    "LIFEX State High Court", -410,   -70, bStatehouse],
+  ["courthouse",    "LIFEX State High Court", -410,   -70, bStatehouse],
   ["govhouse",     "Government House",      -250,  -60, bGovHouse],
   ["hotel",        "Hotel Presidential",    -115, -155, bHotel],
   ["boropark",     "Isaac Boro Park",         10, -110, bIbp],
-  ["market",       "Mile 1 Market",          218,  103, bMarket],
+  ["market",       "Central Market",          218,  103, bMarket],
   ["airport",      "Omagwa Airport",         400,   90, bAirport],
   ["showroom",     "Auto Hub",               146,  -44, bAutoHub],
   ["pleasurepark", "Pleasure Park",          -10,   35, bPleasure],

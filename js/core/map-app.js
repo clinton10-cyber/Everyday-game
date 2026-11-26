@@ -994,7 +994,7 @@ function build() {
     <canvas id="ph3d-map-canvas"></canvas>
     <canvas id="ph3d-map-mini"></canvas>
     <div id="ph3d-map-hdr">
-      <div class="ttl ph3d-paper">Port Harcourt<i>THE CITY MAP</i></div>
+      <div class="ttl ph3d-paper">Port LIFEX<i>THE CITY MAP</i></div>
       <div id="ph3d-map-close" class="ph3d-paper">✕</div>
     </div>
     <div id="ph3d-map-zoom" class="ph3d-paper">

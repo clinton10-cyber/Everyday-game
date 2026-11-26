@@ -1,4 +1,4 @@
-/* js/ui/market-shop.js -- the Mile 1 buy modal. Touch-first, landscape-friendly, no emoji.
+/* js/ui/market-shop.js -- the Central Market buy modal. Touch-first, landscape-friendly, no emoji.
    MarketShop.open(item) from a stall's USE prompt. Close with X, CLOSE, tapping outside, or Escape. */
 import * as THREE from "three";
 import { Economy } from "../core/economy.js";
@@ -82,7 +82,7 @@ export const MarketShop = {
     const r = this._root, q = (s) => r.querySelector(s);
     this._setPreview(item);
     if (!this._previewRenderer) q("[data-icon]").textContent = item.icon || "3D";
-    q("[data-kind]").textContent = item.kind + " \u00B7 Mile 1 only";
+    q("[data-kind]").textContent = item.kind + " \u00B7 Central Market only";
     q("[data-name]").textContent = item.label; q("[data-desc]").textContent = item.desc;
     q("[data-price]").innerHTML = fmt(item.price) + (item.heal ? "<small>+" + item.heal + " HP</small>" : "");
     q("[data-eat]").style.display = item.kind === "food" ? "" : "none";
@@ -184,7 +184,7 @@ export const MarketShop = {
       this._toast("Bought " + it.label.toLowerCase() + ". Open Pocket Storage to use or equip it.");
     }
     try {
-      Engagement.collect("mile1", it.id);   /* every unique item counts toward the Mile 1 collection */
+      Engagement.collect("mile1", it.id);   /* every unique item counts toward the Central Market collection */
       if (it.heatReduce) Engagement.setFlag("jujuProtection", true);
       if (it.flag) Engagement.setFlag(it.flag, true);
       Engagement.track("market_purchase", { id: it.id, price: it.price, kind: it.kind });

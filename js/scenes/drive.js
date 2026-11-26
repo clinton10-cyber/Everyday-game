@@ -1,4 +1,4 @@
-/* drive.js -- Port Harcourt future-city open world.
+/* drive.js -- Port LIFEX future-city open world.
    v12 — adds NPCs (path-following pedestrians), NPC cars (real
    physics + blood), blood particle system, and ragdoll-impulse
    helpers. Everything else is unchanged from v11. */
@@ -1652,7 +1652,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
 
   return {
     three, camera, controls: { update: function () {} },
-    crumb: "OPEN WORLD", title: "PORT HARCOURT",
+    crumb: "OPEN WORLD", title: "PORT LIFEX",
     subtitle: (mode === "walk") ? "ON FOOT" :
               (model === "cybertruck" ? "CYBERTRUCK" :
                model === "rangerover" ? "RANGE ROVER" :

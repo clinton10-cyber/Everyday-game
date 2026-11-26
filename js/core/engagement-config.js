@@ -21,7 +21,7 @@ export const CFG = {
   robberyConfirmSeconds: 0.9,
   robberyCaughtToPrison: true,
   robberyCaughtFine: 0.25,          /* share of balance taken when caught */
-  jujuHeatReduce: 0.15,             /* from the Mile 1 juju amulet */
+  jujuHeatReduce: 0.15,             /* from the Central Market juju amulet */
   heatCap: 100,
   streak: { graceHours: 36, xpPerDay: 40, cap: 7 },
 
@@ -38,7 +38,7 @@ export const CFG = {
     { id: "first_phone",  name: "Connected",      desc: "Buy a phone",                 test: (c, s) => s.phones.owned.length >= 1 },
     { id: "first_heist",  name: "Sticky fingers", desc: "Pull off a robbery",          test: (c) => c.robberies >= 1 },
     { id: "busted",       name: "Busted",         desc: "Get caught after a robbery",  test: (c) => c.robberiesCaught >= 1 },
-    { id: "mile1_5",      name: "Mile 1 regular", desc: "Buy 5 unique Mile 1 items",   test: (c, s) => Object.keys(s.collections.mile1 || {}).length >= 5 },
+    { id: "mile1_5",      name: "Central Market regular", desc: "Buy 5 unique Central Market items",   test: (c, s) => Object.keys(s.collections.mile1 || {}).length >= 5 },
     { id: "blessed",      name: "Blessed",        desc: "Present a kolanut",           test: (c, s) => !!s.flags.blessed },
   ],
 
@@ -48,7 +48,7 @@ export const CFG = {
       { id: "d_photos", text: "Take 2 photos",             key: "photosTaken",  target: 2,    xp: 30 },
       { id: "d_visit",  text: "Visit 3 places",            key: "scenesVisited", target: 3,   xp: 30 },
       { id: "d_earn",   text: "Earn 5,000 naira",          key: "moneyEarned",  target: 5000, xp: 40 },
-      { id: "d_shop",   text: "Buy something at Mile 1",   key: "marketBuys",   target: 1,    xp: 25 },
+      { id: "d_shop",   text: "Buy something at Central Market",   key: "marketBuys",   target: 1,    xp: 25 },
     ],
     weekly: [
       { id: "w_jobs",   text: "Finish 3 jobs",             key: "jobsDone",     target: 3,     xp: 120 },
@@ -57,7 +57,7 @@ export const CFG = {
     ],
     life: [
       { id: "l_phone",  text: "Own a phone",               key: "phonesOwned",  target: 1,  xp: 150 },
-      { id: "l_mile1",  text: "Collect 10 Mile 1 items",   key: "mile1Items",   target: 10, xp: 250 },
+      { id: "l_mile1",  text: "Collect 10 Central Market items",   key: "mile1Items",   target: 10, xp: 250 },
       { id: "l_photo",  text: "Take 100 photos",           key: "photosTaken",  target: 100, xp: 300 },
     ],
   },

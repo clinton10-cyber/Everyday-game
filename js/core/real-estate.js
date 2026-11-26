@@ -2,8 +2,8 @@ import { Economy } from './economy.js';
 
 const KEY='ph3d_real_estate_v1';
 const CATALOG=[
- {id:'room',name:'Single Room',kind:'Rental',area:'Diobu',price:1800000,rent:18000,desc:'A modest room in a busy neighbourhood.'},
- {id:'selfcon',name:'Self-Contained Apartment',kind:'Apartment',area:'Rumuola',price:6500000,rent:65000,desc:'A compact private apartment.'},
+ {id:'room',name:'Single Room',kind:'Rental',area:'Lifdane Row',price:1800000,rent:18000,desc:'A modest room in a busy neighbourhood.'},
+ {id:'selfcon',name:'Self-Contained Apartment',kind:'Apartment',area:'Lifmora Junction',price:6500000,rent:65000,desc:'A compact private apartment.'},
  {id:'two-bed',name:'Two-Bedroom Flat',kind:'Family home',area:'Elelenwo',price:18500000,rent:180000,desc:'A comfortable home for a growing family.'},
  {id:'duplex',name:'Detached Duplex',kind:'Luxury',area:'GRA Phase 2',price:68000000,rent:650000,desc:'A premium detached property.'},
  {id:'mansion',name:'Luxury Mansion',kind:'Mansion',area:'Peter Odili Road',price:185000000,rent:1750000,desc:'A landmark luxury residence.'}

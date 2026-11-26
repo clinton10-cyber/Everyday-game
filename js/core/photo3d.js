@@ -47,7 +47,7 @@ function backTexture(p) {
     g.fillStyle = "#3a3226"; g.font = "700 21px Georgia, serif";
     g.fillText(p.who.slice(0, 5).join(", ").slice(0, 64), 256, 304, 460);
   }
-  g.font = "13px Georgia, serif"; g.fillStyle = "#9a8f78"; g.fillText("EVERYDAY IN PH · ALBUM", 256, 352);
+  g.font = "13px Georgia, serif"; g.fillStyle = "#9a8f78"; g.fillText("EVERYDAY IN LIFEX · ALBUM", 256, 352);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 

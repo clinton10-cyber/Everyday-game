@@ -1,6 +1,6 @@
 # Market Item Visual Use Upgrade
 
-All 65 Mile 1 Market catalogue products can now be used from Phone > Pocket Storage.
+All 65 Central Market catalogue products can now be used from Phone > Pocket Storage.
 
 - Food and drinks: create the product's 3D model in the player's hand, play the matching eat/drink sound, restore the product's listed health amount, then consume one unit.
 - Non-consumables: equip the actual 3D product model in the player's hand. Bulky fabrics/household goods use a larger carry presentation; small goods use a one-hand presentation.

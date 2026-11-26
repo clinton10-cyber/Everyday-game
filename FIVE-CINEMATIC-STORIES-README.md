@@ -2,8 +2,8 @@
 
 Five standalone story pages have been added to the project root:
 
-1. `story-01-the-first-day.html` – a new student's first day at UNIPORT.
-2. `story-02-the-night-drive.html` – a late-night Port Harcourt road incident.
+1. `story-01-the-first-day.html` – a new student's first day at UNILIFEX.
+2. `story-02-the-night-drive.html` – a late-night Port LIFEX road incident.
 3. `story-03-a-pleasure-park-promise.html` – two friends spend a day at Pleasure Park.
 4. `story-04-the-presidential-suite.html` – an entrepreneur's important hotel meeting.
 5. `story-05-the-missing-briefcase.html` – a short city mystery.

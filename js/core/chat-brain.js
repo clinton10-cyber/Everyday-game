@@ -53,7 +53,7 @@ const WORD_BANK = (() => {
     +"boyfriend married dating children child brother sister mother father university church mosque bank "
     +"football match Arsenal Chelsea Liverpool weather rain hot cold phone battery data internet message "
     +"buy sell borrow lend give take help need want looking find tell explain remember know understand "
-    +"Port Harcourt Rumuola Mile Eleme Chika Daniel Amara Kelechi").toLowerCase().split(/\s+/));
+    +"Port LIFEX Lifmora Junction Mile Eleme Chika Daniel Amara Kelechi").toLowerCase().split(/\s+/));
   for (const intent of CHAT_CORPUS) for (const phrase of intent.pats || [])
     for (const word of normalize(phrase).split(" ")) if (word.length > 3) set.add(word);
   return [...set];
@@ -195,7 +195,7 @@ const FALLBACKS = [
   "Sorry, my friend. Try another way.",
   "Ehn? Repeat am, my ears dey block.",
   "E be like say I miss that one. Say am again.",
-  "Hmm, I no too gets. Try ask me about food, money, football or PH.",
+  "Hmm, I no too gets. Try ask me about food, money, football or LIFEX.",
   "Wetin you dey talk? I no follow.",
   "Abeg, talk am plain so I go understand.",
   "Your gist sweet, but I no fit catch am. Another way?",

@@ -14,7 +14,7 @@ Built on the Phase 6 Night Visibility Upgrade.
 - Governor's House perimeter/terrace lamps and night glow pools.
 - VastCity road-grid lamps and night glow pools.
 - Vatican square lamps now have visible night glow pools.
-- Mile 1 Market aisle/perimeter lamps and night glow pools.
+- Central Market aisle/perimeter lamps and night glow pools.
 - Government House participates in the outdoor dusk/night cycle.
 
 ## Technical

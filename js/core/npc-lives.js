@@ -28,9 +28,9 @@ const MAX_PEOPLE = 220;
 const OUTDOOR_JOBS = new Set(["trader", "police", "taxi", "priest", "banker", "doctor", "mechanic"]);   /* stand at their post */
 const JOBS = ["walker", "trader", "walker", "mechanic", "walker", "taxi", "walker", "clerk", "student", "trader"];
 
-const M_NAMES = ["Chinedu", "Emeka", "Obinna", "Tamuno", "Boma", "Ibiso", "Chidi", "Kelechi", "Ebube", "Tonye", "Ikenna", "Dubem", "Sotonye", "Nnamdi", "Tobi", "Ayo", "Musa", "Ibrahim", "Segun", "Chukwudi", "Dagogo", "Preye", "Uche", "Femi"];
-const F_NAMES = ["Ngozi", "Ibinabo", "Tonbra", "Amaka", "Chioma", "Ifeoma", "Nkechi", "Ebiere", "Preye", "Blessing", "Joy", "Favour", "Adaeze", "Tamara", "Bisola", "Zainab", "Funke", "Ene", "Oluchi", "Dinma", "Teboho", "Ibiba", "Grace", "Mercy"];
-const SURN = ["Okafor", "Amadi", "Wokocha", "Briggs", "Nwosu", "Ejiofor", "Ibe", "Dokubo", "Horsfall", "Eze", "Ogbonna", "Opara", "Nnadi", "Okoro", "Jaja", "Abbey", "Fubara", "Kalio", "Owhonda", "Peterside"];
+const M_NAMES = ["Lixen","Torin","Kael","Doran","Lixiel","Teron","Orlan","Marek","Soren","Taliv","Joren","Bryn","Alvar","Dorian","Kestrin","Lixdric","Torvan","Aldon","Merek","Zaren","Corvan","Eldric","Falken","Ronan"];
+const F_NAMES = ["Lixeria","Talia","Seren","Lyra","Mirelle","Odalys","Vessa","Aveline","Isolde","Tavia","Nerys","Corvina","Elara","Sabine","Calista","Rhea","Veyra","Marisol","Elowen","Thessaly","Ilara","Odessa","Brielle","Soleil"];
+const SURN = ["Liftis","Lifmora","Torvald","Lifcrest","Lifdane","Lifmere","Lifross","Stormlif","Lifmont","Liforen","Lifthorne","Lifkirk","Lifbrook","Lifstead","Lifquin","Lifhaven","Lifmarsh","Lifridge","Lifcourt","Lifenar"];
 const GENDERS = ["masculine", "feminine"];
 
 const rnd = Math.random;
@@ -1081,7 +1081,7 @@ function renderApp() {
   } else if (appTab === "town") {
     const alive = Object.values(S.people).filter((p) => !p.dead);
     const married = alive.filter((p) => p.spouse && p.id < p.spouse).length, kids = alive.filter((p) => p.age < 18).length;
-    html += `<div class="card"><b>Port Harcourt population</b><br>${alive.length} people · ${married} married couples · ${kids} children</div>`;
+    html += `<div class="card"><b>Port LIFEX population</b><br>${alive.length} people · ${married} married couples · ${kids} children</div>`;
     const outNow = alive.filter((p) => p.out).length;
     html += `<div class="card">${outNow} people are out and about right now; the rest are at home, at school or work.</div>`;
     html += alive.slice().sort((a, b) => (b.out ? 1 : 0) - (a.out ? 1 : 0)).slice(0, 30).map((p) => row(p)).join("");

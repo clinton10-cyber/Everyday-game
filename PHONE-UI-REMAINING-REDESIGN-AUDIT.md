@@ -4,7 +4,7 @@
 - Camera: camera-focused viewfinder, modes, shutter and selfie pose presentation.
 - Gallery: dark media-library layout, photo grid and 3D album entry.
 - Map: navigation-themed launch surface connected to the existing full-screen MapApp.
-- Weather: Port Harcourt seasonal forecast interface.
+- Weather: Port LIFEX seasonal forecast interface.
 - Music: soundscape controls connected to the existing AudioSystem (not a pretend music-streaming service).
 - Inventory: pocket-storage grid, capacity display and item inspection.
 - Shop: retail identity and category browsing, preserving existing purchase logic.

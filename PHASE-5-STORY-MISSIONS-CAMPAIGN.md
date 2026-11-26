@@ -2,7 +2,7 @@
 
 ## Added
 
-- A Story app on the in-game phone with a six-chapter campaign set around Port Harcourt.
+- A Story app on the in-game phone with a six-chapter campaign set around Port LIFEX.
 - Named contacts, mission briefings, short dialogue scenes, locations, objectives and chapter rewards.
 - A progress tracker and claim-reward flow. Progress is earned through normal gameplay events rather than by opening the mission screen.
 - Campaign progress and claimed chapters are stored in a separate versioned local-storage key (`ph3d_story_campaign_v1`).

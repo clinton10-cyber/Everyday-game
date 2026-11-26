@@ -1,6 +1,6 @@
 # Prison Structure Repair
 
-Updated the existing State Jail / Rivers State Correctional Centre using the current Phase 4 project as the base.
+Updated the existing State Jail / LIFEX State Correctional Centre using the current Phase 4 project as the base.
 
 ## Structural corrections
 - Added a real ground-floor secure entrance opening; the previous front facade was a continuous wall.

@@ -35,7 +35,7 @@ const FOLDERS = [
   { id: "utils", name: "Utilities", apps: ["weather", "map", "settings", "about"] },
 ];
 
-const CITY = "Port Harcourt";
+const CITY = "Port LIFEX";
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },

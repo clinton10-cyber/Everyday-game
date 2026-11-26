@@ -1,4 +1,4 @@
-/* governor.js -- Rivers State Governor's Mansion, EXTERIOR.
+/* governor.js -- LIFEX State Governor's Mansion, EXTERIOR.
    Walkable in third person. Player spawns on the driveway facing
    the mansion, can walk the compound / up the grand staircase onto
    the portico, and stands in front of the doors to press E and

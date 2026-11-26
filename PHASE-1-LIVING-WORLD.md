@@ -6,7 +6,7 @@ This phase strengthens the existing NPC population director instead of adding a 
 
 - Scene-aware NPC counting: pedestrians are counted only when their model belongs to the active Three.js scene.
 - Better population spread: large maps use a shuffled grid of candidate cells with spacing checks, reducing the chance that all pedestrians spawn in one area.
-- Map-specific population and role mixes for UNIPORT, the village, parks, the beach, forest, market and airport.
+- Map-specific population and role mixes for UNILIFEX, the village, parks, the beach, forest, market and airport.
 - Quality-aware NPC population targets so weaker phones use smaller crowds.
 - Safer spawn checks against walls, map bounds and the active floor/ground height.
 - Periodic population maintenance for eligible scenes, so an incomplete initial spawn can recover without creating an unlimited crowd.
@@ -23,4 +23,4 @@ This phase strengthens the existing NPC population director instead of adding a 
 
 - All JavaScript files passed `node --check` syntax validation.
 - The ZIP is assembled from the full project folder and includes the updated service worker and precache manifest.
-- A live in-browser gameplay run was not available in this environment; test UNIPORT, the village, parks and the market on-device after installing this build.
+- A live in-browser gameplay run was not available in this environment; test UNILIFEX, the village, parks and the market on-device after installing this build.

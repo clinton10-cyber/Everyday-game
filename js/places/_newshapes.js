@@ -145,7 +145,7 @@ export const NEW_SHAPES = {
     tree(B, C, 11, 3, 0.9);
   },
   statejail(B, C, S) {
-    /* Rivers State correctional compound. Building footprint now matches
+    /* LIFEX State correctional compound. Building footprint now matches
        the 22 x 30 walkable cell-block interior instead of a tiny hut. */
     B(24, 0.8, 32, 0, 0.4, -1, 0x6d737a);                 /* foundation */
     B(22, 8.4, 30, 0, 4.2, -0.0, 0x8a8e94);               /* two-storey block */

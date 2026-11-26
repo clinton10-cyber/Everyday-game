@@ -1,9 +1,9 @@
 # Phase 7 — Housing and Real Estate
 
-Phase 7 adds a persistent real-estate management system to Everyday in PH.
+Phase 7 adds a persistent real-estate management system to Everyday in LIFEX.
 
 ## Features
-- Purchase five property types in Port Harcourt-inspired neighbourhoods: single room, self-contained apartment, two-bedroom flat, detached duplex and luxury mansion.
+- Purchase five property types in Port LIFEX-inspired neighbourhoods: single room, self-contained apartment, two-bedroom flat, detached duplex and luxury mansion.
 - Own multiple properties, toggle tenant occupancy, collect rent and sell properties at a condition-adjusted resale value.
 - Upgrade properties through five levels; upgrades increase rental yield and restore condition.
 - Buy three land plot types and develop them through foundation, structure and finishing stages.

@@ -5,12 +5,12 @@ import { Photos, captureFrame, captureShot } from "../core/photos.js";
 const ROOT = "everyday-social";
 const KEY = "everyday-social-world.v2";
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const seedNames = ["Amaka Nwosu","Chidi Okafor","Tari Briggs","Kelechi Vibes","Mimi Douglas","Somto Eze","Garden City Updates","Port Harcourt Lens"];
+const seedNames = ["Talia Lifmora","Torin Liftis","Seren Lifross","Kael Vibes","Mirelle Lifdane","Soren Lifenar","Garden City Updates","Port LIFEX Lens"];
 const captions = [
   "Out for a walk around the Garden City. The streets are alive today.",
-  "Little moments from my side of Port Harcourt. Where are you exploring?",
+  "Little moments from my side of Port LIFEX. Where are you exploring?",
   "Taking the long route and enjoying the city view.",
-  "Fresh air, busy streets and another beautiful day in PH.",
+  "Fresh air, busy streets and another beautiful day in LIFEX.",
   "Spotted a lively corner of town while strolling. Stay safe out there.",
   "Evening walk complete. Drop your favourite hangout in the comments."
 ];
@@ -103,7 +103,7 @@ export const SocialPanel = {
    if (!selfie) continue;
    const image = await compactImage(selfie);
    const avatar = await squareAvatar(selfie);
-   state.posts.unshift({id,author:name,authorId:id,avatar,verified:verifiedNpc(name,n),kind:"npc",text:caption,time:now-i*1200,image,location:"Port Harcourt",likes:Math.floor(Math.random()*36)+2,comments:Math.random()<.5?[{author:"City Resident",text:"Nice view of the city."}]:[],followingOnly:false});
+   state.posts.unshift({id,author:name,authorId:id,avatar,verified:verifiedNpc(name,n),kind:"npc",text:caption,time:now-i*1200,image,location:"Port LIFEX",likes:Math.floor(Math.random()*36)+2,comments:Math.random()<.5?[{author:"City Resident",text:"Nice view of the city."}]:[],followingOnly:false});
   }
   state.lastNpcPost=now; state.posts=state.posts.slice(0,80); save();
  },
@@ -112,16 +112,16 @@ export const SocialPanel = {
   try{await Photos.load();}catch(_){}
   try { await this._ensureNpcPosts(); } catch (e) { console.warn("[social NPC feed]", e); }
   if(!this._npcTimer)this._npcTimer=setInterval(async()=>{if(window.__ph3d_phone?.app!=="social"||!window.__ph3d_phone?.visible)return;const before=state.posts.length;await this._ensureNpcPosts();if(state.posts.length!==before)this.render();},30000);
-  if(!state.posts.some(p=>p.authorId==="official_gcc"))state.posts.push({id:"official_gcc_welcome",author:"Garden City Updates",authorId:"official_gcc",verified:true,kind:"npc",text:"Welcome to Garden City Connect — your neighbourhood feed for Port Harcourt news, city moments and community updates.",time:Date.now()-5000,image:"",avatar:"",location:"Port Harcourt",likes:18,comments:[]});
+  if(!state.posts.some(p=>p.authorId==="official_gcc"))state.posts.push({id:"official_gcc_welcome",author:"Garden City Updates",authorId:"official_gcc",verified:true,kind:"npc",text:"Welcome to Garden City Connect — your neighbourhood feed for Port LIFEX news, city moments and community updates.",time:Date.now()-5000,image:"",avatar:"",location:"Port LIFEX",likes:18,comments:[]});
   save();
   const s=PhoneLife.snapshot(); const posts=state.posts.slice().sort((a,b)=>b.time-a.time);
   const myPhotos=Photos.list||[];
   const selected=myPhotos.find(p=>p.id===this._photoId);
   const following=state.following.length; const followers=state.followers.length;
-  root.innerHTML=`<div class="hero"><small>GARDEN CITY CONNECT · PORT HARCOURT</small><h2>Discover your city.</h2><div class="row"><small>${s.dataMb} MB data · ${following} following · ${followers} followers</small><small>${posts.length} updates</small></div><div class="muted" style="margin-top:7px">Real moments, local creators and conversations from around the Garden City.</div></div>
+  root.innerHTML=`<div class="hero"><small>GARDEN CITY CONNECT · PORT LIFEX</small><h2>Discover your city.</h2><div class="row"><small>${s.dataMb} MB data · ${following} following · ${followers} followers</small><small>${posts.length} updates</small></div><div class="muted" style="margin-top:7px">Real moments, local creators and conversations from around the Garden City.</div></div>
   <section class="card" style="padding:10px"><div class="account-cover" style="background:linear-gradient(120deg,#173c56,#287e78)"></div><div class="account-row">${myPhotos[0]?`<img class="account-avatar" src="${esc(myPhotos[0].url)}" alt="Your latest in-game photo">`:`<div class="account-avatar" style="display:grid;place-items:center;font-weight:900;color:#17445a">YOU</div>`}<div><div class="account-name">Your Everyday Account</div><small>@everyday_player · Player account</small></div></div><div class="account-stats"><span><b>${posts.filter(p=>p.authorId==="player").length}</b> posts</span><span><b>${following}</b> following</span><span><b>${followers}</b> followers</span></div></section>
   <div class="tabs"><button data-tab="feed" class="${this._tab==="feed"?"on":""}">For You</button><button data-tab="following" class="${this._tab==="following"?"on":""}">Following</button><button data-tab="people" class="${this._tab==="people"?"on":""}">People</button></div>
-  <div class="compose"><b style="font-size:12px">Create a post</b><textarea id="sc-text" maxlength="240" placeholder="What's happening in Port Harcourt?"></textarea><div class="row"><select id="sc-photo" style="max-width:65%;background:#0d1728;color:#dceaff;border:1px solid #405675;border-radius:8px;padding:8px"><option value="">No photo attached</option>${myPhotos.map(p=>`<option value="${esc(p.id)}" ${p.id===this._photoId?"selected":""}>${esc(p.caption||"Gallery photo")}</option>`).join("")}</select><button id="sc-post">POST · 5 MB</button></div><small>Photos are selected from your in-game Gallery.</small></div>
+  <div class="compose"><b style="font-size:12px">Create a post</b><textarea id="sc-text" maxlength="240" placeholder="What's happening in Port LIFEX?"></textarea><div class="row"><select id="sc-photo" style="max-width:65%;background:#0d1728;color:#dceaff;border:1px solid #405675;border-radius:8px;padding:8px"><option value="">No photo attached</option>${myPhotos.map(p=>`<option value="${esc(p.id)}" ${p.id===this._photoId?"selected":""}>${esc(p.caption||"Gallery photo")}</option>`).join("")}</select><button id="sc-post">POST · 5 MB</button></div><small>Photos are selected from your in-game Gallery.</small></div>
   <div id="sc-feed">${this._tab==="people"?this._peopleMarkup():posts.filter(p=>this._tab!=="following"||state.following.includes(p.authorId)).map(p=>this._postMarkup(p)).join("")||'<div class="card muted">No posts here yet. Follow some city residents to build your feed.</div>'}</div>`;
   root.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{this._tab=b.dataset.tab;this.render();});
   root.querySelector("#sc-photo").onchange=e=>{this._photoId=e.target.value;};
@@ -133,7 +133,7 @@ export const SocialPanel = {
  _postMarkup(p){
   const liked=state.liked.includes(p.id), comments=state.comments[p.id]||p.comments||[];
   const img=p.image?`<img class="postimg" src="${esc(p.image)}" alt="Shared city moment">`:"";
-  return `<article class="card"><div class="row"><div class="profile"><div class="avatar">${p.avatar?`<img src="${esc(p.avatar)}" alt="">`:esc((p.author||"C").slice(0,1).toUpperCase())}</div><div><div class="who">${esc(p.author||"City Resident")}${p.verified?'<span class="verified" title="Verified account">● VERIFIED</span>':''}</div><small>${esc(p.location||"Port Harcourt")} · ${new Date(p.time||Date.now()).toLocaleString()}</small></div></div>${p.kind==="npc"?'<span class="tag">CITY MOMENT</span>':'<span class="tag">YOUR COMMUNITY</span>'}</div><p>${esc(p.text)}</p>${img}<div class="actions"><button data-like="${esc(p.id)}">${liked?"♥ Liked":"♡ Like"} · ${Number(p.likes)||0}</button><button data-follow="${esc(p.authorId)}">${state.following.includes(p.authorId)?"Following":"Follow"}</button><button data-comment="${esc(p.id)}">Comment · ${comments.length}</button></div><div class="comment">${comments.slice(-2).map(c=>`<div><b>${esc(c.author)}:</b> ${esc(c.text)}</div>`).join("")}<input data-comment-input="${esc(p.id)}" maxlength="120" placeholder="Write a comment…"></div></article>`;
+  return `<article class="card"><div class="row"><div class="profile"><div class="avatar">${p.avatar?`<img src="${esc(p.avatar)}" alt="">`:esc((p.author||"C").slice(0,1).toUpperCase())}</div><div><div class="who">${esc(p.author||"City Resident")}${p.verified?'<span class="verified" title="Verified account">● VERIFIED</span>':''}</div><small>${esc(p.location||"Port LIFEX")} · ${new Date(p.time||Date.now()).toLocaleString()}</small></div></div>${p.kind==="npc"?'<span class="tag">CITY MOMENT</span>':'<span class="tag">YOUR COMMUNITY</span>'}</div><p>${esc(p.text)}</p>${img}<div class="actions"><button data-like="${esc(p.id)}">${liked?"♥ Liked":"♡ Like"} · ${Number(p.likes)||0}</button><button data-follow="${esc(p.authorId)}">${state.following.includes(p.authorId)?"Following":"Follow"}</button><button data-comment="${esc(p.id)}">Comment · ${comments.length}</button></div><div class="comment">${comments.slice(-2).map(c=>`<div><b>${esc(c.author)}:</b> ${esc(c.text)}</div>`).join("")}<input data-comment-input="${esc(p.id)}" maxlength="120" placeholder="Write a comment…"></div></article>`;
  },
  _peopleMarkup(){
   const seen=new Map(); for(const p of state.posts){if(p.authorId&&!seen.has(p.authorId))seen.set(p.authorId,p);}
@@ -145,10 +145,10 @@ export const SocialPanel = {
   const data=PhoneLife.useData(5); if(!data.ok){toast(data.reason==="no_phone"?"Buy a phone first.":"Not enough mobile data.");return;}
   const photo=(Photos.list||[]).find(p=>p.id===photoId);
   const image=photo?await compactImage(photo.url):"";
-  const p={id:"player_"+Date.now().toString(36),author:"You",authorId:"player",verified:false,kind:"player",text:text||"Sharing a moment from my Gallery.",time:Date.now(),image,location:"Port Harcourt",likes:0,comments:[]};
+  const p={id:"player_"+Date.now().toString(36),author:"You",authorId:"player",verified:false,kind:"player",text:text||"Sharing a moment from my Gallery.",time:Date.now(),image,location:"Port LIFEX",likes:0,comments:[]};
   state.posts.unshift(p); state.posts=state.posts.slice(0,80); PhoneLife.state.posts=(PhoneLife.state.posts||0)+1; this._photoId=""; save();
   /* Nearby residents discover fresh player posts and react over time. */
-  setTimeout(()=>{if(Math.random()<.78){p.likes=(p.likes||0)+1;if(Math.random()<.3&&!state.followers.includes("npc_fan_"+p.id))state.followers.push("npc_fan_"+p.id);const names=["Amaka N.","Chidi Works","Mimi Douglas","Kelechi Vibes"];const who=names[Math.floor(Math.random()*names.length)];(state.comments[p.id]||(state.comments[p.id]=[])).push({author:who,text:["Nice one!","This looks good.","PH is beautiful.","I like this update."][Math.floor(Math.random()*4)]});save();if(window.__ph3d_phone?.app==="social")this.render();}},4500);
+  setTimeout(()=>{if(Math.random()<.78){p.likes=(p.likes||0)+1;if(Math.random()<.3&&!state.followers.includes("npc_fan_"+p.id))state.followers.push("npc_fan_"+p.id);const names=["Talia V.","Torin Works","Mirelle Lifdane","Kael Vibes"];const who=names[Math.floor(Math.random()*names.length)];(state.comments[p.id]||(state.comments[p.id]=[])).push({author:who,text:["Nice one!","This looks good.","LIFEX is beautiful.","I like this update."][Math.floor(Math.random()*4)]});save();if(window.__ph3d_phone?.app==="social")this.render();}},4500);
   save(); this.render(); toast("Your post is live on Garden City Connect.");
  },
  _like(id){

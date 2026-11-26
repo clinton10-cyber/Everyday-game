@@ -1,4 +1,4 @@
-/* university/interior.js -- UNIPORT campus as ONE walkable interior.
+/* university/interior.js -- UNILIFEX campus as ONE walkable interior.
    World code is the standalone campus prototype; its controls, HUD, start
    screen and loop were removed and replaced by the game's ThirdPersonControls. */
 import * as THREE from "three";
@@ -334,7 +334,7 @@ export async function buildInterior(router) {
     box(B.solid, MAT.trim, gx, 8.6, gz, 17.5, 1.4, 2.0);
     box(B.solid, MAT.concrete, gx, 9.5, gz, 15.0, 0.5, 1.6);
 
-    const tex = makeLabelTexture("UNIVERSITY OF PORT HARCOURT", "KNOWLEDGE · UNITY · SERVICE");
+    const tex = makeLabelTexture("UNIVERSITY OF PORT LIFEX", "KNOWLEDGE · UNITY · SERVICE");
     const mat = S({ map: tex, roughness: 0.6, emissive: 0x0a1218, emissiveIntensity: 0.5 });
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(15.5, 3.9), mat);
     sign.position.set(gx, 8.6, gz + 1.05);
@@ -1076,7 +1076,7 @@ export async function buildInterior(router) {
     three: scene,
     camera,
     controls: { update: () => {} },
-    crumb: "UNIPORT",
+    crumb: "UNILIFEX",
     title: "",
     subtitle: "",
     hint: "",

@@ -1,4 +1,4 @@
-/* city.js -- Port Harcourt overhead map.
+/* city.js -- Port LIFEX overhead map.
    Uses the shared reference world (js/world/phworld.js).
    Overhead orbital camera, no camera collision, natural orbit.
    Same game HUD / menu / ATMs / travel routing as before. */
@@ -161,7 +161,7 @@ async function _citySceneInner(params, router) {
     ev.stopPropagation();
     HUD.sheet({
       title: "Where to?",
-      sub: "Pick a way to explore Port Harcourt",
+      sub: "Pick a way to explore Port LIFEX",
       sections: [
         { cols: 2, items: [
           { icon: "car",  label: "Drive", sub: "Open world", tone: "danfo", onClick: goTo("drive") },
@@ -341,7 +341,7 @@ async function _citySceneInner(params, router) {
   ui.id = "cm-ui";
   ui.innerHTML =
     '<div class="cm-vig"></div>' +
-    '<div class="cm-plate"><b>PORT HARCOURT</b><span>CITY MAP</span><em id="cm-near">OPEN GROUND</em></div>' +
+    '<div class="cm-plate"><b>PORT LIFEX</b><span>CITY MAP</span><em id="cm-near">OPEN GROUND</em></div>' +
     '<button class="cm-compass" id="cm-compass" type="button" aria-label="Face north"><i id="cm-needle"></i><b>N</b></button>' +
     '<div class="cm-dpad" id="cm-dpad">' +
       '<button class="cm-b cm-up"    data-k="up"    type="button" aria-label="Move up">'    + ARW.up    + '</button>' +
@@ -569,7 +569,7 @@ async function _citySceneInner(params, router) {
     three, camera,
     controls: { update: () => {} },
     crumb: "CITY MAP",
-    title: "PORT HARCOURT",
+    title: "PORT LIFEX",
     subtitle: "ARROWS TO MOVE · TAP A PIN",
     hint: "",
     dispose: () => {

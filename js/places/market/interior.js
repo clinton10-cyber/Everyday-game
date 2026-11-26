@@ -1,4 +1,4 @@
-/* market/interior.js -- Mile 1 Market. Interior shop floor in THIRD
+/* market/interior.js -- Central Market. Interior shop floor in THIRD
    PERSON. Same layout as the standalone HTML reference (5 rows x 13
    stalls, flanking shops, keke/danfo, produce, sacks, tarps, market
    gate sign), but every character has been stripped out — the market
@@ -87,9 +87,9 @@ function signTex() {
   g.fillStyle = "#f2c94c";
   g.font = "bold 58px system-ui, sans-serif";
   g.textAlign = "center"; g.textBaseline = "middle";
-  g.fillText("MILE 1 MARKET", 256, 60);
+  g.fillText("CENTRAL MARKET", 256, 60);
   g.fillStyle = "#8fb8d8"; g.font = "bold 20px system-ui, sans-serif";
-  g.fillText("PORTHARCOURT", 256, 100);
+  g.fillText("LIFEX", 256, 100);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = THREE.RepeatWrapping;
@@ -512,7 +512,7 @@ export async function buildInterior(router) {
   camera: camera,
   controls: { update: function () {} },
   crumb: meta.name,
-  title: "MILE 1 MARKET",
+  title: "CENTRAL MARKET",
   subtitle: "INTERIOR",
   hint: "",
   isInterior: true,

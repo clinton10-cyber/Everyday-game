@@ -23,7 +23,7 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     env:
-      APP_NAME: Everyday in PH
+      APP_NAME: Everyday in LIFEX
       APP_ID: com.clintontech.everydayph
       KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
     steps:
@@ -140,7 +140,7 @@ jobs:
               goImmersive();
               try { getBridge().getWebView().addJavascriptInterface(new PHNative(), "PHNative"); } catch (Exception e) {}
             }
-            /* JS: PHNative.savePhoto(base64, name, mime) -> saves into Pictures/Everyday in PH */
+            /* JS: PHNative.savePhoto(base64, name, mime) -> saves into Pictures/Everyday in LIFEX */
             public class PHNative {
               @android.webkit.JavascriptInterface
               public boolean savePhoto(String b64, String name, String mime) {
@@ -151,7 +151,7 @@ jobs:
                     android.content.ContentValues v = new android.content.ContentValues();
                     v.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, name);
                     v.put(android.provider.MediaStore.Images.Media.MIME_TYPE, mime);
-                    v.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Everyday in PH");
+                    v.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Everyday in LIFEX");
                     v.put(android.provider.MediaStore.Images.Media.IS_PENDING, 1);
                     android.net.Uri u = r.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v);
                     if (u == null) return false;
@@ -165,7 +165,7 @@ jobs:
                     requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 77);
                     return false;
                   }
-                  java.io.File dir = new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES), "Everyday in PH");
+                  java.io.File dir = new java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_PICTURES), "Everyday in LIFEX");
                   dir.mkdirs();
                   java.io.File f = new java.io.File(dir, name);
                   java.io.FileOutputStream o = new java.io.FileOutputStream(f);
@@ -231,9 +231,9 @@ jobs:
       - name: Collect APKs
         run: |
           mkdir out
-          cp android/app/build/outputs/apk/debug/app-debug.apk "out/Everyday-in-PH-${VERSION}-debug.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "out/Everyday-in-LIFEX-${VERSION}-debug.apk"
           if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
-            cp android/app/build/outputs/apk/release/app-release.apk "out/Everyday-in-PH-${VERSION}.apk"
+            cp android/app/build/outputs/apk/release/app-release.apk "out/Everyday-in-LIFEX-${VERSION}.apk"
           fi
           ls -lh out
 

@@ -33,7 +33,7 @@ const CATALOG = {
   concierge: [
     { id:"cityride", name:"Arrange a city ride", price:6500, duration:10000 },
     { id:"airport", name:"Airport transfer request", price:22000, duration:16000 },
-    { id:"tour", name:"Port Harcourt city tour", price:28000, duration:18000 },
+    { id:"tour", name:"Port LIFEX city tour", price:28000, duration:18000 },
     { id:"dining", name:"Restaurant reservation assistance", price:3000, duration:8000 },
   ],
   luggage: [

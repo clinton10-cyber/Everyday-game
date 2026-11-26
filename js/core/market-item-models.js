@@ -1,4 +1,4 @@
-/* 3D product models for every Mile 1 Market item.
+/* 3D product models for every Central Market item.
    All meshes are lightweight low-poly Three.js geometry and share one ground origin. */
 import * as THREE from "three";
 

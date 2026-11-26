@@ -64,7 +64,7 @@ export const Photos = {
   _loaded: false,
   _loading: null,
 
-  /* Save one photo to the phone's own gallery (Pictures/Everyday in PH). Android app → native bridge;
+  /* Save one photo to the phone's own gallery (Pictures/Everyday in LIFEX). Android app → native bridge;
      browser → share sheet when available, else a normal download. */
   async saveToDevice(id) {
     const p = this.list.find((x) => x.id === id);

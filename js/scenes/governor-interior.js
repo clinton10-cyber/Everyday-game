@@ -1,4 +1,4 @@
-/* governor-interior.js -- Rivers State Governor's Mansion, INTERIOR.
+/* governor-interior.js -- LIFEX State Governor's Mansion, INTERIOR.
    Walkable in third person. Single connected floor plan:
    Grand Foyer (front) → Living · Dining · Study · Bedroom · Library,
    with walkable stairs up to an upper landing.

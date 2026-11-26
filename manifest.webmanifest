@@ -1,7 +1,7 @@
 {
-  "name": "Everyday in PH",
-  "short_name": "PH City",
-  "description": "Port Harcourt — the Garden City, in 3D.",
+  "name": "Everyday in LIFEX",
+  "short_name": "LIFEX City",
+  "description": "Port LIFEX — the Garden City, in 3D.",
   "id": "./",
   "start_url": "./index.html",
   "scope": "./",

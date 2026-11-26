@@ -608,7 +608,7 @@ function openDress(id) {
   const tc = hexOf(cfg.topColor, SHIRT_COLORS) || "#888", bc = hexOf(cfg.bottomColor, BOTTOM_COLORS) || "#444", sc = hexOf(cfg.shoeColor, SHOE_COLORS) || "#222";
   const wearing = cfg.topStyle === "dress" ? lab(cfg.dressStyle || "auto") + " dress" : lab(cfg.topStyle) + " · " + lab(cfg.bottomStyle);
   panel = document.createElement("div"); panel.id = "fam-panel";
-  panel.innerHTML = `<h3><span class="pv"><i style="background:${tc}"></i><i style="background:${bc}"></i><i style="background:${sc}"></i></span><span class="t">${first(p.name)}<small>${o.name ? o.name + " · " : ""}${wearing}</small></span><button data-x="1">✕</button></h3>
+  panel.innerHTML = `<h3><span class="lx"><i style="background:${tc}"></i><i style="background:${bc}"></i><i style="background:${sc}"></i></span><span class="t">${first(p.name)}<small>${o.name ? o.name + " · " : ""}${wearing}</small></span><button data-x="1">✕</button></h3>
     <div class="row who">${who}</div>
     <div class="row tabs">${tabs}</div>
     <div class="body">${body}</div>`;

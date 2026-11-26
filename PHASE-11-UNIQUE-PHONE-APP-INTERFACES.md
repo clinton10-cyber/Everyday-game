@@ -6,7 +6,7 @@ This phase applies distinct product identities to the previously generic phone a
 - Camera: dedicated dark camera surface, segmented Scene/Selfie modes, large shutter, selfie pose controls and real game-frame/selfie capture retained.
 - Gallery: dark media-library presentation, photo grid, 3D album entry and device-save/delete controls retained.
 - Map: map-coloured navigation launch surface; the existing full city MapApp remains the actual map experience.
-- Weather: dedicated Port Harcourt weather presentation with seasonal conditions, forecast strip, humidity/wind/ground status and existing season controls.
+- Weather: dedicated Port LIFEX weather presentation with seasonal conditions, forecast strip, humidity/wind/ground status and existing season controls.
 - Music: replaced the fake track/play button with an honest city-soundscape player surface connected to the existing AudioSystem mute and volume controls. No licensed music tracks are claimed or fabricated.
 - Inventory: pocket-storage layout, capacity meter, item grid and selectable item detail view. Existing inventory data is used; no fake item actions were added.
 - Shop: dedicated warm retail palette and category controls; existing food, weapon and limited-fashion purchase logic retained.

@@ -144,8 +144,8 @@ export const AuthUI = {
     wrap.innerHTML = `
       <div class="au-card">
         <div class="au-l">
-        <img class="au-logo" src="assets/logo.svg" alt="Everyday in PH"/>
-        <div class="au-title">Everyday in PH</div>
+        <img class="au-logo" src="assets/logo.svg" alt="Everyday in LIFEX"/>
+        <div class="au-title">Everyday in LIFEX</div>
         <div class="au-sub">The Garden City</div>
         </div>
         <div class="au-r">
@@ -163,7 +163,7 @@ export const AuthUI = {
         </div>
 
         <div class="au-credit">
-          everyday in PH<br/>
+          everyday in LIFEX<br/>
           <a href="mailto:clintonbenjamin208@gmail.com">clintonbenjamin208@gmail.com</a>
         </div>
         </div>

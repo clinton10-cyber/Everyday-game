@@ -9,7 +9,7 @@
 
 ## Omagwa Airport boarding flow
 1. Check in at the terminal counter and pay the simulated ₦25,000 fare.
-2. Receive a locally saved Garden Air boarding pass (Port Harcourt → Lagos, Gate A04).
+2. Receive a locally saved Garden Air boarding pass (Port LIFEX → Lagos, Gate A04).
 3. Complete security screening.
 4. Proceed to Gate A04 and board the aircraft.
 5. The game routes the player into the walkable Boeing 787-9 cabin with passenger NPCs.

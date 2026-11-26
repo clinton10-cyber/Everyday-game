@@ -1,4 +1,4 @@
-/* Market item use: every Mile 1 purchase gets a real 3D hand prop and a
+/* Market item use: every Central Market purchase gets a real 3D hand prop and a
    category-specific action. Uses existing Pocket, PlayerActions and market meshes. */
 import * as THREE from "three";
 import { Pocket, POCKET_ITEMS } from "./pocket.js";

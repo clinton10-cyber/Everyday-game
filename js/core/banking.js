@@ -7,7 +7,7 @@ const STOCKS=[
  {id:'nigerian-energy',name:'Nigerian Energy Co.',symbol:'NEC',base:1250},
  {id:'garden-city',name:'Garden City Foods',symbol:'GCF',base:840},
  {id:'naija-telecom',name:'Naija Telecom',symbol:'NTL',base:2150},
- {id:'ph-industries',name:'PH Industries',symbol:'PHI',base:560}
+ {id:'ph-industries',name:'LIFEX Industries',symbol:'PHI',base:560}
 ];
 const COINS=[{id:'bitnaija',name:'BitNaija',symbol:'BNA',base:95000},{id:'nairacoin',name:'NairaCoin',symbol:'NRC',base:1250}];
 const fresh=()=>({opened:false,accountNo:'',savings:0,deposit:null,loans:[],creditScore:620,portfolio:{},crypto:{},market:{},history:[],lastAccrual:Date.now()});

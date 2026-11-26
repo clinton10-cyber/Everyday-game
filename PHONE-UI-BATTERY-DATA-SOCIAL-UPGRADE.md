@@ -22,7 +22,7 @@ Built on the Phase 11 Advanced Economy and Banking project.
 
 ## Social media
 - Added Garden City Connect to the in-game phone.
-- Includes a fictional Port Harcourt community feed, player-created updates, likes and persistent activity counters.
+- Includes a fictional Port LIFEX community feed, player-created updates, likes and persistent activity counters.
 - Player-created posts are stored locally with timestamps.
 
 ## Validation

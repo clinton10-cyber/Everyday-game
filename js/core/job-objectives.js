@@ -41,7 +41,7 @@ const JOB_PLACE_IDS = new Set([
 ]);
 
 const FALLBACK_POIS = [
-  { x: 215, z: 100,  name: "Mile 1 Market" },
+  { x: 215, z: 100,  name: "Central Market" },
   { x: 150, z: 220,  name: "Job Center" },
   { x: -115, z: -155, name: "Hotel Presidential" },
   { x: 400, z: 90,   name: "Omagwa Airport" },

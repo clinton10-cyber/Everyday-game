@@ -10,7 +10,7 @@ export const SCENE_PURPOSES = {
   __default: { name: "-", purpose: "leisure", services: [], links: [] },
 
   /* open world */
-  city:         { name: "Port Harcourt", purpose: "travel", services: ["travel", "shops", "jobs", "homes"], links: [] },
+  city:         { name: "Port LIFEX", purpose: "travel", services: ["travel", "shops", "jobs", "homes"], links: [] },
   drive:        { name: "Drive", purpose: "travel", services: ["travel"], links: [] },
   walk:         { name: "Walk", purpose: "travel", services: ["travel"], links: [] },
   travel:       { name: "En route", purpose: "travel", services: [], links: [] },
@@ -47,7 +47,7 @@ export const SCENE_PURPOSES = {
   vastcity:   { name: "Vast City", purpose: "travel", services: ["travel"], links: [] },
   duplex:     { name: "Modern Duplex", purpose: "home", services: ["rest"], links: [] },
   lagosflat:  { name: "Lagos Life Apartment", purpose: "home", services: ["rest"], links: [] },
-  canteen:    { name: "Canteen", purpose: "shopping", services: ["food"], links: [ L("market", "Mile 1 Market nearby") ] },
+  canteen:    { name: "Canteen", purpose: "shopping", services: ["food"], links: [ L("market", "Central Market nearby") ] },
   beach:      { name: "Beach", purpose: "leisure", services: ["walk", "photos"], links: [ L("city", "Back to the city", "taxi", 2000) ] },
   forest:     { name: "Forest Trail", purpose: "leisure", services: ["walk", "campfire"], links: [ L("beach", "Beach nearby") ] },
   citypark:   { name: "City Park", purpose: "leisure", services: ["walk", "fountain"], links: [ L("boropark", "Isaac Boro Park across the road") ] },
@@ -64,10 +64,10 @@ export const SCENE_PURPOSES = {
   hotel:      { name: "Hotel Presidential", purpose: "nightlife", services: ["rooms", "dining", "bar", "spa"], links: [
     L("nightclub", "Club Eclipse is nearby"), L("city", "Call a taxi", "taxi", 1500) ] },
   boropark:   { name: "Isaac Boro Park", purpose: "leisure", services: ["walk", "monument"], links: [ L("citypark", "City Park across the road") ] },
-  market:     { name: "Mile 1 Market", purpose: "shopping", services: ["food", "goods", "unique-stalls"], links: [
+  market:     { name: "Central Market", purpose: "shopping", services: ["food", "goods", "unique-stalls"], links: [
     L("phoneshop", "Phone Shop around the corner"), L("canteen", "Get a hot meal"), L("jobcenter", "Find work nearby") ] },
   airport:    { name: "Omagwa Airport", purpose: "travel", services: ["flights", "checkin"], links: [ L("city", "Call a taxi", "taxi", 4500) ] },
-  university: { name: "University of Port Harcourt", purpose: "education", services: ["lectures", "library"], links: [
+  university: { name: "University of Port LIFEX", purpose: "education", services: ["lectures", "library"], links: [
     L("computerlab", "Practise coding"), L("classroom", "Sit in on a class") ] },
 
   /* pleasure park children */

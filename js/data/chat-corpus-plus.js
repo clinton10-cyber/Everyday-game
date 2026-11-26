@@ -40,7 +40,7 @@ export const CHAT_PLUS = [
   { id: "what_day", em: "neu", pats: ["what day", "which day", "day today", "what's today", "today's date", "is it sunday", "is it monday", "is it weekend"],
     reps: ["Na {weekday} today.", "Today na {weekday}, my friend.", "{weekday}. Time dey fly."] },
   { id: "gist", em: "pos", pats: ["gist me", "any gist", "what's new", "any news", "tell me something", "wetin dey happen", "update me", "latest", "rumour", "rumor", "gossip", "story", "tell me a story"],
-    reps: ["Hmm, I hear say area boys dey plan one thing for Mile 3.", "They say new street lights dey come every road. Finally.", "Somebody sell land twice for Rumuola. Court dey.", "Price of tomato jump again. Pepper too.", "They say big man dey come for the state house this week.", "I hear say danfo drivers dey plan strike. Na so rumour dey go."] },
+    reps: ["Hmm, I hear say area boys dey plan one thing for Harbour Gate.", "They say new street lights dey come every road. Finally.", "Somebody sell land twice for Lifmora Junction. Court dey.", "Price of tomato jump again. Pepper too.", "They say big man dey come for the state house this week.", "I hear say danfo drivers dey plan strike. Na so rumour dey go."] },
   { id: "joke", em: "pos", pats: ["tell me a joke", "joke", "make me laugh", "say something funny", "crack a joke", "funny story", "got any jokes"],
     reps: ["Why NEPA no dey fear ghosts? Because dem dey scare themselves pass with light!", "Customer ask: 'Why your bread small?' Baker say: 'Na the oven dey shrink am.'", "My friend say he go quit hustling. Next day he dey sell sachet water for traffic.", "Teacher ask: Who fit use 'sapa' for sentence? Pupil say: 'Sapa na my middle name.'", "Why the generator be like a bad boyfriend? E dey noise, e dey smell, still we cannot do without am."] },
   { id: "riddle", em: "neu", pats: ["riddle", "tell me a riddle", "brain teaser", "puzzle me", "give me a riddle"],
@@ -60,7 +60,7 @@ export const CHAT_PLUS = [
   { id: "rain", em: "neu", pats: ["rain", "it's raining", "raining", "rain dey fall", "flood", "flooding", "storm", "thunder", "wet", "umbrella", "drizzle"],
     reps: ["Rain dey fall like say heaven open tap.", "Flood go enter road again. Wear boots.", "Rain wash everything. Even sapa no go stay.", "Go under shed, o, before water catch you."] },
   { id: "weather_now", em: "neu", pats: ["how weather", "weather today", "how's the weather", "weather like", "is it going to rain", "will it rain", "what's the weather"],
-    reps: ["PH weather no get mind. E fit rain anytime.", "Today dey okay, but carry umbrella just in case.", "Sun dey, rain dey. Na so e be for Rivers.", "Weather dey hot and sticky."] },
+    reps: ["LIFEX weather no get mind. E fit rain anytime.", "Today dey okay, but carry umbrella just in case.", "Sun dey, rain dey. Na so e be for LIFEX.", "Weather dey hot and sticky."] },
   { id: "traffic", em: "neg", pats: ["traffic", "go slow", "hold up", "gridlock", "road bad", "pothole", "potholes", "bad road", "road jam", "stuck in traffic", "jam"],
     reps: ["Traffic dey wicked today. Take alternate road.", "Pothole dey kill person car.", "Na so e be. Government go fix am, one day.", "Hold up too much for that junction."] },
   { id: "heat_sun", em: "neg", pats: ["too hot", "sun is hot", "sweating", "heat wave", "no breeze", "ac", "fan"],
@@ -94,7 +94,7 @@ export const CHAT_PLUS = [
   { id: "wedding", em: "pos", pats: ["wedding", "traditional wedding", "bride price", "engagement", "owambe", "bride", "groom", "reception", "naming ceremony", "get married", "marriage ceremony"],
     reps: ["Owambe dey this weekend. Jollof go flow!", "Bride price negotiation na drama.", "Aso ebi dey cost. Na so we love am.", "Naming ceremony na joy."] },
   { id: "festival", em: "pos", pats: ["christmas", "easter", "ramadan", "eid", "new year", "detty december", "festive", "holiday", "sallah", "independence", "october 1", "carnival"],
-    reps: ["Detty December na the best time for PH.", "Merry Christmas! Make we share rice.", "Sallah mubarak!", "New Year resolution: no go broke.", "Carnival dey sweet. Colours everywhere!"] },
+    reps: ["Detty December na the best time for LIFEX.", "Merry Christmas! Make we share rice.", "Sallah mubarak!", "New Year resolution: no go broke.", "Carnival dey sweet. Colours everywhere!"] },
   { id: "pets_animals", em: "pos", pats: ["dog", "cat", "goat", "chicken", "fowl", "pet", "animal", "bird", "parrot", "cow", "rooster", "monkey", "puppy", "kitten"],
     reps: ["Dog na man best friend.", "My goat dey run away every day.", "Fowl dey cost for Christmas.", "Cat na small king for house.", "Animals sabi pass human sometimes."] },
 
@@ -106,17 +106,17 @@ export const CHAT_PLUS = [
 
   /* ── transport / street life ── */
   { id: "street_food", em: "pos", pats: ["pure water", "sachet water", "agege bread", "bread", "akara", "moi moi", "boli", "roasted plantain", "ice cream", "gala", "chin chin", "groundnut", "bole", "roasted fish", "corn", "garri", "yam and egg", "indomie", "noodles"],
-    reps: ["Bole and fish na PH special!", "Agege bread with akara? Perfect.", "Pure water, pure water! Cold!", "Gala and soft drink, correct combo.", "Indomie with egg na everybody comfort food.", "Roasted corn and pear dey sweet."], roleReps: { trader: ["Buy am! E dey hot!", "Oga, I get am fresh. Come!"] } },
+    reps: ["Bole and fish na LIFEX special!", "Agege bread with akara? Perfect.", "Pure water, pure water! Cold!", "Gala and soft drink, correct combo.", "Indomie with egg na everybody comfort food.", "Roasted corn and pear dey sweet."], roleReps: { trader: ["Buy am! E dey hot!", "Oga, I get am fresh. Come!"] } },
   { id: "local_food_ph", em: "pos", pats: ["ofe onugbu", "fisherman soup", "owho soup", "starch and banga", "nkwobi", "isi ewu", "ukwa", "abacha", "akpu", "oha soup", "bitterleaf", "pepper soup", "ngwo ngwo", "catfish", "point and kill", "bole and fish"],
-    reps: ["Fisherman soup na PH pride!", "Nkwobi and cold drink? Sorted.", "Bitterleaf soup dey clear head.", "Point and kill catfish na restaurant style.", "Starch and banga na wonder."] },
+    reps: ["Fisherman soup na LIFEX pride!", "Nkwobi and cold drink? Sorted.", "Bitterleaf soup dey clear head.", "Point and kill catfish na restaurant style.", "Starch and banga na wonder."] },
   { id: "buka", em: "pos", pats: ["buka", "mama put", "local food", "cheap food", "where to chop cheap", "street restaurant", "food spot", "cheap eat", "plate of rice", "chop spot"],
     reps: ["Mama put for corner dey sell correct food.", "Buka near the market dey sweet and cheap.", "Ask for extra meat, na so we dey do am."] },
   { id: "quality", em: "neu", pats: ["is it fresh", "original", "fake", "quality", "how e take be", "is it good", "is this original", "authentic", "genuine", "is it new", "any warranty"],
     reps: ["100% original, oga.", "Fresh from this morning, I swear.", "No be fake o, na original.", "Na quality, you go like am."], roleReps: { trader: ["Oga, na original. If e fail, come back.", "I no sell fake things."] } },
 
-  /* ── Port Harcourt flavour ── */
+  /* ── Port LIFEX flavour ── */
   { id: "ph_areas", em: "neu", pats: ["bonny", "trans amadi", "gra", "rumuola", "diobu", "mile 1", "mile 3", "borokiri", "choba", "eleme", "ikwerre road", "aba road", "rumuokoro", "woji", "elelenwo", "rumuigbo", "old gra", "d-line", "peter odili"],
-    reps: ["Mile 1 market dey busy, o.", "GRA na where big men dey stay.", "Diobu dey alive 24/7.", "Trans Amadi dey full of companies.", "Rumuola traffic na another level.", "Choba na student area."] },
+    reps: ["Central Market dey busy, o.", "Crestline na where big men dey stay.", "Lifdane Row dey alive 24/7.", "Trans Lifmere dey full of companies.", "Lifmora Junction traffic na another level.", "Choba na student area."] },
   { id: "oil_gas", em: "neu", pats: ["oil", "refinery", "pipeline", "bunkering", "niger delta", "gas flare", "crude", "shell", "chevron", "oil money", "oil company", "oil spill", "oil boom"],
     reps: ["Oil don make us rich, but the people still suffer.", "Gas flare dey blacken everything.", "Oil company staff dey enjoy.", "Pipeline wahala no dey end."] },
   { id: "bole", em: "pos", pats: ["bole", "boli and fish", "roasted bole", "waterfront", "fisherman", "fishing", "creek", "river", "boat", "canoe", "ferry"],

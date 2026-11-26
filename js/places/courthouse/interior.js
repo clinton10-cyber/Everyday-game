@@ -54,5 +54,5 @@ export async function buildInterior(router){
    else if(use.kind==="exit"){const P=window.__ph3d_prison;try{if(P&&P.inJail){P.courtEscort=false;router.go("prisonScene");}else router.go("city");}catch(_){}}
    else if(use.kind==="clerk"){const s=Justice.snapshot();toast(s.active?`Registry: ${s.active.id} · ${s.active.status.replaceAll("_"," ")}`:"Registry: No active case on record.");}
  }});
- return {three:scene,camera,controls:{update:()=>{}},crumb:"HIGH COURT",title:"RIVERS STATE HIGH COURT",subtitle:"COURTROOM 1 · PUBLIC HEARING",hint:"WALK TO THE BAR AND PRESS E TO START A HEARING · VISIT REGISTRY FOR CASE STATUS",isInterior:true,sceneId:"courthouse",update:dt=>{let r=Math.min(dt,.25);while(r>1e-6){const t=Math.min(r,1/60);ctl.update(t);r-=t;}},dispose:()=>ctl.dispose()};
+ return {three:scene,camera,controls:{update:()=>{}},crumb:"HIGH COURT",title:"LIFEX STATE HIGH COURT",subtitle:"COURTROOM 1 · PUBLIC HEARING",hint:"WALK TO THE BAR AND PRESS E TO START A HEARING · VISIT REGISTRY FOR CASE STATUS",isInterior:true,sceneId:"courthouse",update:dt=>{let r=Math.min(dt,.25);while(r>1e-6){const t=Math.min(r,1/60);ctl.update(t);r-=t;}},dispose:()=>ctl.dispose()};
 }

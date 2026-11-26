@@ -1,4 +1,4 @@
-/* Service Worker — Everyday in PH
+/* Service Worker — Everyday in LIFEX
    install  : precache every local file listed in precache.json (+ three.js from
               unpkg) so the game really works offline. Regenerate the list with
               `python3 tools/build_precache.py` when files are added/removed.
@@ -7,7 +7,7 @@
               cache-first with background refresh.
    Bump CACHE_VERSION on every release to discard old caches. */
 
-const CACHE_VERSION = "v219";
+const CACHE_VERSION = "v220";
 
 const SHELL_CACHE   = "ph3d-shell-"   + CACHE_VERSION;
 const RUNTIME_CACHE = "ph3d-runtime-" + CACHE_VERSION;

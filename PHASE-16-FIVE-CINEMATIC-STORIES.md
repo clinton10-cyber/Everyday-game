@@ -2,7 +2,7 @@
 
 Added five root-level HTML story films with procedural 3D environments, faceted animated characters, imported detailed vehicle models, scene-by-scene storytelling, subtitle/caption panels, spoken narration through browser speech synthesis, play/pause, restart, next-scene controls and progress tracking.
 
-Stories: first day at UNIPORT; night drive; Pleasure Park promise; Hotel Presidential suite; missing briefcase mystery.
+Stories: first day at UNILIFEX; night drive; Pleasure Park promise; Hotel Presidential suite; missing briefcase mystery.
 
 Shared renderer: `js/cinematics/story-player.js`.
 

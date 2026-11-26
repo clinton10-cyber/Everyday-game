@@ -56,7 +56,7 @@ export async function mountStory(id) {
       <p>${esc(story.synopsis)}</p>
       <div class="chips"><span class="chip">${acts.length} SCENES</span><span class="chip">≈ ${Math.round(total / 10) * 10} SEC</span><span class="chip">${esc(story.mood.toUpperCase())}</span><span class="chip">${esc(story.where.toUpperCase())}</span></div>
       <div class="loadbar" id="loadbar"><b id="loadfill"></b></div>
-      <div class="loadtxt" id="loadtxt">Loading the Port Harcourt world…</div>
+      <div class="loadtxt" id="loadtxt">Loading the Port LIFEX world…</div>
       <div class="btns"><button class="btn" id="start" disabled>${ICON.play} PLAY STORY</button></div>
       <div class="hint">Real-time 3D in your game world · Voice narration is optional · Landscape gives the widest view</div>
     </div></section>
