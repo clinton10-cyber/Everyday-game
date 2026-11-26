@@ -186,6 +186,12 @@ export const Limp = {
     st.kick.set(x * k, y * k, z * k);
     for (const j in st.v) { st.v[j][0] += (Math.random() - 0.5) * 2.2 * k; st.v[j][2] += (Math.random() - 0.5) * 2.2 * k; }
   },
+  /* joint-level impulse (rad/s on that joint's x / y / z swing) — a bullet whipping one limb or the head */
+  impulse(R, joint, x, y, z) {
+    const st = R && R.__limp; if (!st || !st.v[joint]) return;
+    st.sleep = false; st.rest = 0;
+    const v = st.v[joint]; v[0] += x || 0; v[1] += y || 0; v[2] += z || 0;
+  },
   wake(R) { if (R && R.__limp) { R.__limp.sleep = false; R.__limp.rest = 0; } },
   release(R) { if (R) R.__limp = null; },
   active(R) { return !!(R && R.__limp); },

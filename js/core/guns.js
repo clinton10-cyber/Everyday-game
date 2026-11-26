@@ -8,6 +8,7 @@ import { setGrip } from "../characters/lowpoly.js";
 import { Combat } from "./combat.js";
 import { Knife } from "./knife.js";
 import { Sfx } from "./sfx.js";
+import { ShotFX } from "./shot-fx.js";
 import { RocketLauncher } from "./bazooka.js";
 import { GUN_STANCE, STANCE_PITCHES, STANCE_LEGS, STANCE_DROP } from "./gun-stances.js";
 
@@ -580,12 +581,27 @@ export class Gun {
       }
     }
 
+    /* where the bullet ended (hit point / wall / ground / max range) */
+    const endPt = new THREE.Vector3(origin.x + dir.x * bestT, origin.y + dir.y * bestT, origin.z + dir.z * bestT);
+    let surface = bestHit ? "flesh" : (wallT < this.range ? "solid" : null);
+    if (!bestHit && dir.y < -0.02) {                       /* shots that reach the floor kick up dust */
+      try {
+        const gy = (c._groundInfo ? (c._groundInfo(endPt.x, endPt.z, c.level || 0) || {}).y : (c.floorY || 0)) || 0;
+        const tg = (gy - origin.y) / dir.y;
+        if (tg > 0 && tg < bestT) { endPt.set(origin.x + dir.x * tg, gy + 0.02, origin.z + dir.z * tg); surface = "ground"; }
+      } catch (e) {}
+    }
+    let shotDmg = 0, wasAlive = false;
+
     if (bestHit) {
       const mult = PART_MULT[bestPart] || 1.0;
       const actualDmg = this.damage * mult;
+      shotDmg = actualDmg;
+      wasAlive = !bestHit.hp || bestHit.hp > 0;
       try {
         if (bestHit.hp !== undefined) bestHit.hp -= actualDmg;
-        if (bestHit.onHit) bestHit.onHit(actualDmg, this.type, bestPart);
+        /* 4th arg: bullet direction + exact impact point, so the victim reacts to WHERE and FROM WHERE it was hit */
+        if (bestHit.onHit) bestHit.onHit(actualDmg, this.type, bestPart, { dir: { x: dir.x, y: dir.y, z: dir.z }, point: { x: endPt.x, y: endPt.y, z: endPt.z } });
       } catch (e) {}
       if (bestPart === "head" || bestPart === "leg" || bestPart === "arm") {
         try { window.__ph3d_phone && window.__ph3d_phone._toast(PART_LABEL[bestPart]); } catch (e) {}
@@ -605,6 +621,15 @@ export class Gun {
     } catch (e) {}
 
     try { Combat.flash && Combat.flash(bestHit ? 0.15 : 0.05); } catch (e) {}
+
+    /* dramatic gunfire: muzzle jet + smoke, tracer, impact, screen kick, hit-marker, damage number */
+    try {
+      ShotFX.fire({
+        scene: this.controls.scene, muzzle: muzzleWorld, origin, dir, end: endPt, type: this.type,
+        part: bestPart, hit: !!bestHit, dmg: shotDmg, surface, floorY: c.floorY || 0,
+        killed: !!bestHit && wasAlive && bestHit.hp !== undefined && bestHit.hp <= 0,
+      });
+    } catch (e) {}
   }
 
   _spawnFlash(pos) {

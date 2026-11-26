@@ -14,6 +14,7 @@
    ════════════════════════════════════════════════════════════════ */
 
 import { Limp } from "../characters/limp.js";
+import { HitReact } from "../characters/hit-react.js";
 import { buildCharacter } from "../characters/lowpoly.js";
 import { withPlayerLook } from "./wardrobe.js";
 import * as Animator from "../characters/animator.js";
@@ -132,7 +133,12 @@ function makeTgt(p, hp) {
     get alive() { return p.state !== "dead" && p.state !== "leave" && p.state !== "spawn"; },
     hp,
     _pursuer: p,
-    onHit(dmg, type) { onPursuerHit(p, type); },
+    onHit(dmg, type, part, info) {
+      onPursuerHit(p, type);
+      if (type !== "wrestling" && p.tgt && p.tgt.hp > 0) {        /* same body-part reactions as street NPCs */
+        try { HitReact.hit(p, part || "torso", dmg, { dir: info && info.dir, point: info && info.point, type }); } catch (e) {}
+      }
+    },
   };
 }
 
@@ -380,7 +386,7 @@ export const Pursuit = {
     if (!three || !npc || npc.dead) return false;
     const p = {
       id: "pur_" + Math.random().toString(36).slice(2, 7),
-      cfg: npc._cfg, hp: npc.hp,
+      cfg: npc._cfg, hp: npc.hp, maxHp: npc.maxHp || npc.hp,
       state: "down", t: 0, downT: 3.2, downV: npc._downVisual || 0,
       cd: 0, y: 0, lastMove: null, move: null, wr: null,
       group: null, rig: null, ctl: null, scene: null,
