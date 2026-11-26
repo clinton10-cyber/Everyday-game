@@ -34,6 +34,7 @@ import { addNightGlow } from "../core/night-glow.js";
 import { NPCs } from "../core/npcs.js";
 import { Pursuit } from "../core/pursuit.js";
 import { NPC_Cars } from "../core/npc-cars.js";
+import { CrashFX } from "../core/crash-fx.js";
 import { ArrestWatch } from "../core/arrest-watch.js";
 import { Economy } from "../core/economy.js";
 import { Blood } from "../core/blood.js";
@@ -1045,6 +1046,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
 
   function beginEnterCar(force) {
     if (mode !== "walk" || carTransit) return;
+    if (carWrecked) { try { window.__ph3d_phone && window.__ph3d_phone._toast("Your car is wrecked \u00B7 it will be towed and repaired soon"); } catch (e) {} return; }
     const dx = walker.x - carPos.x, dz = walker.z - carPos.z;
     if (!force && (dx * dx + dz * dz > 6 * 6)) {
       if (window.__ph3d_phone) window.__ph3d_phone._toast("Too far from the car");
@@ -1433,13 +1435,164 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     try { Limp.release(charRig); Limp.step(charRig, character, 1 / 60); Limp.kick(charRig, impulseX * 3, upward * 2, impulseZ * 3, 1.5); } catch (e) {}
   }
 
+  /* ═══════ Your car: damage, fire, explosion ═══════ */
+  let carHp = 160; const CAR_MAX_HP = 160;
+  let carWrecked = false, carWreckT = 0, carFly = null, carCharRestore = null;
+  let carSmoke = null, carBurn = null, carFuse = 0, carBurning = false, carDent = 0;
+  const _carHex = () => { try { return new THREE.Color((State.vehicle && State.vehicle.body) || "#888888").getHex(); } catch (e) { return 0x888888; } };
+
+  function damagePlayerCar(dmg, o) {
+    if (carWrecked || !(dmg > 0)) return;
+    o = o || {};
+    carHp -= dmg;
+    carDent += dmg / CAR_MAX_HP;
+    const d = Math.min(0.12, carDent * 0.16);
+    carMesh.scale.set(1 - d * 0.5, 1 - d * 0.4, 1 - d);
+    if (carHp <= 0) { explodePlayerCar(o); return; }
+    if (carHp < CAR_MAX_HP * 0.55 && !carSmoke) carSmoke = CrashFX.fire(carPos.x, 1, carPos.z, { follow: carRoot, smokeOnly: true, life: 600, scale: 0.75, offsetY: 1.1 });
+    if (carHp < CAR_MAX_HP * 0.22 && !carBurning) {            /* engine on fire: it WILL blow up soon */
+      carBurning = true; carFuse = 8;
+      carBurn = CrashFX.fire(carPos.x, 1, carPos.z, { follow: carRoot, life: 12, scale: 0.8, offsetY: 0.9 });
+      try { window.__ph3d_phone && window.__ph3d_phone._toast("\uD83D\uDD25 Your car is on fire \u00B7 get out!"); } catch (e) {}
+    }
+  }
+
+  function ejectPlayer(dx, dz) {
+    carTransit = null;
+    mode = "walk";
+    try { Sfx.play("car_engine_stop"); } catch (_) {}
+    getOutBtn.textContent = "GET IN CAR"; getOutBtn.style.pointerEvents = "auto";
+    if (character.parent !== three) { three.add(character); try { charRig.hips.rotation.set(0, 0, 0); charRig.spine.rotation.set(0, 0, 0); } catch (e) {} }
+    character.visible = true; joyBaseEl.style.display = "none";
+    walker.x = carPos.x + dx * 1.0; walker.z = carPos.z + dz * 1.0;
+    walker.y = carRoot.position.y + 1.0; walker.yaw = heading; walker.pitch = 0; walker.vy = 0; walker.onGround = false;
+    character.position.set(walker.x, walker.y, walker.z);
+    flingRagdoll(walker.x, walker.z, dx * 11, dz * 11, 11, 18);
+  }
+
+  function explodePlayerCar(o) {
+    if (carWrecked) return;
+    o = o || {};
+    carWrecked = true; carWreckT = 0; carBurning = false;
+    try { CrashFX.stopFire(carSmoke); CrashFX.stopFire(carBurn); } catch (e) {}
+    carSmoke = null;
+    let dx = o.dirX != null ? o.dirX : Math.sin(heading), dz = o.dirZ != null ? o.dirZ : Math.cos(heading);
+    const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
+    const y0 = carRoot.position.y;
+    CrashFX.explosion(carPos.x, y0 + 0.9, carPos.z, { scale: 1.25, color: _carHex(), wheels: 2, groundY: y0 });
+    try { carCharRestore = CrashFX.charCar(carMesh); } catch (e) {}
+    carBurn = CrashFX.fire(carPos.x, y0, carPos.z, { follow: carRoot, life: 30, scale: 1.2, offsetY: 0.8 });
+    carFly = { vx: dx * 8, vz: dz * 8, vy: 8 + 4 * (o.power || 1), sx: (Math.random() - 0.5) * 5, sz: (Math.random() - 0.5) * 5, y: y0, landed: false, bounces: 0 };
+    const driving = (mode === "drive");
+    speed = 0;
+    if (driving) {                                             /* you are thrown out of the fireball */
+      ejectPlayer(dx, dz);
+      try { Combat.damage(30, "car-explosion"); } catch (e) {}
+      try { CrashFX.hurt(1); } catch (e) {}
+    }
+    try { window.__ph3d_phone && window.__ph3d_phone._toast("\uD83D\uDCA5 Your car exploded!"); } catch (e) {}
+    /* the explosion hurts everyone next to it (and sets neighbouring cars smoking) */
+    try { CrashFX.blast({ x: carPos.x, y: y0 + 0.8, z: carPos.z }, { radius: 7, damage: 110, power: 0.8, source: "wreck" }); } catch (e) {}
+  }
+
+  function repairPlayerCar() {
+    carWrecked = false; carFly = null; carHp = CAR_MAX_HP; carDent = 0; carBurning = false;
+    try { CrashFX.stopFire(carBurn); } catch (e) {}
+    carBurn = null;
+    try { if (carCharRestore) carCharRestore(); } catch (e) {}
+    carCharRestore = null;
+    carMesh.scale.set(1, 1, 1);
+    const gy = sampleTerrainMeshHeight(carPos.x, carPos.z) + 0.02;
+    carRoot.position.set(carPos.x, gy, carPos.z); carRoot.rotation.set(0, heading, 0, "YXZ");
+    try { window.__ph3d_phone && window.__ph3d_phone._toast("\uD83D\uDD27 Your car was towed and repaired"); } catch (e) {}
+  }
+
+  /* wreck flight + fuse, run every frame */
+  function tickPlayerCarWreck(dt) {
+    if (!carWrecked) {
+      if (carBurning) { carFuse -= dt; if (carFuse <= 0) explodePlayerCar({}); }
+      return;
+    }
+    carWreckT += dt;
+    const f = carFly;
+    if (f) {
+      if (!f.landed) {
+        f.vy -= 20 * dt;
+        const res = resolveCarAABBs(carPos.x + f.vx * dt, carPos.z + f.vz * dt, heading, carSize.x * 0.5, carSize.z * 0.5, worldAABBs);
+        if (Math.abs(res[0] - (carPos.x + f.vx * dt)) > 1e-4 || Math.abs(res[1] - (carPos.z + f.vz * dt)) > 1e-4) { f.vx *= -0.2; f.vz *= -0.2; }
+        carPos.x = res[0]; carPos.z = res[1];
+        f.y += f.vy * dt;
+        carRoot.position.set(carPos.x, f.y, carPos.z);
+        carRoot.rotation.x += f.sx * dt; carRoot.rotation.z += f.sz * dt;
+        const gy = sampleTerrainMeshHeight(carPos.x, carPos.z) + 0.02;
+        if (f.y <= gy && f.vy < 0) {
+          f.y = gy;
+          if (Math.abs(f.vy) > 5 && f.bounces < 2) {
+            f.vy *= -0.3; f.vx *= 0.55; f.vz *= 0.55; f.sx *= 0.4; f.sz *= 0.4; f.bounces++;
+            CrashFX.impact(carPos.x, gy + 0.3, carPos.z, { power: 0.45, color: _carHex() });
+          } else {
+            f.landed = true;
+            const flipped = Math.random() < 0.35;
+            carRoot.rotation.set(Math.random() * 0.2 - 0.1, heading, flipped ? Math.PI : Math.random() * 0.3 - 0.15, "YXZ");
+            carRoot.position.y = gy + (flipped ? carSize.y * 0.95 : 0);
+          }
+        }
+      } else {
+        f.vx *= Math.max(0, 1 - 2.5 * dt); f.vz *= Math.max(0, 1 - 2.5 * dt);
+        const res = resolveCarAABBs(carPos.x + f.vx * dt, carPos.z + f.vz * dt, heading, carSize.x * 0.5, carSize.z * 0.5, worldAABBs);
+        carPos.x = res[0]; carPos.z = res[1];
+        carRoot.position.x = carPos.x; carRoot.position.z = carPos.z;
+      }
+    }
+    if (carWreckT > 30) repairPlayerCar();
+  }
+
+  /* explosion near my car */
+  function blastPlayerCar(pos, o) {
+    if (carWrecked) return;
+    const R = o.radius || 9;
+    const dx = carPos.x - pos.x, dz = carPos.z - pos.z;
+    const d = Math.max(0, Math.hypot(dx, dz, carRoot.position.y + 0.8 - pos.y) - carSize.z * 0.4);
+    if (d > R) return;
+    const k = 1 - d / R;
+    damagePlayerCar((o.damage || 100) * k, { dirX: dx, dirZ: dz, power: (o.power || 1) * (0.5 + k) });
+  }
+
+  /* explosion near me on foot: thrown into the air */
+  function blastPlayer(pos, o) {
+    if (mode !== "walk" || walker.ragdoll || carTransit) return;
+    const R = o.radius || 9;
+    const dx = walker.x - pos.x, dz = walker.z - pos.z;
+    const d = Math.hypot(dx, dz, walker.y + 0.9 - pos.y);
+    if (d > R) return;
+    const k = 1 - d / R;
+    const l = Math.hypot(dx, dz) || 1;
+    const nx = d < 0.4 ? 0 : dx / l, nz = d < 0.4 ? 1 : dz / l;
+    if (k > 0.22) {
+      flingRagdoll(walker.x, walker.z, nx * (8 + 12 * k), nz * (8 + 12 * k), 7 + 8 * k, 16);
+      CrashFX.hurt(Math.min(1, 0.4 + k));
+      CrashFX.shake(1.0 * k + 0.3, 0.9);
+    }
+    /* the bazooka already applies your own-blast damage; other explosions do it here */
+    if (!o.launchOnly && o.damage) { try { Combat.damage(Math.round(o.damage * k * 0.5), "explosion"); } catch (e) {} }
+  }
+
+  /* is a point inside my (live) car? rockets use this */
+  function hitTestCar(x, y, z) {
+    if (carWrecked) return false;
+    const gy = carRoot.position.y;
+    if (y < gy + 0.05 || y > gy + carSize.y + 0.2) return false;
+    const dx = x - carPos.x, dz = z - carPos.z, c = Math.cos(heading), sn = Math.sin(heading);
+    return Math.abs(dx * c - dz * sn) < carSize.x * 0.5 + 0.15 && Math.abs(dx * sn + dz * c) < carSize.z * 0.5 + 0.15;
+  }
+
   function hitPlayerByCar(impulseX, impulseZ, upward, spinScale) {
     if (walker.ragdoll) return false;
     flingRagdoll(walker.x, walker.z, impulseX, impulseZ, upward, spinScale);
     return true;
   }
 
-  function hitPlayerCarByCar(impulseX, impulseZ, npcMass) {
+  function hitPlayerCarByCar(impulseX, impulseZ, npcMass, rel) {
     const playerMass = 2200;
     const fac = npcMass / (npcMass + playerMass);
     const dvx = impulseX * fac;
@@ -1456,7 +1609,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     const dmg = Math.min(60, 3 + Math.abs(forward) * 0.9 + Math.abs(lateral) * 0.5);
     try { Combat.damage(dmg, "car-accident"); } catch (e) {}
     try { Combat.flash && Combat.flash(0.7); } catch (e) {}
-    try { Sfx.play(dmg > 35 ? "car_crash_heavy" : "car_crash_light", { x: carPos.x, z: carPos.z }); } catch (_) {}
+    try { damagePlayerCar((rel != null ? rel : Math.abs(forward) * 2) * 2.0, { dirX: dvx, dirZ: dvz, power: 0.8 }); } catch (e) {}
     if (window.__ph3d_phone) {
       window.__ph3d_phone._toast("\uD83D\uDCA5 Car accident \u00B7 -" + Math.round(dmg) + " HP");
     }
@@ -1478,6 +1631,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     getWalkState: function () { if (mode !== "walk") return null; return { walker, character, charRig }; },
     hitPlayer: hitPlayerByCar,
     hitPlayerCar: hitPlayerCarByCar,
+    hitTestCar: hitTestCar,
     getPlayerState: function () {
       if (mode === "walk") {
         return {
@@ -1574,6 +1728,17 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     });
     console.log("[drive] AI cars:", NPC_Cars.list.length);
   } catch (e) { console.warn("[drive] NPC cars failed:", e); }
+
+  /* ── crash / explosion effects: every system that can be hurt by a blast registers here ── */
+  try {
+    CrashFX.init(three, camera);
+    CrashFX.onBlast((pos, o) => {
+      try { NPC_Cars.blast(pos, o); } catch (e) {}
+      try { NPCs.blast(pos, { radius: o.radius, power: o.power, damage: o.launchOnly ? 0 : (o.damage || 0) }); } catch (e) {}
+      try { blastPlayerCar(pos, o); } catch (e) {}
+      try { blastPlayer(pos, o); } catch (e) {}
+    });
+  } catch (e) { console.warn("[drive] crash fx failed:", e); }
 
   /* Walk mode courtesy: spawn 4 extra "local" pedestrian groups right
      around the walk spawn so the first minute isn't empty. */
@@ -1694,6 +1859,8 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       try { LocationMarkers.clear(); } catch (e) {}
       try { NPCs.despawn(); } catch (e) {}
       try { NPC_Cars.despawn(); } catch (e) {}
+      try { if (carCharRestore) carCharRestore(); } catch (e) {}
+      try { CrashFX.dispose(); } catch (e) {}
       try { Blood.clear(); } catch (e) {}
       try { WalkActions.unmount(); } catch (e) {}
       try { Kidnap.unmount(); } catch (e) {}
@@ -1726,6 +1893,12 @@ try {
       delete window.__ph3d_drive;
     },
     update: function (dt, t) {
+      /* crash drama: slow-motion scales the world's dt, camera shake is added after the frame and removed before the next */
+      try { dt = CrashFX.beforeFrame(dt, camera); } catch (e) {}
+      try { return this._upd(dt, t); }
+      finally { try { CrashFX.afterFrame(camera); } catch (e) {} }
+    },
+    _upd: function (dt, t) {
       try { Weather.tick(dt); } catch (e) {}
       try {
         /* speed blur: cars start to blur at ~35% of top speed; wing flight always blurs, jetpack lightly */
@@ -1775,6 +1948,12 @@ try {
         camera.position.lerp(new THREE.Vector3(camX, camH, camZ), Math.min(1, dt * 10));
         camera.lookAt(walker.x, walker.y + 0.5, walker.z);
         tickPolice(dt, t, walker.x, walker.z);
+        /* keep the world moving while you fly: the fireball, burning cars and the crowd carry on */
+        try { NPCs.tick(dt, walker.x, walker.z); } catch (e) {}
+        try { NPC_Cars.tick(dt); } catch (e) {}
+        try { Blood.tick(dt); } catch (e) {}
+        try { CrashFX.tick(dt); } catch (e) {}
+        try { tickPlayerCarWreck(dt); } catch (e) {}
         return;
       }
 
@@ -1798,6 +1977,8 @@ try {
       try { NPCs.tick(dt, px, pz); } catch (e) {}
       try { NPC_Cars.tick(dt); } catch (e) {}
       try { Blood.tick(dt); } catch (e) {}
+      try { CrashFX.tick(dt); } catch (e) {}
+      try { tickPlayerCarWreck(dt); } catch (e) {}
       try { Social.tick(dt, px, pz); } catch (e) {}
       try { WorldEvents.tick(dt, px, pz); } catch (e) {}
       try { Kidnap.tick(dt); } catch (e) {}
@@ -1879,7 +2060,12 @@ try {
             }
             if (-vn > 10 && t - _lastWorldHitT > 0.7) {
               _lastWorldHitT = t;
-              try { Sfx.play(-vn > 24 ? "car_crash_heavy" : "car_crash_light", { x: carPos.x, z: carPos.z }); } catch (_) {}
+              try {
+                const _pw = Math.min(1.25, -vn / 28);
+                CrashFX.impact(carPos.x + fwdX * dir * carSize.z * 0.5, 0.8, carPos.z + fwdZ * dir * carSize.z * 0.5, { power: _pw, color: _carHex(), dir: { x: nxn, z: nzn } });
+                if (-vn > 14) { Combat.damage(Math.min(40, (-vn - 12) * 1.3), "car-accident"); CrashFX.hurt(Math.min(1, -vn / 40)); }
+                damagePlayerCar((-vn - 8) * 2.4, { dirX: nxn, dirZ: nzn, power: _pw });
+              } catch (_) {}
             }
           }
         }
@@ -2085,6 +2271,7 @@ try {
             const npcCars = window.__ph3d_npc_cars;
             if (npcCars && npcCars.list) {
               for (const npcCar of npcCars.list) {
+                if (npcCar.dead && !(npcCar.wreck && npcCar.wreck.landed)) continue;   /* flying wreck */
                 const dx = walker.x - npcCar.mesh.position.x;
                 const dz = walker.z - npcCar.mesh.position.z;
                 const r = npcCar.radius + WALK_RADIUS;

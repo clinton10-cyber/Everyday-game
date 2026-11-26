@@ -33,6 +33,7 @@ import { adultOK } from "./adult-gate.js";
 import { InteriorPoses } from "./interior-poses.js";
 import { AnimationAutomation } from "./animation-automation.js";
 import { pickFall, poseFall, restY } from "./death-pose.js";
+import { CrashFX } from "./crash-fx.js";
 import { NpcCollider } from "./npc-collider.js";
 import { HitReact } from "../characters/hit-react.js";
 import { ShotFX } from "./shot-fx.js";
@@ -1349,6 +1350,100 @@ export const NPCs = {
     }
   },
 
+  /* ── Dramatic hits: thrown through the air by a car or an explosion ─────────────
+     launch(npc, {vx,vy,vz}, {damage, type}) deals the damage (if any), then sends the body
+     tumbling on a ballistic arc. The dead fly too (a corpse caught in a blast). On landing a
+     survivor is knocked down for a few seconds; a body ends up lying on the ground. */
+  _hurt(npc, dmg, type) {
+    if (!npc || npc.dead || !(dmg > 0)) return;
+    if (!npc._tgt) { try { this.targets(npc.ctl.pos.x, npc.ctl.pos.z, 2); } catch (e) {} }
+    if (npc._tgt) npc._tgt.hp = (npc._tgt.hp != null ? npc._tgt.hp : npc.hp) - dmg; else npc.hp -= dmg;
+    this._onHit(npc, dmg, type || "blast", { part: "torso" });
+  },
+  launch(npc, v, o) {
+    o = o || {};
+    if (!npc || npc._fly || npc.state === "sitting") return false;
+    if (o.damage > 0) this._hurt(npc, o.damage, o.type);
+    if (npc.seatTarget) { npc.seatTarget.taken = false; npc.seatTarget = null; }
+    npc.wrestle = null; npc.reaction = null; npc.moveSpeed = 0;
+    if (!npc.dead) { npc.state = "flying"; npc.stateT = 0; }
+    npc._fly = {
+      vx: v.vx || 0, vy: Math.max(3, v.vy || 0), vz: v.vz || 0,
+      sx: (Math.random() - 0.5) * 18, sy: (Math.random() - 0.5) * 10, sz: (Math.random() - 0.5) * 18,
+      y: (npc.group.position.y || npc._baseY || 0) + 0.25, bounces: 0, t: 0,
+    };
+    try { if (npc.rig) Limp.kick(npc.rig, (v.vx || 0) * 3, (v.vy || 0) * 2, (v.vz || 0) * 3, 1.5); } catch (e) {}
+    try { Blood.spray(_scene, npc.ctl.pos.x, 1.1, npc.ctl.pos.z, { count: 26, spread: 5 }); } catch (e) {}
+    return true;
+  },
+  /* everyone inside radius is thrown away from pos. opts: { radius, damage (full-power), power } */
+  blast(pos, o) {
+    o = o || {};
+    const R = o.radius || 9;
+    for (const npc of this.list.slice()) {
+      if (npc._fly || npc.state === "sitting" || !npc.ctl) continue;
+      const dx = npc.ctl.pos.x - pos.x, dz = npc.ctl.pos.z - pos.z;
+      const dy = (npc.group.position.y || 0) + 0.9 - pos.y;
+      const d = Math.hypot(dx, dz, dy);
+      if (d > R) continue;
+      const k = 1 - d / R;
+      const hl = Math.hypot(dx, dz) || 1;
+      const nx = d < 0.4 ? Math.random() - 0.5 : dx / hl, nz = d < 0.4 ? Math.random() - 0.5 : dz / hl;
+      const sp = (6 + 15 * k) * (o.power || 1);
+      this.launch(npc, { vx: nx * sp, vy: 6 + 9 * k, vz: nz * sp }, { damage: o.damage ? o.damage * k : 0, type: "blast" });
+    }
+  },
+  _tickFly(npc, dt) {
+    const f = npc._fly, g = npc.group;
+    f.t += dt;
+    f.vy -= 22 * dt;
+    let nx = npc.ctl.pos.x + f.vx * dt, nz = npc.ctl.pos.z + f.vz * dt;
+    if (_aabbs.length && !this._free(nx, nz, 0.3)) {            /* hit a wall: slam and drop */
+      if (Math.hypot(f.vx, f.vz) > 5) {
+        try { Blood.splat(_scene, npc.ctl.pos.x, npc.ctl.pos.z); Sfx.play("body_fall", { x: npc.ctl.pos.x, z: npc.ctl.pos.z }); } catch (e) {}
+        if (!npc.dead && !f.wall) { f.wall = true; this._hurt(npc, 12 + Math.hypot(f.vx, f.vz), "wall"); }
+      }
+      f.vx *= -0.15; f.vz *= -0.15; nx = npc.ctl.pos.x; nz = npc.ctl.pos.z;
+    }
+    npc.ctl.pos.x = nx; npc.ctl.pos.z = nz;
+    f.y += f.vy * dt;
+    g.position.set(nx, f.y, nz);
+    g.rotation.x += f.sx * dt; g.rotation.y += f.sy * dt; g.rotation.z += f.sz * dt;
+    try { if (npc.rig) Limp.step(npc.rig, g, dt); } catch (e) {}
+    const gy = npc._baseY || 0;
+    if (f.y <= gy && f.vy < 0) {
+      f.y = gy;
+      if (Math.abs(f.vy) > 5 && f.bounces < 2) {                /* a rag-doll bounce */
+        f.vy *= -0.35; f.vx *= 0.6; f.vz *= 0.6; f.sx *= 0.5; f.sy *= 0.5; f.sz *= 0.5; f.bounces++;
+        try { Blood.splat(_scene, nx, nz); Sfx.play("body_fall", { x: nx, z: nz }); } catch (e) {}
+        return;
+      }
+      this._land(npc);
+    }
+  },
+  _land(npc) {
+    npc._fly = null;
+    const g = npc.group;
+    g.rotation.set(0, 0, 0);
+    npc.ctl.pos.y = npc._baseY || 0; g.position.y = npc._baseY || 0;
+    try { Sfx.play("body_fall", { x: npc.ctl.pos.x, z: npc.ctl.pos.z }); } catch (e) {}
+    if (npc.dead) this._settleDead(npc);
+    else if (npc.hp <= 0) this._kill(npc);
+    else { npc.state = "downed"; npc.stateT = 4; npc.moveSpeed = 0; }
+  },
+  _settleDead(npc) {
+    try {
+      const yaw = npc.ctl.yaw || 0;
+      const fl = pickFall(npc.ctl.pos.x, npc.ctl.pos.z, yaw, (x, z) => this._free(x, z, 0.12));
+      npc._fall = fl; npc._deathYaw = yaw; npc._deathY = npc._baseY || 0;
+      npc.ctl.pos.x = fl.x; npc.ctl.pos.z = fl.z;
+      npc.group.position.x = fl.x; npc.group.position.z = fl.z;
+      poseFall(npc.group, fl, yaw, 1, (npc._deathDir || 1) * 0.3);
+      npc.group.position.y = restY(npc._deathY, 1);
+    } catch (e) { npc.group.rotation.x = -Math.PI / 2; npc.group.position.y = (npc._baseY || 0) + 0.15; }
+    npc.state = "dead"; npc.dyingPhase = 1;
+  },
+
   _kill(npc) {
     if (!npc || npc.dead) return;
     if (npc.seatTarget) { npc.seatTarget.taken = false; npc.seatTarget = null; }
@@ -1430,6 +1525,7 @@ export const NPCs = {
       const npc = this.list[i];
 
       if (npc.dead && npc.seatTarget) { npc.seatTarget.taken = false; npc.seatTarget = null; }
+      if (npc._fly) { this._tickFly(npc, dt); continue; }          /* thrown by a car / blast */
 
       if (npc.dead && npc.state === "dying") {
         npc.dyingPhase += dt;
@@ -1911,6 +2007,16 @@ export const NPCs = {
             if (So) { So.onCrime(npc.ctl.pos.x, npc.ctl.pos.z, "kill"); So.onAccident(npc.ctl.pos.x, npc.ctl.pos.z); }
           } catch (e) {}
 
+          try {
+            const _sp = Math.abs(driveState.speed || 0), _dir = (driveState.speed || 0) >= 0 ? 1 : -1;
+            const _lethal = _sp > 11;
+            this.launch(npc, {
+              vx: Math.sin(hy) * _dir * _sp * 0.9 + _carHit.nx * 3,
+              vy: 4 + _sp * 0.35,
+              vz: Math.cos(hy) * _dir * _sp * 0.9 + _carHit.nz * 3,
+            }, { damage: _lethal ? 220 : 25 + _sp * 4, type: "car" });
+            CrashFX.impact(npc.ctl.pos.x, 1.0, npc.ctl.pos.z, { power: Math.max(0.3, Math.min(1, _sp / 28)) });
+          } catch (e) { console.warn("[npcs] run-over fx", e); }
           _toast("\uD83D\uDCA5 You ran someone over \u00B7 crime +100");
         }
       }
@@ -2037,6 +2143,7 @@ export const NPCs = {
   },
 };
 window.__ph3d_npcsList = () => NPCs.list;
+window.__ph3d_NPCs = NPCs;
 
 /* When the player switches look (classic <-> faceted) in the wardrobe, re-skin the NPCs that
    already exist, a few at a time so there is no hitch. New NPCs pick the look up in _build. */

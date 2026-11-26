@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { setGrip } from "../characters/lowpoly.js";
 import { Combat } from "./combat.js";
 import { Sfx } from "./sfx.js";
+import { CrashFX } from "./crash-fx.js";
 
 /* ───────── tuning (edit here) ───────── */
 const CFG = {
@@ -414,6 +415,17 @@ export class RocketLauncher {
     return false;
   }
 
+  /* a rocket flying into a car (NPC traffic or your own) detonates on it */
+  _hitsCar(p) {
+    try {
+      const nc = window.__ph3d_npc_cars;
+      if (nc && nc.hitTest && nc.hitTest(p.x, p.y, p.z)) return true;
+      const d = window.__ph3d_drive;
+      if (d && d.hitTestCar && d.hitTestCar(p.x, p.y, p.z)) return true;
+    } catch (e) {}
+    return false;
+  }
+
   _updateRockets(dt) {
     for (let i = this.rockets.length - 1; i >= 0; i--) {
       const r = this.rockets[i];
@@ -426,7 +438,7 @@ export class RocketLauncher {
       for (let s = 0; s < n && !boom; s++) {
         r.pos.addScaledVector(r.dir, step);
         if (r.pos.y <= this._groundAt(r.pos.x, r.pos.z) + 0.08) boom = true;
-        else if (this._hitsWorld(r.pos) || this._hitsTarget(r.pos)) boom = true;
+        else if (this._hitsWorld(r.pos) || this._hitsTarget(r.pos) || this._hitsCar(r.pos)) boom = true;
       }
       r.obj.position.copy(r.pos);
 
@@ -469,6 +481,10 @@ export class RocketLauncher {
         if (!o.alive || (o.hp !== undefined && o.hp <= 0)) kills++;
       } catch (e) {}
     }
+
+    /* shockwave on everything else: NPC cars blow up and fly, bodies are thrown, your car / you get hit.
+       (people already took their damage above, so the dispatcher only throws them) */
+    try { CrashFX.blast({ x: pos.x, y: pos.y, z: pos.z }, { radius: CFG.blastRadius, damage: 240, power: 1, source: "bazooka", launchOnly: true }); } catch (e) {}
 
     /* the blast hurts you too if you're standing close */
     try {
