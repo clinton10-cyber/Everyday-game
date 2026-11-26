@@ -92,7 +92,9 @@ function injectCSS() {
       border-top:1px solid rgba(0,0,0,.08)}
     #tc-input{flex:1;min-width:0;padding:10px 14px;border-radius:22px;border:none;background:#fff;
       font:14px 'Inter',sans-serif;outline:none;color:#000;line-height:20px;height:20px}
-    @media (max-height:520px){#tc-sheet.kb #tc-rel,#tc-sheet.kb #tc-quick,#tc-sheet.kb #tc-emoji-picker{display:none!important}
+    #tc-sheet.kb #tc-rel,#tc-sheet.kb #tc-quick,#tc-sheet.kb #tc-emoji-picker{display:none!important}
+    #tc-sheet.kb{max-height:calc(100dvh - var(--tc-kb,0px))}
+    @media (max-height:520px){
       #tc-sheet.kb #tc-header{padding:5px 10px}#tc-sheet.kb #tc-input-bar{padding-bottom:6px}}
     .tc-icon-btn{width:40px;height:40px;flex-shrink:0;border-radius:50%;border:none;background:#fff;
       display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer}
@@ -131,7 +133,7 @@ function injectCSS() {
     #tc-sheet *{-webkit-tap-highlight-color:transparent}
     /* landscape phones: the sheet becomes a full-height WhatsApp pane so messages have room */
     @media (orientation:landscape) and (max-height:560px){
-      #tc-sheet{width:min(100vw,560px);height:100vh;height:100dvh;border-radius:0;bottom:0}
+      #tc-sheet{width:min(100vw,560px);height:calc(100vh - var(--tc-kb,0px));height:calc(100dvh - var(--tc-kb,0px));border-radius:0;bottom:var(--tc-kb,0px)}
       #tc-header{padding:4px 10px;padding-left:max(10px,env(safe-area-inset-left,0px))}
       .tc-avatar{width:32px;height:32px;font-size:16px}
       .tc-name{font-size:14px}.tc-status{font-size:10.5px}
@@ -226,7 +228,7 @@ export const TalkChat = {
       onSubmit: () => this._send(),
       onEscape: () => this.close(),
       onResize: (h) => {
-        this._sheet.style.setProperty("--tc-kb", h + "px");
+        this._sheet.style.setProperty("--tc-kb", (h > 0 ? h + 24 : 0) + "px");   /* +24: the keyboard's hide tab */
         this._sheet.classList.toggle("kb", h > 0);
         if (h > 0) requestAnimationFrame(() => { this._msgs.scrollTop = this._msgs.scrollHeight; });
       },
