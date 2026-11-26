@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>film render</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.min.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+/* Offline renderer for the Everyday stories: plays one story with its scripted acting + camera and exposes
+   frame-exact stepping to tools/film_render.py (which captures every frame and encodes the MP4).
+   Usage: tools/film-render.html?story=first-day&w=1280&h=720   →  window.__film, window.__ready, window.__story */
+import { playCinematic } from "../js/cinematics/story-player.js";
+import { storyById } from "../js/cinematics/stories-data.js";
+import { SCRIPTS } from "../js/cinematics/story-scripts.js";
+const q = new URLSearchParams(location.search);
+const W = +(q.get("w") || 1280), H = +(q.get("h") || 720);
+const story = storyById(q.get("story") || "first-day");
+const c = document.getElementById("c"); c.style.width = W + "px"; c.style.height = H + "px";
+const vehicle = story.car ? await import("../js/vehicles/rangerover_compound.js") : null;
+const carBuilder = vehicle ? (col, rim) => vehicle.buildRangeRover3D(col, rim) : null;
+const film = await playCinematic(c, { acts: story.acts, scripts: SCRIPTS[story.id], maxPixelRatio: 1 }, carBuilder);
+window.__film = film; window.__story = { id: story.id, acts: story.acts.length, durations: SCRIPTS[story.id].map((s) => s.duration) };
+window.__ready = true;
+</script></body></html>
