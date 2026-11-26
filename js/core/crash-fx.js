@@ -169,8 +169,8 @@ export const CrashFX = {
   },
   shakeFrom(x, z, power) {
     const d = camDist(x, z);
-    const amp = power * 1.1 * Math.max(0, 1 - d / 50);
-    if (amp > 0.02) this.shake(Math.min(1.6, amp), 0.35 + power * 0.55);
+    const amp = power * 1.1 * Math.max(0, 1 - d / 28);   /* was 50: far-off traffic bumps no longer shake the camera */
+    if (amp > 0.12) this.shake(Math.min(1.6, amp), 0.35 + power * 0.55);
   },
   slowmo(scale, dur) {
     if (SL.t > 0 && scale > SL.scale && SL.t > dur * 0.5) return;
@@ -343,7 +343,7 @@ export const CrashFX = {
     this.smoke(x, y, z, { count: Math.round(2 + p * 5), size: 0.8, a: 0.45 });
     if (p > 0.3) this.debris(x, y, z, { count: Math.round(3 + p * 9), color: o.color, power: 0.5 + p * 0.4, groundY: o.groundY });
     const d = camDist(x, z);
-    this.shakeFrom(x, z, 0.25 + p * 0.9);
+    if (!o.noShake) this.shakeFrom(x, z, (0.25 + p * 0.9) * (o.shakeScale == null ? 1 : o.shakeScale));
     if (p > 0.55 && d < 30) this.slowmo(p > 0.9 ? 0.25 : 0.4, 0.2 + p * 0.15);
     if (p > 0.45 && d < 20) this.flash("#fff", 0.12 + p * 0.18, 0.25);
     try { Sfx.play(p > 0.6 ? "car_crash_heavy" : "car_crash_light", { x, z }); } catch (e) {}

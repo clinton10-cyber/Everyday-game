@@ -1060,10 +1060,11 @@ export const NPCs = {
     if (anyScared && _fled >= 3) {
       try { Sfx.voice("crowd", { x, z, maxRange: 30 }); } catch (e) {}   /* a crowd reacts together */
     }
-    if (anyScared) {
+    if (anyScared && _fled >= 2 && !(this._scareAlertT > performance.now() - 5000)) {
+      this._scareAlertT = performance.now();
       try {
         const Cr = window.__ph3d_crime;
-        if (Cr && Cr.addEvent) Cr.addEvent("attack", 25, "You");
+        if (Cr && Cr.addEvent) Cr.addEvent("attack", 12, "You");
       } catch (e) {}
     }
   },
@@ -1907,7 +1908,7 @@ export const NPCs = {
           npc.state = "idle";
           npc.stateT = rBetween(3, 8);
         } else {
-          const speed = 1.6 * npc.speedMult * (npc.path.speed || 1);
+          const speed = 1.15 * Math.min(npc.speedMult || 1, 1.05) * Math.min(npc.path.speed || 1, 1.2);
           const { total } = getSegs(npc.path);
           const du = (speed * dt) / total;
           npc.pathU += du * npc.pathDir;

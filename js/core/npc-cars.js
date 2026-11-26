@@ -533,7 +533,7 @@ export const NPC_Cars = {
         /* Crime: player rammed an NPC car */
         try {
           const Cr = window.__ph3d_crime;
-          if (Cr && Cr.addEvent && speed > 6) {
+          if (Cr && Cr.addEvent && speed > 6 && Math.abs(player.speed || 0) > 9 && rel > 12) {   /* only a real ram by the player */
             Cr.addEvent("attack", 15, "You");
           }
         } catch (e) {}
@@ -562,7 +562,7 @@ export const NPC_Cars = {
         if (closing > 4 && !(a._cc > 0)) {
           a._cc = b._cc = 1.2;
           try {
-            CrashFX.impact((a.mesh.position.x + b.mesh.position.x) * 0.5, 0.9, (a.mesh.position.z + b.mesh.position.z) * 0.5, { power: _clamp(closing / 26, 0.2, 0.9), color: a.colorHex });
+            CrashFX.impact((a.mesh.position.x + b.mesh.position.x) * 0.5, 0.9, (a.mesh.position.z + b.mesh.position.z) * 0.5, { power: _clamp(closing / 26, 0.2, 0.9), color: a.colorHex, shakeScale: 0.35 });
             this.hurt(a, closing * 2, { power: 0.5, dir: { x: -nx, z: -nz } });
             this.hurt(b, closing * 2, { power: 0.5, dir: { x: nx, z: nz } });
           } catch (e) {}

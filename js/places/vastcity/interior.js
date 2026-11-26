@@ -351,7 +351,8 @@ export async function buildInterior(router) {
     world.add(g);
     let lights = null;
     if (_addCarLights) { try { lights = _addCarLights(g); } catch (e) {} }
-    cars.push({g,axis,dir,speed:5+Math.random()*5,lights, wrap:90});
+    const _top = 4+Math.random()*3;
+    cars.push({g,axis,dir,speed:_top,maxSpeed:_top,lights, wrap:90});
   }
 
   for(const rz of [-60,-30,0,30,60]){
@@ -510,6 +511,24 @@ export async function buildInterior(router) {
       for (let i = 0; i < cars.length; i++) {
         const c = cars[i];
         try { c.lights && c.lights.setNight(_night); } catch (e) {}
+        /* traffic sense: look ahead; stop if another car's box is in the way (lower index has right of way) */
+        {
+          const look = 3.2 + c.maxSpeed * 0.7;
+          const fx = c.axis === 'x' ? c.dir : 0, fz = c.axis === 'z' ? c.dir : 0;
+          const cx = c.g.position.x + fx * (2.25 + look * 0.5), cz = c.g.position.z + fz * (2.25 + look * 0.5);
+          const hwx = c.axis === 'x' ? look * 0.5 : 1.3, hwz = c.axis === 'z' ? look * 0.5 : 1.3;
+          let blocked = false;
+          for (let j = 0; j < cars.length && !blocked; j++) {
+            if (j === i) continue;
+            const o = cars[j], a = carAABB(o);
+            if (Math.abs(cx - a.x) < hwx + a.hw && Math.abs(cz - a.z) < hwz + a.hd) {
+              const sameLane = o.axis === c.axis && o.dir === c.dir;
+              if (sameLane || i > j) blocked = true;
+            }
+          }
+          const tgt = blocked ? 0 : c.maxSpeed;
+          c.speed += Math.sign(tgt - c.speed) * Math.min(Math.abs(tgt - c.speed), (tgt > c.speed ? 3 : 10) * dt);
+        }
         if (c.axis === 'x') {
           c.g.position.x += c.dir * c.speed * dt;
           if (c.g.position.x >  c.wrap) c.g.position.x = -c.wrap;

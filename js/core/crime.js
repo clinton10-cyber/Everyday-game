@@ -19,6 +19,11 @@ export const Crime = {
   },
   addEvent(kind, amount, by) {
     amount = amount || this.reasons[kind] || 10;
+    /* same minor event spamming within 2s counts once (bumps, repeated drawer clicks, every gunshot) */
+    const now = Date.now();
+    this._last = this._last || {};
+    if (kind !== "kill" && kind !== "kidnap" && this._last[kind] && now - this._last[kind] < 2000) return;
+    this._last[kind] = now;
     const entry = { kind, amount: Math.round(amount), by: by || "You", time: Date.now() };
     this.log.unshift(entry);
     if (this.log.length > 50) this.log.length = 50;
