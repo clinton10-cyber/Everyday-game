@@ -24,3 +24,14 @@
 * Roughly: pistol ~9 body shots, rifle ~7, sniper 3, headshots 2-3.
 
 SW cache v221 -> v222. Not play-tested in the live scene (the reaction maths was simulated headlessly: 375 hits, no NaN, bounded joints, all settle).
+
+## Bullet-driven death + ragdoll (v1.3.21, `js/characters/death-physics.js`)
+The killing shot now decides how the body falls (street NPCs; other kills keep the old tip-over):
+* **Direction** = the way the bullet travelled, bent toward open space; slows down / bounces if walls are close.
+* **Head**: head snaps along the bullet, chest folds the other way, arms fly out, body slides back.
+* **Torso**: thrown back; shotgun / sniper launch the body into a hop and a long skid.
+* **Arm**: the shot is off-axis, so real torque spins the body as it falls (pirouette), arm whipped along the bullet.
+* **Leg / foot**: legs swept out - hop, then the body collapses sideways over the injured leg and rolls onto its side.
+* Landing: small rebound, friction skid, dust + blood splat, thud, screen jolt if the player is close.
+* Limbs are the existing `Limp` ragdoll, now kicked joint-by-joint from the bullet (`Limp.impulse`), and they react to the body's real motion.
+SW cache v222 -> v223. Headless sim: 5 parts x 4 weapons x 120 falls - all settle flat, none under the floor, no NaN.

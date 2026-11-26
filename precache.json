@@ -169,6 +169,7 @@
 "js/app-update.js",
 "js/characters/animator.js",
 "js/characters/cat.js",
+"js/characters/death-physics.js",
 "js/characters/fabric.js",
 "js/characters/faceted.js",
 "js/characters/female-body-shapes.js",

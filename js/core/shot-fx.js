@@ -322,6 +322,15 @@ export const ShotFX = {
     }
   },
 
+  /* a body hit the floor: dust skid, thud, and a jolt if it happened close to the player */
+  bodyDrop(scene, x, y, z, strength, near) {
+    if (!scene) return;
+    const p = new THREE.Vector3(x, y + 0.1, z);
+    dustPuff(scene, p, 0xb9a98a, 2 + Math.round(strength * 3), 0.5 + strength * 0.4);
+    try { tone("thump"); } catch (e) {}
+    if (near) kickScreen(0.5 * strength, 0.004 * strength);
+  },
+
   /* a limb just popped out of its socket (HitReact told us) */
   dislocate(point) {
     tone("pop");

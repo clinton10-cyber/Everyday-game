@@ -36,6 +36,7 @@ import { pickFall, poseFall, restY } from "./death-pose.js";
 import { NpcCollider } from "./npc-collider.js";
 import { HitReact } from "../characters/hit-react.js";
 import { ShotFX } from "./shot-fx.js";
+import { DeathPhysics } from "../characters/death-physics.js";
 
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -1178,7 +1179,8 @@ export const NPCs = {
           }
         }
       } else if (info && info.dir) {
-        npc._deathKick = { x: info.dir.x * 70, y: 14 + (part === "head" ? 8 : 0), z: info.dir.z * 70 };   /* body is thrown the way the bullet travelled */
+        /* the killing shot: remember where / how hard so the body falls the way the bullet sends it */
+        npc._deathInfo = { dir: info.dir, point: info.point, part, dmg, type };
       }
     } catch (e) { console.warn("[hit-react]", e); }
     try {
@@ -1368,6 +1370,11 @@ export const NPCs = {
       npc.group.position.x = f.x; npc.group.position.z = f.z;
     } catch (e) { npc._fall = null; }
     npc._deathY = npc.ctl.pos.y || npc._baseY || 0;
+    /* bullet-driven fall + ragdoll (falls back to the plain tip-over when the kill wasn't a gunshot) */
+    try {
+      npc._dp = null;
+      if (npc._deathInfo) { DeathPhysics.begin(npc, npc._deathInfo, (x, z) => this._free(x, z, 0.12)); npc._limpKicked = false; }
+    } catch (e) { npc._dp = null; console.warn("[death-physics]", e); }
     npc.moveSpeed = 0;
     npc.wrestle = null;
     try { Lives.onDeath(npc); } catch (e) {}
@@ -1433,6 +1440,23 @@ export const NPCs = {
 
       if (npc.dead && npc.state === "dying") {
         npc.dyingPhase += dt;
+        if (npc._dp) {                                   /* physics fall: tilt / spin / slide / hop driven by the bullet */
+          const g = npc.group, rig = npc.rig;
+          const done = DeathPhysics.step(npc, dt, (x, z) => this._free(x, z, 0.12), (e) => {
+            try {
+              Blood.splat(_scene, e.x, e.z);
+              const sp = _getShooterPos();
+              const near = !!sp && Math.hypot(sp.x - e.x, sp.z - e.z) < 12;
+              ShotFX.bodyDrop(_scene, e.x, npc._deathY || 0, e.z, e.strength, near);
+            } catch (er) {}
+          });
+          if (rig) {
+            Limp.step(rig, g, dt);
+            if (!npc._limpKicked) { npc._limpKicked = true; try { DeathPhysics.limbs(npc, Limp); } catch (er) {} }
+          }
+          if (done) { npc.state = "dead"; g.position.y = restY(npc._deathY || 0, 1) + 0; }
+          continue;
+        }
         const p = Math.min(1, npc.dyingPhase / 0.75);
         const g = npc.group, rig = npc.rig;
         /* a body falls under gravity: slow start, accelerating, then a small bounce off the floor */
