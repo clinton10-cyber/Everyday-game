@@ -304,8 +304,7 @@ export class ThirdPersonControls {
       ["pointerup","pointermove","click"].forEach(k => b.addEventListener(k, e => { e.preventDefault(); e.stopPropagation(); }));
       return b;
     };
-    this._viewBtn = makeCombatButton("ph3d-view-btn", "1ST PERSON", () => this.toggleCameraMode());
-    this._viewBtn.style.display = "";
+    this._viewBtn = null; /* first-person view removed — third-person only */
     this._aimBtn = makeCombatButton("ph3d-aim-btn", "AIM", () => this.setAiming(!this.aiming));
     this._shoulderBtn = makeCombatButton("ph3d-shoulder-btn", "RIGHT SHOULDER", () => this.swapShoulder());
     this._syncCombatButtons();
@@ -562,11 +561,10 @@ export class ThirdPersonControls {
   }
 
   toggleCameraMode() {
-    this.cameraMode = this.cameraMode === "first" ? "third" : "first";
-    this._setFirstPersonVisibility(this.cameraMode === "first");
+    /* First-person option removed — always stay in third person */
+    this.cameraMode = "third";
+    this._setFirstPersonVisibility(false);
     this._forceCamSnap = true;
-    if (this._viewBtn) this._viewBtn.textContent = this.cameraMode === "first" ? "3RD PERSON" : "1ST PERSON";
-    this._syncCombatButtons();
   }
 
   setAiming(value) {
@@ -671,7 +669,6 @@ export class ThirdPersonControls {
       if (e.code === "KeyG" && !e.repeat) this._lie();
       if (e.code === "KeyJ" && !e.repeat) this.toggleJet();
       if (e.code === "KeyC") this.crouch();
-      if (e.code === "KeyV" && !e.repeat) this.toggleCameraMode();
       /* KeyB shoulder swap disabled — player stays on the right */
       if (e.code === "Mouse2") this.setAiming(true);
       if (e.code === "Digit1") { this.weapons.select("fists");  this._ul(); }
@@ -1646,7 +1643,8 @@ _updateCamera(dt, snap) {
   const TALL = flyCam ? 1e3 : 3;
   const gunOut = this._isGunWeapon();
 
-  const firstPerson = this.cameraMode === "first" && this.state === "standing";
+  this.cameraMode = "third"; /* first-person removed */
+  const firstPerson = false;
   if (firstPerson) {
     this._setFirstPersonVisibility(true);
     const eye = new THREE.Vector3(this.pos.x, this.floorY + 1.58, this.pos.z);
