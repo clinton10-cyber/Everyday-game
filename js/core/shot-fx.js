@@ -179,17 +179,18 @@ function tracer(scene, from, to, type) {
 }
 
 /* ── impacts ─────────────────────────────────────────────────── */
-function dustPuff(scene, p, color, n, size) {
+function dustPuff(scene, p, color, n, size, op, lifeK) {
+  op = op == null ? 0.5 : op; lifeK = lifeK || 1;
   for (let i = 0; i < n; i++) {
-    const mat = new THREE.SpriteMaterial({ map: texSoft(), color, transparent: true, opacity: 0.5, depthWrite: false });
+    const mat = new THREE.SpriteMaterial({ map: texSoft(), color, transparent: true, opacity: op, depthWrite: false });
     const sp = new THREE.Sprite(mat); sp.position.copy(p); scene.add(sp);
     const vx = (Math.random() - 0.5) * 1.6, vy = 0.4 + Math.random() * 1.2, vz = (Math.random() - 0.5) * 1.6;
-    let t = 0; const life = 0.45 + Math.random() * 0.35;
+    let t = 0; const life = (0.45 + Math.random() * 0.35) * lifeK;
     run({
       update(dt) {
         t += dt; const k = t / life; if (k >= 1) return false;
         sp.position.x += vx * dt; sp.position.y += vy * dt; sp.position.z += vz * dt;
-        const s = size * (0.4 + k * 1.8); sp.scale.set(s, s, s); mat.opacity = 0.5 * (1 - k);
+        const s = size * (0.4 + k * 1.8); sp.scale.set(s, s, s); mat.opacity = op * (1 - k);
         return true;
       },
       dispose() { scene.remove(sp); mat.dispose(); },
@@ -203,17 +204,20 @@ function flash(scene, p, color, intensity, dist, life) {
   run({ update(dt) { t += dt; l.intensity = intensity * Math.max(0, 1 - t / life); return t < life; }, dispose() { scene.remove(l); } });
 }
 
-function impact(scene, p, dir, kind, dmg, type) {
-  const back = _v.copy(dir).multiplyScalar(-1);
+function impact(scene, p, dir, kind, dmg, type, floorY) {
+  const d = { x: dir.x, y: dir.y, z: dir.z };
   if (kind === "head") {
-    try { Blood.spray(scene, p.x, p.y, p.z, { count: 44, spread: 5.5 }); } catch (e) {}
-    try { Blood.spray(scene, p.x, p.y, p.z, { count: 14, spread: 2.2, color: 0xd8c8b0 }); } catch (e) {}   /* bone / matter */
-    dustPuff(scene, p, 0x9a1212, 3, 0.55);
-    flash(scene, p, 0xff2a1a, 3.2, 4, 0.14);
+    /* exit spray along the bullet + a thin entry mist back toward the shooter; thin red haze, never a solid cloud */
+    try { Blood.spray(scene, p.x, p.y, p.z, { count: 38, spread: 5.5, dir: d, floorY }); } catch (e) {}
+    try { Blood.spray(scene, p.x, p.y, p.z, { count: 14, spread: 3, dir: d, back: true, floorY }); } catch (e) {}
+    try { Blood.spray(scene, p.x, p.y, p.z, { count: 10, spread: 2.2, color: 0xd8c8b0, dir: d, floorY }); } catch (e) {}   /* bone fleck */
+    dustPuff(scene, p, 0xa01010, 2, 0.34, 0.16, 0.55);
+    flash(scene, p, 0xff2a1a, 3.2, 4, 0.12);
   } else if (kind === "flesh") {
     const big = (dmg || 0) > 40;
-    try { Blood.spray(scene, p.x, p.y, p.z, { count: big ? 30 : 20, spread: big ? 4.5 : 3.2 }); } catch (e) {}
-    dustPuff(scene, p, 0x8a1010, big ? 2 : 1, 0.42);
+    try { Blood.spray(scene, p.x, p.y, p.z, { count: big ? 26 : 16, spread: big ? 4.6 : 3.4, dir: d, floorY }); } catch (e) {}
+    try { Blood.spray(scene, p.x, p.y, p.z, { count: big ? 8 : 5, spread: 2.2, dir: d, back: true, floorY }); } catch (e) {}
+    if (big) dustPuff(scene, p, 0xa01010, 1, 0.3, 0.14, 0.5);
   } else if (kind === "ground") {
     dustPuff(scene, p, 0xb9a98a, 3, 0.5);
     try { Blood.spray(scene, p.x, p.y + 0.02, p.z, { count: 10, spread: 3, color: 0x8f7a56, gravity: -18 }); } catch (e) {}
@@ -309,7 +313,7 @@ export const ShotFX = {
 
     if (o.hit) {
       const head = o.part === "head";
-      impact(scene, o.end, dir, head ? "head" : "flesh", o.dmg, o.type);
+      impact(scene, o.end, dir, head ? "head" : "flesh", o.dmg, o.type, o.floorY);
       const kind = o.killed ? "kill" : head ? "head" : "body";
       hitMarker(kind);
       damageText((head ? "HEADSHOT  " : "") + "-" + Math.round(o.dmg), kind);

@@ -35,3 +35,12 @@ The killing shot now decides how the body falls (street NPCs; other kills keep t
 * Landing: small rebound, friction skid, dust + blood splat, thud, screen jolt if the player is close.
 * Limbs are the existing `Limp` ragdoll, now kicked joint-by-joint from the bullet (`Limp.impulse`), and they react to the body's real motion.
 SW cache v222 -> v223. Headless sim: 5 parts x 4 weapons x 120 falls - all settle flat, none under the floor, no NaN.
+
+## Blood no longer looks solid (v1.3.22)
+Cause: droplets "landed" at the height they were born (the hit point, ~1 m up), so they hovered as opaque 6 cm balls; they stayed 100 % opaque, and the ground stain was a plain disc.
+* Droplets now fall to the real floor (`floorY`) and stick as flat stains; sparks still bounce.
+* Streaks stretched along their velocity, mostly fine drops with a few fat ones, semi-transparent, shrink away instead of popping out.
+* Bullet hits spray along the bullet direction (exit spray) + a thin entry mist back at the shooter; the red haze puffs are thinner and shorter.
+* Ground stain is an irregular blotch with satellite drops that spreads out over ~1 s, at the body's own floor height. One stain per kill (no more stacked duplicates).
+* The old omnidirectional burst now only plays for non-bullet damage.
+SW cache v223 -> v224.

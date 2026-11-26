@@ -1162,7 +1162,8 @@ export const NPCs = {
     const shooterZ = shooter ? shooter.z : null;
 
     const px = npc.ctl.pos.x, pz = npc.ctl.pos.z;
-    try { Blood.spray(_scene, px, 1.2, pz, { count: 18, spread: 3 }); } catch (e) {}
+    /* bullets already get a directional, floor-aware spray from ShotFX; keep the old omnidirectional burst for melee / other damage only */
+    if (!(opts && opts.info && opts.info.dir)) { try { Blood.spray(_scene, px, 1.2, pz, { count: 18, spread: 3 }); } catch (e) {} }
 
     const part = (opts && opts.part) || "torso";
     /* per-body-part reaction (head snap, chest fold, arm whip, knee buckle…) + maybe a dislocated limb */
@@ -1379,7 +1380,7 @@ export const NPCs = {
     npc.wrestle = null;
     try { Lives.onDeath(npc); } catch (e) {}
     if (npc.ctl) { npc.ctl._emoteTimer = 0; npc.ctl._emoteName = null; }
-    try { Blood.splat(_scene, npc.ctl.pos.x, npc.ctl.pos.z); } catch (e) {}
+    if (!npc._dp) { try { Blood.splat(_scene, npc.ctl.pos.x, npc.ctl.pos.z, npc._deathY || 0); } catch (e) {} }   /* physics falls splat where the body lands */
     try { Sfx.pain("death", { x: npc.ctl.pos.x, z: npc.ctl.pos.z, maxRange: 25, gender: npc._cfg && npc._cfg.gender }); Sfx.play("body_fall", { x: npc.ctl.pos.x, z: npc.ctl.pos.z }); } catch (e) {}
     if (_onKillCb) { try { _onKillCb(npc); } catch (e) {} }
   },
@@ -1444,7 +1445,7 @@ export const NPCs = {
           const g = npc.group, rig = npc.rig;
           const done = DeathPhysics.step(npc, dt, (x, z) => this._free(x, z, 0.12), (e) => {
             try {
-              Blood.splat(_scene, e.x, e.z);
+              Blood.splat(_scene, e.x, e.z, npc._deathY || 0);
               const sp = _getShooterPos();
               const near = !!sp && Math.hypot(sp.x - e.x, sp.z - e.z) < 12;
               ShotFX.bodyDrop(_scene, e.x, npc._deathY || 0, e.z, e.strength, near);

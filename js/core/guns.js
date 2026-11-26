@@ -626,7 +626,7 @@ export class Gun {
     try {
       ShotFX.fire({
         scene: this.controls.scene, muzzle: muzzleWorld, origin, dir, end: endPt, type: this.type,
-        part: bestPart, hit: !!bestHit, dmg: shotDmg, surface,
+        part: bestPart, hit: !!bestHit, dmg: shotDmg, surface, floorY: c.floorY || 0,
         killed: !!bestHit && wasAlive && bestHit.hp !== undefined && bestHit.hp <= 0,
       });
     } catch (e) {}
