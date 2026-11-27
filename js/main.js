@@ -448,7 +448,7 @@ window.addEventListener("ph3d:player-dead", async () => {
 (function warmScenes(){
   /* walk / drive are the most used scenes and the heaviest to load, so they warm up first */
   const mods = [
-    "./scenes/drive.js", "./core/npcs.js", "./core/npc-cars.js", "./core/crash-fx.js",
+    "./scenes/drive.js", "./core/npcs.js", "./core/npc-cars.js", "./core/crash-fx.js", "./core/car-dent.js",
     "./scenes/interior.js", "./scenes/travel.js",
     "./scenes/minimap.js", "./scenes/showroom.js", "./scenes/zonewalk.js",
     "./scenes/governor.js", "./scenes/governor-interior.js",

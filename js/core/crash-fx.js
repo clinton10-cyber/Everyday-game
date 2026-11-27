@@ -407,17 +407,36 @@ const _UP = new THREE.Vector3(0, 1, 0);
 const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion(), _tq2 = new THREE.Quaternion(), _ident = new THREE.Quaternion();
 const _AX = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
 
+/* the real oriented size + centre of a model, measured with no rotation so the yaw can't inflate it */
+CrashFX.measureBody = function (obj) {
+  const q = obj.quaternion.clone(), p = obj.position.clone();
+  obj.quaternion.identity(); obj.position.set(0, 0, 0); obj.updateMatrixWorld(true);
+  const bb = new THREE.Box3().setFromObject(obj);
+  obj.quaternion.copy(q); obj.position.copy(p); obj.updateMatrixWorld(true);
+  return { size: bb.getSize(new THREE.Vector3()), center: bb.getCenter(new THREE.Vector3()) };
+};
+
 CrashFX.makeWreckBody = function (obj, size, o) {
   o = o || {};
   const q = obj.quaternion.clone();
-  const c = new THREE.Vector3(0, size.y / 2, 0).applyQuaternion(q).add(obj.position);   /* obj origin = base of the car */
-  return { obj, size, q, c, vx: o.vx || 0, vy: o.vy || 0, vz: o.vz || 0, wx: o.wx || 0, wy: o.wy || 0, wz: o.wz || 0, landed: false, done: false, rest: 0, color: o.color };
+  /* ctr = the middle of the car's box in the object's own space (defaults to half-height above the origin) */
+  const ctr = o.center ? o.center.clone() : new THREE.Vector3(0, size.y / 2, 0);
+  const c = ctr.clone().applyQuaternion(q).add(obj.position);
+  return { obj, size, ctr, q, c, vx: o.vx || 0, vy: o.vy || 0, vz: o.vz || 0, wx: o.wx || 0, wy: o.wy || 0, wz: o.wz || 0, landed: false, done: false, rest: 0, age: 0, color: o.color, onBounce: o.onBounce || null, _bounce: null };
+};
+
+/* the body shape changed (a dent moved some vertices): re-measure so the box still encloses every vertex */
+CrashFX.refreshWreckBody = function (b) {
+  const me = CrashFX.measureBody(b.obj);
+  b.size = me.size; b.ctr = me.center;
+  b.c.copy(b.ctr).applyQuaternion(b.q).add(b.obj.position);
 };
 
 /* advance one step; gy = ground height under the car. Returns true once the car has come to rest. */
 CrashFX.stepWreckBody = function (b, dt, gy) {
   if (b.done) return true;
   dt = Math.min(dt, 1 / 30);
+  b.age += dt;
   b.vy -= 20 * dt;
   b.c.x += b.vx * dt; b.c.y += b.vy * dt; b.c.z += b.vz * dt;
   const wl = Math.hypot(b.wx, b.wy, b.wz);
@@ -437,15 +456,20 @@ CrashFX.stepWreckBody = function (b, dt, gy) {
   if (b.c.y + low < gy) {                                   /* touching or below the road: lift it out, never sink */
     contact = true;
     b.c.y = gy - low;
-    if (b.vy < 0) {
-      const vn = -b.vy;
-      const e = vn > 4 ? 0.08 : 0;                           /* heavy car: low restitution, almost no bounce */
-      b.vy = vn * e;
-      const j = vn * (1 + e) * 0.06;                         /* less spin kick on impact */
-      b.wx += -lz * j; b.wz += lx * j;
-      if (vn > 4) {
+    /* one impulse at the lowest corner: it reverses the corner's approach speed (bounce) AND spins the body about its
+       centre, sharing the same impulse, so every landing loses energy and the car cannot pogo forever */
+    const vcn = -(b.vy + b.wz * lx - b.wx * lz);              /* approach speed of the contact corner (y of v + w × r) */
+    if (vcn > 0) {
+      const e = vcn > 4 ? 0.08 : 0;                           /* heavy car: low restitution, almost no bounce */
+      const Iiso = (b.size.x * b.size.x + b.size.y * b.size.y + b.size.z * b.size.z) / 18;   /* box inertia per unit mass */
+      const k = (lx * lx + lz * lz) / Iiso;
+      const Jm = (1 + e) * vcn / (1 + k);
+      b.vy += Jm;
+      b.wx += -lz * Jm / Iiso; b.wz += lx * Jm / Iiso;
+      if (vcn > 4) {
         b.vx *= 0.55; b.vz *= 0.55;                          /* more energy loss on heavy impact */
-        try { CrashFX.impact(b.c.x, gy + 0.3, b.c.z, { power: Math.min(0.5, vn / 30), color: b.color, groundY: gy }); } catch (e) {}
+        b._bounce = { vn: vcn, x: b.c.x + lx, y: gy, z: b.c.z + lz };
+        try { CrashFX.impact(b.c.x, gy + 0.3, b.c.z, { power: Math.min(0.5, vcn / 30), color: b.color, groundY: gy }); } catch (e) {}
       }
     }
     const fr = Math.max(0, 1 - 5 * dt);                      /* heavier road friction + spin damping */
@@ -458,7 +482,8 @@ CrashFX.stepWreckBody = function (b, dt, gy) {
   }
   /* come to rest: ease the most-vertical body axis exactly upright (wheels down, on a side, or on its roof) */
   const sp = Math.hypot(b.vx, b.vz);
-  if (contact && sp < 1.4 && Math.abs(b.vy) < 1.2 && Math.hypot(b.wx, b.wy, b.wz) < 1.8) {
+  const calm = sp < 1.4 && Math.abs(b.vy) < 1.2 && Math.hypot(b.wx, b.wy, b.wz) < 1.8;
+  if (contact && (calm || b.age > 7)) {                      /* (failsafe: anything still twitching after 7 s is eased flat) */
     let best = 0, bd = -1, bs = 1;
     for (let i = 0; i < 2; i++) {                            /* wheels/roof (Y) or a side (X) — never balanced on its nose */
       _tv.copy(_AX[i === 0 ? 1 : 0]).applyQuaternion(b.q);
@@ -470,6 +495,7 @@ CrashFX.stepWreckBody = function (b, dt, gy) {
     _tq.copy(_ident).slerp(_tq2, Math.min(1, 6 * dt));
     b.q.premultiply(_tq).normalize();
     b.wx *= 0.8; b.wy *= 0.8; b.wz *= 0.8;
+    if (b.age > 7) { b.vx *= 0.9; b.vz *= 0.9; b.wx *= 0.6; b.wy *= 0.6; b.wz *= 0.6; }
     b.rest += dt;
     if ((ang < 0.02 && sp < 0.25) || b.rest > 3) { b.landed = true; }
     if (b.landed && sp < 0.15) { b.vx = b.vy = b.vz = b.wx = b.wy = b.wz = 0; b.done = true; }
@@ -482,8 +508,9 @@ CrashFX.stepWreckBody = function (b, dt, gy) {
   }
   /* write back: the object's origin is the base, the body's centre is half a car-height up its own axis */
   b.obj.quaternion.copy(b.q);
-  _tv.set(0, b.size.y / 2, 0).applyQuaternion(b.q);
+  _tv.copy(b.ctr).applyQuaternion(b.q);
   b.obj.position.set(b.c.x - _tv.x, b.c.y - _tv.y, b.c.z - _tv.z);
+  if (b._bounce) { const bn = b._bounce; b._bounce = null; if (b.onBounce) { try { b.onBounce(bn); } catch (e) {} } }   /* e.g. dent the body where it landed */
   return b.done;
 };
 

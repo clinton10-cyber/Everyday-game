@@ -36,6 +36,7 @@ import { NPCs } from "../core/npcs.js";
 import { Pursuit } from "../core/pursuit.js";
 import { NPC_Cars } from "../core/npc-cars.js";
 import { CrashFX } from "../core/crash-fx.js";
+import { CarDent } from "../core/car-dent.js";
 import { ArrestWatch } from "../core/arrest-watch.js";
 import { Economy } from "../core/economy.js";
 import { Blood } from "../core/blood.js";
@@ -1580,8 +1581,8 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     o = o || {};
     carHp -= dmg;
     carDent += dmg / CAR_MAX_HP;
-    const d = Math.min(0.12, carDent * 0.16);
-    carMesh.scale.set(1 - d * 0.5, 1 - d * 0.4, 1 - d);
+    /* the body metal is pressed in where the force hit it */
+    try { CarDent.hit(carMesh, o.dirX != null ? { x: o.dirX, z: o.dirZ } : null, dmg / CAR_MAX_HP); } catch (e) {}
     if (carHp <= 0) { explodePlayerCar(o); return; }
     if (carHp < CAR_MAX_HP * 0.55 && !carSmoke) carSmoke = CrashFX.fire(carPos.x, 1, carPos.z, { follow: carRoot, smokeOnly: true, life: 600, scale: 0.75, offsetY: 1.1 });
     if (carHp < CAR_MAX_HP * 0.22 && !carBurning) {            /* engine on fire: it WILL blow up soon */
@@ -1614,11 +1615,15 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
     const y0 = carRoot.position.y;
     CrashFX.explosion(carPos.x, y0 + 0.9, carPos.z, { scale: 1.25, color: _carHex(), wheels: 2, groundY: y0 });
+    try { CarDent.crush(carMesh, { x: dx, z: dz }, o.power || 1); } catch (e) {}
     try { carCharRestore = CrashFX.charCar(carMesh); } catch (e) {}
     carBurn = CrashFX.fire(carPos.x, y0, carPos.z, { follow: carRoot, life: 30, scale: 1.2, offsetY: 0.8 });
-    carFly = CrashFX.makeWreckBody(carRoot, { x: carSize.x, y: carSize.y, z: carSize.z }, {
+    const _bx = CrashFX.measureBody(carRoot);
+    carFly = CrashFX.makeWreckBody(carRoot, _bx.size, {
+      center: _bx.center,
       vx: dx * 8, vz: dz * 8, vy: 8 + 4 * (o.power || 1),
       wx: (Math.random() - 0.5) * 8, wy: (Math.random() - 0.5) * 4, wz: (Math.random() - 0.5) * 8, color: _carHex(),
+      onBounce: (bn) => { try { CarDent.dentAt(carMesh, new THREE.Vector3(bn.x, bn.y + 0.2, bn.z), new THREE.Vector3(0, 1, 0), { depth: 0.12 + 0.2 * Math.min(1, bn.vn / 14), radius: 0.8 }); CrashFX.refreshWreckBody(carFly); } catch (e) {} },
     });
     const driving = (mode === "drive");
     speed = 0;
@@ -1638,6 +1643,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     carBurn = null;
     try { if (carCharRestore) carCharRestore(); } catch (e) {}
     carCharRestore = null;
+    try { CarDent.repair(carMesh); } catch (e) {}                 /* the body is straightened out again */
     carMesh.scale.set(1, 1, 1);
     const gy = sampleTerrainMeshHeight(carPos.x, carPos.z) + 0.02;
     carRoot.position.set(carPos.x, gy, carPos.z); carRoot.rotation.set(0, heading, 0, "YXZ");
