@@ -5,6 +5,7 @@ import { Quality } from "./quality.js";
 import { DayNight } from "./daynight.js";
 import { tickWanted } from "../ui/wanted.js";
 import { NightTools } from "./night-tools.js";
+import { FlashPool } from "./flash-pool.js";
 
 /* ═══════════════════════════════════════════════════════════════
    Router
@@ -202,6 +203,19 @@ export class Router {
     );
     this.ui.showBack(this.stack.length > 1, () => this.back());
     this.ui.setHint(scene.hint || "", !!scene.hint);
+
+    /* Compile this scene's shaders NOW, while the screen is still covered, instead of on the first visible
+       frame (that synchronous compile is the freeze felt when entering drive/walk). compileAsync uses the
+       browser's parallel shader compile, so the loader keeps animating. Capped so a slow GPU never hangs the entry. */
+    try {
+      if (scene.three && scene.camera && this.renderer.compileAsync) {
+        if (/^(drive|walk|zonedrive|zonewalk|city)$/.test(name)) FlashPool.prime(scene.three);
+        await Promise.race([
+          this.renderer.compileAsync(scene.three, scene.camera),
+          new Promise(r => setTimeout(r, 2500)),
+        ]);
+      }
+    } catch (e) { console.warn("[route] precompile skipped:", e); }
 
     this.ui.fadeOut();
     await new Promise(r => setTimeout(r, 16));

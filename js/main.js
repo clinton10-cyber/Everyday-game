@@ -204,6 +204,19 @@ const ui = new UI();
 const router = new Router(renderer, ui);
 window.__ph3d_router = router;
 
+/* Pre-build the shared city world (the ~1s+ geometry build that used to freeze entering drive/walk) in idle
+   time shortly after the first scene appears, so tapping DRIVE/WALK later finds it already cached. */
+{
+  let _warmed = false;
+  window.addEventListener("ph3d:scene-enter", () => {
+    if (_warmed) return; _warmed = true;
+    try { if ((Quality.current && Quality.current.potato) || (navigator.deviceMemory && navigator.deviceMemory <= 1)) return; } catch (e) {}
+    const run = () => import("./world/phworld.js").then((m) => m.buildPHWorld()).catch(() => {});
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1500));
+    setTimeout(() => idle(run, { timeout: 12000 }), 4000);
+  });
+}
+
 router.register("city",       (params, r) => import("./scenes/city.js").then(m => m.cityScene(params, r)).catch(e => console.error("[route] scene failed:", e)));
 router.register("travel",     (params, r) => import("./scenes/travel.js").then(m => m.travelScene(params, r)).catch(e => console.error("[route] scene failed:", e)));
 router.register("interior",   (params, r) => import("./scenes/interior.js").then(m => m.interiorScene(params, r)).catch(e => console.error("[route] scene failed:", e)));

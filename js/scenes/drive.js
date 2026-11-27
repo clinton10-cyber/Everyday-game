@@ -212,7 +212,11 @@ export async function driveScene(params, router) {
   }
 }
 
+/* Hand the main thread back so the loading screen can paint and the browser stays responsive between heavy build steps. */
+const _yieldToBrowser = () => new Promise((r) => setTimeout(r, 0));
+
 async function _driveInner(params, router) {
+  await _yieldToBrowser();   /* let the "STARTING THE ENGINE" loader paint BEFORE the heavy build starts */
   const TIER = (Quality.current && Quality.current.tier) || "medium";
   const LOW = TIER === "low";
   const POTATO = !!(Quality.current && Quality.current.potato);
@@ -293,6 +297,7 @@ async function _driveInner(params, router) {
 
   /* -------- city (two meshes: base + detail) -------- */
   const city = buildCity();
+  await _yieldToBrowser();
   const RING_R = city.RING_R;
   const RING_RZ = city.RING_RZ;
   const worldAABBs = city.aabbs.slice();
@@ -418,6 +423,7 @@ async function _driveInner(params, router) {
     WorldObjects.seedCity(three, POTATO ? 40 : LOW ? 80 : 200, GRID_RADIUS, BLOCK_SIZE, ROAD_W);
     window.__ph3d_world_objects = WorldObjects;
   } catch (e) { console.warn("[drive] WorldObjects:", e); }
+  await _yieldToBrowser();
 
 /* -------- Police pursuit (up to 3 cars) -------- */
 const policeCars = [];
