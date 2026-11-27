@@ -657,6 +657,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   const carPos = new THREE.Vector3();
   let heading = Math.PI;
   let speed = 0, steer = 0, wheelRot = 0;
+  let jetAir = false, jetPitch = 0, jetVy = 0;   /* SKYFURY flight state: in the air?, nose-up angle, vertical speed */
   let cameraYaw = 0, cameraPitch = 0.15;
 
   carPos.set(SPAWN_X, 0, SPAWN_Z);
@@ -1126,6 +1127,8 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     if (mode !== "drive" || carTransit) return;
     if (RIDE) {
       if (RIDE === "skyfury") {
+        if (jetAir) { try { window.__ph3d_phone && window.__ph3d_phone._toast("Land the jet before you get out"); } catch (e) {} return; }
+        if (Math.abs(speed) > 6) { try { window.__ph3d_phone && window.__ph3d_phone._toast("Stop the jet first"); } catch (e) {} return; }
         /* climb out of the cockpit onto the wing, then step to the ground */
         if (character.parent !== three) {
           three.add(character);
@@ -2136,79 +2139,84 @@ try {
         carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
 
 
-        /* ── SKYFURY free-flight (aircraft) ───────────────────────── */
+        /* ── SKYFURY: a real aircraft — taxi, take off, bank + turn, climb/dive, stall, land ─────────
+           Nose points along the flight path (nose-up = NEGATIVE euler X for a +Z-forward model). */
         if (model === "skyfury" || (carMesh && carMesh.userData && carMesh.userData.isSkyfury)) {
           const th = (input.throttle || keys.KeyW || keys.ArrowUp) ? 1 : 0;
           const br = (input.brake || keys.KeyS || keys.ArrowDown) ? 1 : 0;
           let steerIn = 0;
-          if (input.steerL || keys.KeyA || keys.ArrowLeft) steerIn -= 1;
+          if (input.steerL || keys.KeyA || keys.ArrowLeft) steerIn -= 1;      /* +1 = bank/turn RIGHT */
           if (input.steerR || keys.KeyD || keys.ArrowRight) steerIn += 1;
           if (input.joyX) steerIn = input.joyX;
-          let pitchIn = 0;
-          if (input.joyY) pitchIn = -input.joyY; /* stick up = nose up */
+          let pitchIn = 0;                                                    /* +1 = nose UP */
+          if (input.joyY) pitchIn = -input.joyY;
           if (keys.KeyR) pitchIn += 1;
           if (keys.KeyF) pitchIn -= 1;
 
-          const _arrestMul = (typeof ArrestWatch !== "undefined" && ArrestWatch.speedMultiplier) ? ArrestWatch.speedMultiplier() : 1;
-          const targetSpd = 40 + th * 160 - br * 30;
-          speed += (targetSpd * _arrestMul - speed) * Math.min(1, dt * 1.2);
-          speed = Math.max(25, Math.min(220 * _arrestMul, speed));
+          const GEAR = 0.85;                                                  /* wheel height: carRoot.y when parked on the ground */
+          const VR = 45, VSTALL = 32, VMAX = 220;                             /* rotate speed, stall speed, top speed (m/s) */
+          let cy = carRoot.position.y;
+          const gnd = sampleTerrainMeshHeight(carPos.x, carPos.z);
+          if (cy == null || !isFinite(cy)) cy = gnd + GEAR;
+          const onGround = !jetAir;
 
-          /* roll from steer, pitch from stick; yaw couples to bank */
-          const rollRate = -steerIn * 1.8 * dt;
-          const pitchRate = pitchIn * 1.1 * dt;
-          carRoot.rotation.z += (rollRate - carRoot.rotation.z) * Math.min(1, dt * 4);
-          carRoot.rotation.z = Math.max(-0.85, Math.min(0.85, carRoot.rotation.z));
-          let pitch = carRoot.rotation.x || 0;
-          pitch += pitchRate;
-          pitch = Math.max(-0.9, Math.min(0.75, pitch));
-          /* auto-level when hands off */
-          if (Math.abs(steerIn) < 0.08 && Math.abs(pitchIn) < 0.08) {
-            carRoot.rotation.z *= Math.max(0, 1 - dt * 1.6);
-            pitch *= Math.max(0, 1 - dt * 0.7);
+          /* throttle / brake / drag */
+          if (th) speed += (onGround ? 38 : 60) * dt;
+          if (br) speed -= (onGround ? 55 : 30) * dt;
+          speed -= speed * (onGround ? 0.01 : 0.12) * dt;
+          if (onGround && !th && !br) speed -= Math.sign(speed) * Math.min(Math.abs(speed), 5 * dt);   /* rolling friction */
+          speed = Math.max(onGround ? 0 : VSTALL * 0.5, Math.min(VMAX, speed));
+
+          if (onGround) {
+            /* taxi / take-off run: wheels on the ground, steer the nose wheel, pull up past rotate speed to fly */
+            heading += -steerIn * 0.7 * Math.min(1, speed / 12) * dt;
+            jetPitch += (0 - jetPitch) * Math.min(1, dt * 5);
+            carRoot.rotation.z += (0 - carRoot.rotation.z) * Math.min(1, dt * 6);
+            cy = gnd + GEAR;
+            jetVy = 0;
+            if (speed >= VR && pitchIn > 0.2) { jetAir = true; jetVy = 4; }               /* LIFT-OFF */
+          } else {
+            /* roll to an ANGLE (not a rate), pitch from the stick, turn from the bank */
+            const bank = steerIn * 0.85;
+            carRoot.rotation.z += (bank - carRoot.rotation.z) * Math.min(1, dt * 3.5);
+            jetPitch += pitchIn * 1.0 * dt;
+            if (Math.abs(pitchIn) < 0.08) jetPitch *= Math.max(0, 1 - dt * 0.6);           /* hands off: ease level */
+            if (speed < VSTALL) jetPitch -= (VSTALL - speed) / VSTALL * 0.9 * dt;          /* stall: nose drops */
+            jetPitch = Math.max(-0.85, Math.min(0.75, jetPitch));
+            heading += -carRoot.rotation.z * 1.35 * Math.min(1, speed / 60) * dt;
+            const climbV = speed * Math.sin(jetPitch);                                     /* nose up = climb */
+            const sag = speed < VR ? ((VR - speed) / VR) * 16 : 0;                         /* too slow: it sinks */
+            jetVy += ((climbV - sag) - jetVy) * Math.min(1, dt * 3);
+            cy += jetVy * dt;
+            if (cy <= gnd + GEAR) {                                                         /* touch-down */
+              cy = gnd + GEAR;
+              if (jetVy < -22) { speed *= 0.5; try { CrashFX.impact(carPos.x, cy, carPos.z, { power: 0.8, color: _carHex() }); CrashFX.shake(0.8, 0.6); } catch (e) {} }
+              jetVy = 0; jetAir = false; jetPitch = 0;                                      /* landed: rolls out on the wheels */
+            }
           }
-          carRoot.rotation.x = pitch;
-
-          /* banked turn */
-          heading += (-carRoot.rotation.z) * 1.35 * dt;
           while (heading > Math.PI) heading -= Math.PI * 2;
           while (heading < -Math.PI) heading += Math.PI * 2;
 
           const fx = Math.sin(heading), fz = Math.cos(heading);
-          const climb = -Math.sin(pitch); /* nose up (neg euler X in YXZ?) — use pitch sign carefully */
-          /* With rotation.x positive = nose up in YXZ order typically */
-          const forwardClimb = Math.sin(carRoot.rotation.x);
-          carPos.x += fx * speed * dt;
-          carPos.z += fz * speed * dt;
-          let cy = carRoot.position.y;
-          if (cy == null || !isFinite(cy)) cy = sampleTerrainMeshHeight(carPos.x, carPos.z) + 8;
-          cy += forwardClimb * speed * 0.55 * dt;
-          cy += (th > 0.5 ? 2.5 : -1.2) * dt; /* slight climb under power */
-          const ground = sampleTerrainMeshHeight(carPos.x, carPos.z);
-          if (cy < ground + 6) {
-            cy = ground + 6;
-            carRoot.rotation.x = Math.max(0.05, carRoot.rotation.x);
-          }
-          if (cy > 900) cy = 900;
-
-          carPos.x = Math.max(-1900, Math.min(1900, carPos.x));
-          carPos.z = Math.max(-1900, Math.min(1900, carPos.z));
+          const hs = speed * Math.cos(jetPitch);                                           /* horizontal speed */
+          carPos.x = Math.max(-1900, Math.min(1900, carPos.x + fx * hs * dt));
+          carPos.z = Math.max(-1900, Math.min(1900, carPos.z + fz * hs * dt));
+          if (cy > 900) { cy = 900; if (jetVy > 0) jetVy = 0; }
 
           carRoot.position.set(carPos.x, cy, carPos.z);
-          carRoot.rotation.y = heading;
-          try { updateSkyfuryThrottle(carMesh, th); } catch (e) {}
+          carRoot.rotation.set(-jetPitch, heading, carRoot.rotation.z, "YXZ");           /* nose along its flight path */
+          try { updateSkyfuryThrottle(carMesh, th || (speed > VR ? 0.35 : 0)); } catch (e) {}
 
-          /* camera chase behind jet */
-          const camDist = 18 + Math.abs(speed) * 0.04;
-          const camH = cy + 5;
+          /* chase camera behind and slightly above, following the climb a little */
+          const camDist = 17 + Math.abs(speed) * 0.04;
+          const camH = cy + 4.5 + jetPitch * 6;
           const cx = carPos.x - Math.sin(heading + cameraYaw) * camDist;
           const cz = carPos.z - Math.cos(heading + cameraYaw) * camDist;
           camera.position.lerp(new THREE.Vector3(cx, camH, cz), Math.min(1, dt * 6));
           camera.lookAt(carPos.x, cy + 1.2, carPos.z);
 
-          if (hudEl) hudEl.textContent = Math.round(speed * 3.6) + " km/h · ALT " + Math.round(cy - ground) + " m";
+          if (hudEl) hudEl.textContent = Math.round(speed * 3.6) + " km/h · ALT " + Math.round(cy - GEAR - gnd) + " m" + (jetAir ? "" : " · ON GROUND");
           if (RIDE) { try { poseRider(dt); } catch (e) {} }
-          /* skip ground-car physics for this frame */
           window.__ph3d_player = { x: carPos.x, z: carPos.z, yaw: heading, y: cy };
           return;
         }
