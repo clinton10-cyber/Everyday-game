@@ -192,7 +192,7 @@ const GUN_CONFIG = {
   pistol: {
     damage: 25, range: 25, cooldown: 0.40, fireDuration: 0.22,
   },
-  sniper: { damage: 85, range: 70, cooldown: 1.50, fireDuration: 0.55 },
+  sniper: { damage: 85, range: 160, cooldown: 1.50, fireDuration: 0.55 },   /* scoped 3.5-8x view shows far targets, so the bullet must reach them */
   rifle: { damage: 30, range: 46, cooldown: 0.12, fireDuration: 0.24 },
   smg: { damage: 19, range: 30, cooldown: 0.075, fireDuration: 0.18 },
   shotgun: { damage: 62, range: 17, cooldown: 0.82, fireDuration: 0.38 },
@@ -466,6 +466,21 @@ export class Gun {
     if (p >= 1) this._setState("drawn");
   }
 
+  /* Weapon switch: the arms dip toward the relaxed pose while Weapons._lower > 0, so swapping guns is a
+     lower-and-raise motion instead of one gun popping into another. */
+  _applyDrawLower(R) {
+    const W = this.controls && this.controls.weapons, L = W ? W._lower : 0;
+    if (!(L > 0.01)) return;
+    const k = Math.min(1, L);
+    for (const [arm, sg] of [[R.armR, -1], [R.armL, 1]]) {
+      if (!arm || !arm.shoulder || !arm.elbow) continue;
+      const sr = arm.shoulder.rotation, er = arm.elbow.rotation;
+      sr.x += (0.04 - sr.x) * k; sr.y *= (1 - k); sr.z += (sg * 0.09 - sr.z) * k;
+      er.x += (-0.18 - er.x) * k;
+    }
+    if (R.spine) R.spine.rotation.x += 0.08 * k;
+  }
+
   /* Full-body arm pose (both arms + torso + head). */
   applyArmPose(R) {
     if (!R) return;
@@ -489,7 +504,7 @@ export class Gun {
     const pp = stanceMix(pose("ready"), pose("ads"), this._aimK);
     const aimed = poseFromP(pp);
 
-    const lower = () => { if (R.hips) R.hips.rotation.y += pp[12]; applyLowerStance(R, this._idleK); };
+    const lower = () => { if (R.hips) R.hips.rotation.y += pp[12]; applyLowerStance(R, this._idleK); this._applyDrawLower(R); };
     if (this.state === "drawn") {
       applyPose(R, aimed);
       lower();
@@ -711,6 +726,8 @@ export class Gun {
 }
 
 /* ── Weapons manager ─────────────────────────────────────────── */
+const QUICK_ORDER = ["pistol", "smg", "rifle", "shotgun", "lmg", "sniper", "bazooka", "knife"];
+const WEAPON_NAMES = { fists: "FISTS", knife: "KNIFE", pistol: "PISTOL", smg: "SMG", rifle: "RIFLE", shotgun: "SHOTGUN", lmg: "LMG", sniper: "SNIPER", bazooka: "BAZOOKA" };
 export class Weapons {
   constructor(controls) {
     this.controls = controls;
@@ -724,6 +741,7 @@ export class Weapons {
     this.bazooka = new RocketLauncher(controls);
     this.current = "fists";
     this.onStateChange = null;
+    this._lower = 0; this._lowerGoal = 0; this._swapping = false; this._swapTimer = 0; this._pendingName = null;
   }
 
   _notify() {
@@ -732,6 +750,9 @@ export class Weapons {
 
   select(name) {
     if (name === this.current) return;
+    /* a different weapon never inherits the previous one's scope / zoom */
+    try { if (this.controls && this.controls.aiming && this.controls.setAiming) this.controls.setAiming(false); } catch (e) {}
+    if (name !== "fists") { this._lower = Math.max(this._lower, 0.9); this._lowerGoal = 0; }   /* new weapon rises into place */
     this.knife.holster();
     this.pistol.holster();
     this.sniper.holster();
@@ -762,6 +783,32 @@ export class Weapons {
     this.select(list[(i + 1) % list.length]);
   }
 
+  /* ── seamless weapon switching ─────────────────────────────
+     switchTo(name): the drawn weapon dips (~0.14 s), the new one rises. Fire is blocked during the swap and
+     aiming ends. next(+1 / -1): step through the guns (mouse wheel, [ ] keys, the SWITCH button).  */
+  switchTo(name) {
+    const base = this._swapping ? this._pendingName : this.current;
+    if (!name || name === base) return;
+    if (this._swapTimer) { clearTimeout(this._swapTimer); this._swapTimer = 0; }
+    try { if (this.controls && this.controls.setAiming) this.controls.setAiming(false); } catch (e) {}
+    if (!this.isArmed() || name === "fists") { this._swapping = false; this.select(name); return; }
+    this._swapping = true; this._pendingName = name; this._lowerGoal = 1;
+    this._swapTimer = setTimeout(() => {
+      this._swapTimer = 0; this._swapping = false; this._pendingName = null;
+      this.select(name); this._lowerGoal = 0;
+    }, 140);
+  }
+  next(dir = 1) {
+    const order = QUICK_ORDER;
+    const base = this._swapping ? this._pendingName : (this.isArmed() ? this.current : (this._lastArmed && this._lastArmed !== "fists" ? this._lastArmed : null));
+    if (!base) { this.switchTo(order[0]); return order[0]; }       /* from fists: draw the first gun */
+    if (!this.isArmed() && !this._swapping) { this.switchTo(base); return base; }   /* from fists: draw the last one you held */
+    let i = order.indexOf(base); if (i < 0) i = 0;
+    const n = order[(i + (dir < 0 ? -1 : 1) + order.length) % order.length];
+    this.switchTo(n); return n;
+  }
+  get displayName() { const n = this._swapping ? this._pendingName : this.current; return WEAPON_NAMES[n] || ""; }
+
   holsterAll() { this.select("fists"); }
   /* one key / one button: armed → fists, fists → the weapon you last held (pistol the first time) */
   swap() {
@@ -775,6 +822,7 @@ export class Weapons {
     const c = this.controls;
     /* plain walker objects (drive/walk scenes) have no .state; only block when a state exists */
     const st = c && c.state;
+    if (this._swapping) return false;                       /* mid weapon swap */
     if (c && st && st !== "standing" && st !== "crouching") return false;
     if (c && (!!c.held || (c._emoteTimer > 0.12) || (!!(c.jet && c.jet.on) && c.onGround === false))) return false;
     if (this.current === "knife")  return this.knife.stab();
@@ -789,6 +837,9 @@ export class Weapons {
   }
 
   update(dt, targets) {
+    /* ease the draw/lower dip (fast down, slightly slower up) */
+    this._lower += (this._lowerGoal - this._lower) * Math.min(1, dt * (this._lowerGoal > this._lower ? 22 : 11));
+    if (this._lower < 0.002 && this._lowerGoal === 0) this._lower = 0;
     this.knife.update(dt, targets);
     this.pistol.update(dt, targets);
     this.sniper.update(dt, targets);
@@ -808,6 +859,7 @@ export class Weapons {
   }
 
   dispose() {
+    if (this._swapTimer) { clearTimeout(this._swapTimer); this._swapTimer = 0; }
     this.knife.dispose();
     this.pistol.dispose();
     this.sniper.dispose();

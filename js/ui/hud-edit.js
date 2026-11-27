@@ -20,7 +20,7 @@ const NAMES = {
   "#ph3d-gun-hud": "Ammo", "#ph3d-torch-btn": "Torch", "#ph3d-npc-actions": "Talk", "#hud-bl": "Status", "#dr-left-container": "Pedals", "#dr-right-container": "Steering",
   ".rg-top": "Wave + kills", ".rg-vitals": "HP + weapons", ".rg-skills": "Skills", "#ph3d-range-exit-btn": "Exit", "#ph3d-wanted": "Wanted",
   "#ph3d-jump-btn": "Jump", "#ph3d-run-btn": "Run", "#ph3d-walk-attack": "Fight / Fire", "#ph3d-act-btn": "Fire", "#ph3d-walk-jump": "Jump", "#ph3d-walk-run": "Run",
-  "#ph3d-crouch-btn": "Crouch", "#ph3d-wpn-btn": "Gun ⇄ Fists", "#ph3d-view-btn": "View", "#ph3d-aim-btn": "Aim", "#ph3d-shoulder-btn": "Shoulder", "#ph3d-city-drive": "Drive", "#ph3d-city-walk": "Walk",
+  "#ph3d-crouch-btn": "Crouch", "#ph3d-wpn-btn": "Gun ⇄ Fists", "#ph3d-view-btn": "View", "#ph3d-aim-btn": "Aim", "#ph3d-shoulder-btn": "Shoulder", "#ph3d-switch-btn": "Switch weapon", "#ph3d-city-drive": "Drive", "#ph3d-city-walk": "Walk",
   "#ph3d-walk-actions": "Actions", "#ph3d-lie-btn": "Lie", "#ph3d-walk-fly": "Jetpack", "#ph3d-outside-btn": "Go outside", "#ph3d-reload": "Reload",
 };
 const orient = () => (innerWidth >= innerHeight ? "L" : "P");

@@ -77,6 +77,7 @@ const SPEC = {
   "ph3d-view-btn":         { z: "ctx",  cls: "h-ctx h-combat-util", o: 11 },
   "ph3d-aim-btn":          { z: "ctx",  cls: "h-ctx h-combat-util", o: 12 },
   "ph3d-shoulder-btn":     { z: "ctx",  cls: "h-ctx h-combat-util", o: 13 },
+  "ph3d-switch-btn":       { z: "ctx",  cls: "h-ctx h-combat-util", o: 11 },
   "ph3d-furn-btn":         { z: "ctx",  cls: "h-ctx",           o: 12 },
 
   "ph3d-state":            { z: "state", cls: "h-state" },

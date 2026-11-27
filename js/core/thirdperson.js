@@ -1,5 +1,6 @@
 import { createJetpack } from "./jetpack.js";
 import { createSpeedFx } from "./speed-fx.js";
+import { horizontalToVertical } from "./fov.js";
 import * as THREE from "three";
 import { Wardrobe } from "./wardrobe.js";
 import { WardrobeUI } from "./wardrobeui.js";
@@ -307,6 +308,7 @@ export class ThirdPersonControls {
     this._viewBtn = null; /* first-person view removed — third-person only */
     this._aimBtn = makeCombatButton("ph3d-aim-btn", "AIM", () => this.setAiming(!this.aiming));
     this._shoulderBtn = makeCombatButton("ph3d-shoulder-btn", "RIGHT SHOULDER", () => this.swapShoulder());
+    this._switchBtn = makeCombatButton("ph3d-switch-btn", "SWITCH", () => { if (this.weapons) { this.weapons.next(1); this._flashWeaponName(); this._ul(); } });
     this._syncCombatButtons();
 
     const oldJump = document.getElementById("ph3d-jump-btn"); oldJump && oldJump.remove();
@@ -579,6 +581,50 @@ export class ThirdPersonControls {
     try { if (this.weapons && this.weapons._syncCrosshair) this.weapons._syncCrosshair(); } catch (e) {}
   }
 
+  /* ── Scope zoom ────────────────────────────────────────────────
+     Zoom is a MAGNIFICATION over the player's normal view (so it feels the same on every screen / FOV
+     setting), not a raw vertical angle. The game's FOV override (fov.js) only touches cameras ≥70°, so the
+     old raw 28°→12° values made the picture jump wider as the lens crossed 70° on the way in and out;
+     while zoomed we now own the lens (noFovOverride) and ease the *effective* vertical FOV instead. */
+  _effBaseFov() {
+    const asp = (this.camera && this.camera.aspect) || 1.78;
+    const raw = this._baseCameraFov || 62;
+    const F = window.__ph3d_fov;
+    return raw >= 70 && F ? horizontalToVertical(F.get(), asp) : raw;
+  }
+  _scopeMag() {
+    const kind = this.aiming ? this._scopeGun() : null;
+    if (!kind) return 1;
+    const z = Math.max(0, Math.min(1, this._adsZoom || 0));
+    if (kind === "sniper") return 3.5 * Math.pow(8 / 3.5, z);      /* 3.5x → 8x */
+    return 1.35 * Math.pow(2.1 / 1.35, z);                          /* shotgun sights 1.35x → 2.1x */
+  }
+  /* look speed shrinks with the magnification so fine aiming is possible at 8x */
+  _lookZoomScale() { const m = this._scopeMag(); return m > 1 ? 1 / m : 1; }
+  _updateAimFov(dt, gunOut) {
+    const cam = this.camera; if (!cam) return;
+    const eff = this._effBaseFov();
+    const kind = (this.aiming && gunOut) ? this._scopeGun() : null;
+    let goal = eff;
+    if (kind) goal = (2 * Math.atan(Math.tan(eff * Math.PI / 360) / this._scopeMag())) * 180 / Math.PI;
+    else if (this.aiming && gunOut) goal = Math.min(eff, 48);         /* ordinary guns: a mild aim-down-sights tighten */
+    if (this._scopeFov == null) this._scopeFov = eff;
+    const k = Math.min(1, Math.max(0, dt) * 12);
+    this._scopeFov += (goal - this._scopeFov) * k;
+    const settled = !kind && !(this.aiming && gunOut) && Math.abs(this._scopeFov - eff) < 0.05;
+    if (settled) {
+      if (cam.userData && cam.userData.noFovOverride && cam.userData._ph3dScopeOwned) {
+        cam.userData.noFovOverride = false; cam.userData._ph3dScopeOwned = false;
+        cam.fov = this._baseCameraFov; cam.updateProjectionMatrix();
+      }
+      this._scopeFov = eff;
+      return;
+    }
+    cam.userData = cam.userData || {};
+    if (!cam.userData.noFovOverride) { cam.userData.noFovOverride = true; cam.userData._ph3dScopeOwned = true; }
+    if (Math.abs(cam.fov - this._scopeFov) > 0.01) { cam.fov = this._scopeFov; cam.updateProjectionMatrix(); }
+  }
+
   _scopeGun() {
     const w = this.weapons && this.weapons.current;
     if (w === "sniper") return "sniper";
@@ -612,20 +658,49 @@ export class ThirdPersonControls {
   _updateScopeOverlay() {
     const kind = this.aiming ? this._scopeGun() : null;
     const el = this._ensureScopeEl();
-    if (!kind) { el.style.display = "none"; return; }
+    if (!kind) { el.style.display = "none"; this._scopeTxt = null; return; }
     el.style.display = "block";
     const ring = el.querySelector(".ph3d-scope-ring");
     const mask = el.querySelector(".ph3d-scope-mask");
     const label = el.querySelector(".ph3d-scope-label");
+    const ret = el.querySelector(".ph3d-scope-reticle");
+    const ticks = el.querySelectorAll("[data-tick]");
+    const mag = this._scopeMag();
+    let txt = "";
     if (kind === "sniper") {
       if (mask) mask.style.background = "radial-gradient(circle at 50% 50%, transparent 0 20vmin, rgba(0,0,0,.94) 26vmin, #000 34vmin)";
-      if (ring) ring.style.borderColor = "rgba(200,220,255,.4)";
-      if (label) label.textContent = "SNIPER SCOPE · PINCH / SCROLL TO ZOOM";
+      if (ring) { ring.style.display = ""; ring.style.borderColor = "rgba(200,220,255,.4)"; }
+      if (ret) { ret.style.display = ""; ret.style.width = ret.style.height = "42vmin"; ret.style.margin = "-21vmin 0 0 -21vmin"; }
+      ticks.forEach((t) => { t.style.display = ""; });
+      txt = "SNIPER SCOPE " + mag.toFixed(1) + "x · PINCH / SCROLL TO ZOOM";
     } else {
-      if (mask) mask.style.background = "radial-gradient(circle at 50% 50%, transparent 0 26vmin, rgba(0,0,0,.75) 34vmin, rgba(0,0,0,.88) 42vmin)";
-      if (ring) ring.style.borderColor = "rgba(255,200,120,.45)";
-      if (label) label.textContent = "SHOTGUN SIGHT · PINCH / SCROLL TO ZOOM";
+      /* shotgun: no scope tube — a soft vignette and a small bead-and-ring sight sized like the pellet spread */
+      if (mask) mask.style.background = "radial-gradient(circle at 50% 50%, transparent 0 38vmin, rgba(0,0,0,.35) 62vmin, rgba(0,0,0,.6) 90vmin)";
+      if (ring) ring.style.display = "none";
+      if (ret) { ret.style.display = ""; ret.style.width = ret.style.height = "9vmin"; ret.style.margin = "-4.5vmin 0 0 -4.5vmin"; }
+      ticks.forEach((t) => { t.style.display = "none"; });
+      txt = "SHOTGUN SIGHT " + mag.toFixed(1) + "x · PINCH / SCROLL TO ZOOM";
     }
+    /* the hint shows when the zoom changes, then fades out (this runs every frame, so only react to changes) */
+    if (label && txt !== this._scopeTxt) {
+      this._scopeTxt = txt; label.textContent = txt; label.style.transition = "opacity .6s"; label.style.opacity = "1";
+      clearTimeout(this._scopeLabelT); this._scopeLabelT = setTimeout(() => { label.style.opacity = "0"; }, 2600);
+    }
+  }
+
+  /* brief weapon name under the crosshair when you switch */
+  _flashWeaponName() {
+    try {
+      const name = this.weapons && this.weapons.displayName; if (!name) return;
+      let t = this._wpnToast;
+      if (!t || !t.parentNode) {
+        t = document.createElement("div"); t.id = "ph3d-wpn-toast";
+        t.style.cssText = "position:fixed;left:50%;top:62%;transform:translateX(-50%);z-index:29;pointer-events:none;font:800 13px ui-monospace,monospace;letter-spacing:.22em;color:#fff;text-shadow:0 1px 4px #000,0 0 12px rgba(0,0,0,.6);opacity:0;transition:opacity .18s";
+        document.body.appendChild(t); this._wpnToast = t;
+      }
+      t.textContent = name; t.style.opacity = "1";
+      clearTimeout(this._wpnToastT); this._wpnToastT = setTimeout(() => { t.style.opacity = "0"; }, 900);
+    } catch (e) {}
   }
 
   swapShoulder() {
@@ -639,6 +714,7 @@ export class ThirdPersonControls {
     document.body.classList.toggle("gun-out", armed);   /* compact combat HUD (css/hud-landscape.css) */
     if (this._aimBtn) this._aimBtn.style.display = armed ? "" : "none";
     if (this._shoulderBtn) this._shoulderBtn.style.display = "none";  /* shoulder locked to right — no swap UI */
+    if (this._switchBtn) this._switchBtn.style.display = (this.weapons && this.weapons.isArmed()) ? "" : "none";
     if (!armed) this.setAiming(false);
   }
 
@@ -666,6 +742,7 @@ export class ThirdPersonControls {
         if (e.code === "KeyQ" && !e.repeat) this._openQuickMenu();
         if (e.code === "KeyR" && !e.repeat) this.weapons.swap();
       }
+      if ((e.code === "BracketRight" || e.code === "BracketLeft") && !e.repeat && this.weapons) { this.weapons.next(e.code === "BracketRight" ? 1 : -1); this._flashWeaponName(); this._ul(); }
       if (e.code === "KeyG" && !e.repeat) this._lie();
       if (e.code === "KeyJ" && !e.repeat) this.toggleJet();
       if (e.code === "KeyC") this.crouch();
@@ -684,11 +761,22 @@ export class ThirdPersonControls {
     };
     this._ku = e => { this.keys[e.code] = false; if (e.code === "Mouse2") this.setAiming(false); };
     this._onAdsWheel = (e) => {
-      if (!this.aiming || !this._scopeGun()) return;
+      if (this.aiming && this._scopeGun()) {            /* scoped: the wheel zooms */
+        e.preventDefault();
+        const step = (e.deltaY > 0 ? -0.08 : 0.08);
+        this._adsZoom = Math.max(0, Math.min(1, (this._adsZoom || 0) + step));
+        this._updateScopeOverlay();
+        return;
+      }
+      /* weapon drawn, not scoped: the wheel steps through your weapons (only over the game view, never over menus) */
+      if (!this.weapons || !this.weapons.isArmed() || this.aiming) return;
+      if (this.dom && e.target !== this.dom && !(this.dom.contains && this.dom.contains(e.target)) && e.target !== document.body) return;
+      if (Math.abs(e.deltaY) < 4) return;
       e.preventDefault();
-      const step = (e.deltaY > 0 ? -0.08 : 0.08);
-      this._adsZoom = Math.max(0, Math.min(1, (this._adsZoom || 0) + step));
-      this._updateScopeOverlay();
+      const now = performance.now();
+      if (now - (this._wheelSwitchT || 0) < 180) return;
+      this._wheelSwitchT = now;
+      this.weapons.next(e.deltaY > 0 ? 1 : -1); this._flashWeaponName(); this._ul();
     };
     window.addEventListener("wheel", this._onAdsWheel, { passive: false });
     this._adsPinch = { id0: null, id1: null, d0: 0, z0: 0 };
@@ -734,7 +822,8 @@ export class ThirdPersonControls {
       }
       if (this.look.on && e.pointerId === this.look.id) {
         const _ls = window.__ph3d_lookSens || 1;
-        const dx = (e.clientX - this.look.x) * _ls, dy = (e.clientY - this.look.y) * _ls;
+        const _zs = this._lookZoomScale();
+        const dx = (e.clientX - this.look.x) * _ls * _zs, dy = (e.clientY - this.look.y) * _ls * _zs;
 
         const gunOut = this._isGunWeapon();
 
@@ -795,7 +884,7 @@ export class ThirdPersonControls {
     this.opts = this.opts || {};
     const self = this;
     this.opts.getTargets = () => {
-      let t = []; try { t = NPCs.targets(self.pos.x, self.pos.z, 80); } catch (e) {}
+      let t = []; try { t = NPCs.targets(self.pos.x, self.pos.z, (self.weapons && self.weapons.current === "sniper") ? 170 : 80); } catch (e) {}
       /* people you have fought hunt you as "pursuers" — they must be shootable too */
       try { const P = window.__ph3d_pursuit; if (P && P.targets) t = t.concat(P.targets(self.pos.x, self.pos.z, 80)); } catch (e) {}
       return t;
@@ -1353,7 +1442,7 @@ export class ThirdPersonControls {
       const oy = (this.keys.KeyD ? 1 : 0) - (this.keys.KeyA ? 1 : 0);
       const op = (this.keys.KeyW ? 1 : 0) - (this.keys.KeyS ? 1 : 0);
       if (oy || op) {
-        const sens = window.__ph3d_lookSens || 1;
+        const sens = (window.__ph3d_lookSens || 1) * this._lookZoomScale();
         const dyaw = -oy * 1.9 * sens * dt, dpitch = op * 1.2 * sens * dt;
         if (this._isGunWeapon()) {
           this.yaw += dyaw; this.camYaw = this.yaw + Math.PI;
@@ -1670,17 +1759,7 @@ _updateCamera(dt, snap) {
   } else {
     this._setFirstPersonVisibility(false);
     const scopeKind3 = (this.aiming && gunOut) ? this._scopeGun() : null;
-    let targetFov3 = this._baseCameraFov;
-    if (this.aiming && gunOut) {
-      const z = Math.max(0, Math.min(1, this._adsZoom || 0));
-      if (scopeKind3 === "sniper") targetFov3 = 28 - z * 16;
-      else if (scopeKind3 === "shotgun") targetFov3 = 44 - z * 12;
-      else targetFov3 = 48;
-    }
-    if (this.camera && Math.abs(this.camera.fov - targetFov3) > 0.05) {
-      this.camera.fov += (targetFov3 - this.camera.fov) * Math.min(1, Math.max(0, dt) * 12);
-      this.camera.updateProjectionMatrix();
-    }
+    this._updateAimFov(dt, gunOut);
     if (scopeKind3) this._updateScopeOverlay();
     else if (this._scopeEl) this._scopeEl.style.display = "none";
   }
@@ -1760,7 +1839,7 @@ _updateCamera(dt, snap) {
 
     /* True crosshair hitscan: ray starts at the camera and travels exactly along the look direction
        (screen centre). Muzzle flash still comes from the gun mesh in guns.js. */
-    let D = 80;
+    let D = (this.weapons && this.weapons.current === "sniper") ? 170 : 80;
     if (this.world.colliders) {
       for (const c of this.world.colliders) {
         if (c.level !== this.level) continue;
