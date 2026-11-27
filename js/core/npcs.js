@@ -2024,16 +2024,13 @@ export const NPCs = {
             Blood.splat(_scene, npc.ctl.pos.x, npc.ctl.pos.z);
           } catch (e) {}
 
-          try {
-            const Cr = window.__ph3d_crime;
-            if (Cr && Cr.addEvent) Cr.addEvent("kill", 100, "You");
-          } catch (e) {}
+          /* accidents with pedestrians add no crime / wanted level (so the police never come) */
 
           /* running into a pedestrian never hurts YOU — only an NPC car touching you does */
 
           try {
             const So = window.__ph3d_social;
-            if (So) { So.onCrime(npc.ctl.pos.x, npc.ctl.pos.z, "kill"); So.onAccident(npc.ctl.pos.x, npc.ctl.pos.z); }
+            if (So) { So.onAccident(npc.ctl.pos.x, npc.ctl.pos.z); }
           } catch (e) {}
 
           try {
@@ -2044,9 +2041,8 @@ export const NPCs = {
               vy: 4 + _sp * 0.35,
               vz: Math.cos(hy) * _dir * _sp * 0.9 + _carHit.nz * 3,
             }, { damage: _lethal ? 220 : 25 + _sp * 4, type: "car" });
-            CrashFX.impact(npc.ctl.pos.x, 1.0, npc.ctl.pos.z, { power: Math.max(0.3, Math.min(1, _sp / 28)) });
+            CrashFX.impact(npc.ctl.pos.x, 1.0, npc.ctl.pos.z, { power: Math.max(0.3, Math.min(1, _sp / 28)), dust: true });
           } catch (e) { console.warn("[npcs] run-over fx", e); }
-          _toast("\uD83D\uDCA5 You ran someone over \u00B7 crime +100");
         }
       }
 

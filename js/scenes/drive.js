@@ -512,7 +512,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
             setTimeout(() => {
               try {
                 const P = window.__ph3d_police;
-                if (P && P.dispatched) { P.target = "You"; P.arrive(); }
+                /* arrests disabled: officers no longer arrest the player */
               } catch (e) { console.warn("[arrest] failed:", e); }
             }, 3000);
           }

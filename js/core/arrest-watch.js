@@ -52,7 +52,8 @@ function _updateHud() {
 }
 
 export const ArrestWatch = {
-  init(opts) { _opts = opts; _buildHud(); },
+  /* DISABLED: NPC police no longer arrest the player (no countdown, no HUD). */
+  init(opts) { _opts = null; },
 
   /* Remove the HUD and drop callbacks (call on scene teardown) */
   destroy() {
@@ -67,6 +68,7 @@ export const ArrestWatch = {
   speedMultiplier() { return _counting ? SLOW_FACTOR : 1.0; },
 
   tick(dt) {
+    return;   /* disabled */
     if (!_opts) return;
     /* No countdown while already in jail */
     if (window.__ph3d_prison && window.__ph3d_prison.inJail) { this.cancel(); return; }

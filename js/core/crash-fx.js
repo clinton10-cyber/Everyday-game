@@ -341,6 +341,11 @@ export const CrashFX = {
     if (!scene) return;
     o = o || {};
     const p = clamp(o.power == null ? 0.5 : o.power, 0.1, 1.3);
+    if (o.dust) {                                              /* a person was hit: only a puff of dust — no sparks, glass or flying debris */
+      this.smoke(x, y - 0.4, z, { count: Math.round(3 + p * 5), size: 0.9, a: 0.5, c0: 0xb8a88c, c1: 0x6d6556 });
+      this.shakeFrom(x, z, 0.2 + p * 0.3);
+      return;
+    }
     this.sparks(x, y, z, Math.round(6 + p * 22), o.dir);
     this.smoke(x, y, z, { count: Math.round(2 + p * 5), size: 0.8, a: 0.45 });
     if (p > 0.3) this.debris(x, y, z, { count: Math.round(3 + p * 9), color: o.color, power: 0.5 + p * 0.4, groundY: o.groundY });

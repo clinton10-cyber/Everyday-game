@@ -510,7 +510,7 @@ export const NPC_Cars = {
           try { C && C.flash  && C.flash(0.8); } catch (e) {}
           _toast("\uD83D\uDCA5 Hit by " + (car.model === "taxi" ? "taxi" : "car"));
           try {
-            CrashFX.impact(player.x, 1.0, player.z, { power: _clamp(0.6 + speed / 30, 0.6, 1.2), dir: { x: impX, z: impZ } });
+            CrashFX.impact(player.x, 1.0, player.z, { power: _clamp(0.6 + speed / 30, 0.6, 1.2), dust: true });
             CrashFX.hurt(0.8);
             CrashFX.slowmo(0.3, 0.55);
             CrashFX.shake(0.9, 0.7);
@@ -725,9 +725,8 @@ export const NPC_Cars = {
       NP.launch(npc, { vx: car.vx * 0.95 + hit.nx * 3, vy: 4 + sp * 0.35, vz: car.vz * 0.95 + hit.nz * 3 }, { damage: sp > 9 ? 220 : 25 + sp * 4, type: "car" });
       car.speed *= 0.5;
       try {
-        CrashFX.impact(npc.ctl.pos.x, 1.0, npc.ctl.pos.z, { power: _clamp(sp / 24, 0.3, 0.9) });
+        CrashFX.impact(npc.ctl.pos.x, 1.0, npc.ctl.pos.z, { power: _clamp(sp / 24, 0.3, 0.9), dust: true });
         const pl = _getPlayerState();
-        if (pl && Math.hypot(pl.x - cx, pl.z - cz) < 40) _toast("\uD83D\uDCA5 A car hit a pedestrian");
       } catch (e) {}
     }
   },
