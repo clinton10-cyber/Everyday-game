@@ -54,11 +54,20 @@ function isWheel(mesh, root, wheels) {
   }
   return false;
 }
+/* riders / drivers parented to the vehicle are people, not metal: anything under a userData.noDent object is skipped */
+function isPerson(mesh, root) {
+  for (let o = mesh; o; o = o.parent) {
+    if (o.userData && o.userData.noDent) return true;
+    if (o === root) break;
+  }
+  return false;
+}
 function dentables(root) {
   const wheels = wheelSet(root), out = [];
   root.traverse((m) => {
     if (!m.isMesh || !m.geometry || !m.geometry.attributes || !m.geometry.attributes.position) return;
     if (isWheel(m, root, wheels)) return;
+    if (isPerson(m, root)) return;
     out.push(m);
   });
   return out;
