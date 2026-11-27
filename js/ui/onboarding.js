@@ -242,7 +242,7 @@ function buildWelcome({ onStart, onLater }) {
   card.style.textAlign = "center";
 
   card.innerHTML = `
-    <img src="assets/logo.svg" width="${_ls ? 48 : 120}" height="${_ls ? 48 : 120}" alt="Everyday in LIFEX"
+    <img src="assets/logo.svg" width="${_ls ? 170 : 240}" height="auto" alt="Everyday in LIFEX"
          style="display:inline-block;margin-bottom:${_ls ? 2 : 10}px"/>
     <div style="font-size:24px;font-weight:900;letter-spacing:-.3px;
                 background:linear-gradient(90deg,#7dd3fc,#a78bfa,#f0abfc);
