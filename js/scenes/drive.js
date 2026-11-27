@@ -598,6 +598,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
 
   const charBuilt = buildCharacter(Wardrobe && Wardrobe.config ? Wardrobe.config : null);
   let character = charBuilt.root;
+  character.userData.noDent = true;   /* on the bike / hoverboard / jet the avatar is a child of the vehicle: crash dents must never touch the body */
   let charRig = charBuilt.rig;
   character.visible = false;
   three.add(character);

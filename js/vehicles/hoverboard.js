@@ -63,7 +63,7 @@ export function buildHoverboard(body = "#38e8ff", rim = "#9aa2ad", opts = {}) {
 
   if (!(opts && opts.riderless)) {
   /* ── RIDER: standing, side-on stance, facing +Z ── */
-  const R = new THREE.Group(); R.position.y = 0.06; board.add(R); R.rotation.y = Math.PI; /* board is flipped; flip back */
+  const R = new THREE.Group(); R.userData.noDent = true; R.position.y = 0.06; board.add(R); R.rotation.y = Math.PI; /* board is flipped; flip back */
   const rod = (a, b, r, m) => {
     const d = new THREE.Vector3().subVectors(b, a), me = new THREE.Mesh(new THREE.CylinderGeometry(r, r, d.length(), 7), m);
     me.position.addVectors(a, b).multiplyScalar(0.5); me.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); R.add(me);
