@@ -241,6 +241,47 @@ function rayAABBHelper(ox, oy, oz, dx, dy, dz, minX, minY, minZ, maxX, maxY, max
   return tmin;
 }
 
+
+/* ── Interior bullet-vs-wall test ─────────────────────────────────────────────────────────────
+   The collider list is for WALKING: it holds invisible barriers, loose bounding boxes round furniture,
+   low pads and trigger zones. Treating every one as a bullet-stopper made shots die in thin air.
+   A collider now only stops a bullet if a VISIBLE solid surface really is inside it. */
+const _wallRC = new THREE.Raycaster();
+const _solidCache = new WeakMap();   /* scene -> { list, at } */
+
+function _isSolidMesh(o) {
+  if (!o.isMesh || o.isSkinnedMesh || !o.geometry || !o.material) return false;
+  if (o.userData && (o.userData.noShoot || o.userData.shootThrough)) return false;
+  const m = Array.isArray(o.material) ? o.material[0] : o.material;
+  if (!m || m.visible === false || m.colorWrite === false) return false;
+  if (m.side === THREE.BackSide) return false;                 /* sky domes, room shells seen from inside */
+  if (m.transparent && m.opacity < 0.3) return false;          /* glass, glow planes, hidden tap planes */
+  if (m.opacity != null && m.opacity < 0.3) return false;
+  return true;
+}
+function _solidMeshes(scene) {
+  const now = performance.now();
+  let e = _solidCache.get(scene);
+  if (e && now - e.at < 1500) return e.list;
+  const list = [];
+  scene.traverse((o) => { if (_isSolidMesh(o)) list.push(o); });
+  _solidCache.set(scene, { list, at: now });
+  return list;
+}
+/* entry and exit distance of a ray through an AABB (or null) */
+function rayAABBSpan(ox, oy, oz, dx, dy, dz, minX, minY, minZ, maxX, maxY, maxZ, maxT) {
+  let tmin = 0, tmax = maxT;
+  const o = [ox, oy, oz], d = [dx, dy, dz], lo = [minX, minY, minZ], hi = [maxX, maxY, maxZ];
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(d[i]) < 1e-8) { if (o[i] < lo[i] || o[i] > hi[i]) return null; continue; }
+    const inv = 1 / d[i]; let t1 = (lo[i] - o[i]) * inv, t2 = (hi[i] - o[i]) * inv;
+    if (t1 > t2) { const t = t1; t1 = t2; t2 = t; }
+    if (t1 > tmin) tmin = t1; if (t2 < tmax) tmax = t2;
+    if (tmin > tmax) return null;
+  }
+  return tmin > 0.001 ? [tmin, tmax] : null;
+}
+
 const PART_MULT  = { head: 4.0, torso: 1.0, arm: 0.55, leg: 0.70, foot: 0.45 };
 const PART_LABEL = { head: "HEADSHOT", torso: "", arm: "ARM", leg: "LEG", foot: "FOOT" };
 function bodyPartFor(localY, lateral) {
@@ -554,18 +595,43 @@ export class Gun {
     Sfx.gunshot(this.type, muzzleWorld.x, muzzleWorld.z);
     if (this.type !== "shotgun") this._spawnCasing();
 
-    // Interior shots stop at the first registered solid collider.
+    // Interior shots stop at the first VISIBLE solid thing inside a registered collider.
     let wallT = this.range;
     if (c._interiorWeaponMode && c.world && Array.isArray(c.world.colliders)) {
+      const spans = [];
       for (const col of c.world.colliders) {
         if (!col) continue;
+        if (col.noShoot || col.shootThrough || col.passable || col.trigger || col.disabled || col.invisible || col.ghost) continue;
         if (col.level !== undefined && col.level !== (c.level || 0)) continue;
-        const t = rayAABBHelper(
-          origin.x, origin.y, origin.z, dir.x, dir.y, dir.z,
-          col.minX, col.y0 != null ? col.y0 : 0, col.minZ,
-          col.maxX, col.y1 != null ? col.y1 : 3, col.maxZ, wallT
-        );
-        if (t > 0 && t < wallT) wallT = t;
+        const y0 = col.y0 != null ? col.y0 : 0, y1 = col.y1 != null ? col.y1 : 3;
+        if (!(y1 - y0 >= 0.2)) continue;                 /* rugs, kerbs, floor pads never stop a bullet */
+        const sp = rayAABBSpan(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z,
+          col.minX, y0, col.minZ, col.maxX, y1, col.maxZ, this.range);
+        if (sp) spans.push(sp);
+      }
+      if (spans.length) {
+        spans.sort((p, q) => p[0] - q[0]);
+        let hits = null;
+        try {
+          const scene = c.scene;
+          if (scene) {
+            const skip = [this.mesh, c.rig && (c.rig.root || c.rig.group || c.rig)];
+            _wallRC.set(origin, dir);
+            _wallRC.near = 0.05; _wallRC.far = Math.min(this.range, spans[spans.length - 1][1] + 0.5);
+            hits = _wallRC.intersectObjects(_solidMeshes(scene), false)
+              .filter((h) => {
+                for (let o = h.object; o; o = o.parent) { if (o.visible === false) return false; if (skip.indexOf(o) >= 0) return false; }
+                return true;
+              })
+              .map((h) => h.distance);
+          }
+        } catch (e) { hits = null; }
+        for (const sp of spans) {
+          if (!hits) { wallT = sp[0]; break; }             /* cannot verify: old behaviour */
+          const mt = hits.find((h) => h >= sp[0] - 0.4 && h <= sp[1] + 0.4);
+          if (mt !== undefined) { wallT = Math.max(0.05, mt); break; }
+          /* no visible surface inside this collider: invisible blocker, the bullet flies on */
+        }
       }
     }
     let bestHit = null, bestT = wallT, bestPart = "torso";
