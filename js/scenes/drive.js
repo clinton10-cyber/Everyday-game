@@ -2684,7 +2684,7 @@ try {
             walkTalkBtn._npc = carNpc;
             walkTalkBtn.textContent = "CHAT";
             walkTalkBtn.style.display = "block";
-            walkRelBtn._npc = carNpc; walkRelBtn.style.display = "block";
+            walkRelBtn._npc = carNpc; walkRelBtn.style.display = "none";
           } else {
             walkTalkBtn._npc = null;
             walkTalkBtn.style.display = "none";
@@ -2729,7 +2729,7 @@ try {
         if (npcNear) {
           walkTalkBtn._npc = npcNear;
           walkTalkBtn.style.display = "block";
-          walkRelBtn._npc = npcNear; walkRelBtn.style.display = "block";
+          walkRelBtn._npc = npcNear; walkRelBtn.style.display = "none";
           if (walkEnterBtn) walkEnterBtn.style.display = "none";
           nearGate = null;
         } else {

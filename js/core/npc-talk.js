@@ -81,7 +81,8 @@ function build() {
   _talk = document.createElement("button"); _talk.id = "ph3d-npc-talk"; _talk.type = "button";
   _action = document.createElement("button"); _action.id = "ph3d-npc-action"; _action.type = "button";
   _rel = document.createElement("button"); _rel.id = "ph3d-npc-rel"; _rel.type = "button"; _rel.textContent = "❤ RELATIONSHIP";
-  _wrap.append(_talk, _action, _rel);
+  _rel.style.display = "none";   /* relationship panel button removed */
+  _wrap.append(_talk, _action);
   document.body.appendChild(_wrap);
   _talk.addEventListener("pointerdown", (e) => {
     e.preventDefault(); e.stopPropagation();
