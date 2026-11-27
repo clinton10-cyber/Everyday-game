@@ -591,6 +591,16 @@ setTimeout(hide,8000);el.addEventListener("click",hide);})();
     </div>
   </div>
 
+  <!-- JET ONLY: climb / dive (shown by drive.js while flying the SKYFURY) -->
+  <div id="dr-pitch" style="display:none">
+    <button class="dr-btn" id="dr-climb" aria-label="Climb">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 14 12 7 19 14"/><line x1="12" y1="7" x2="12" y2="19"/></svg>
+    </button>
+    <button class="dr-btn" id="dr-dive" aria-label="Dive">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 10 12 17 19 10"/><line x1="12" y1="5" x2="12" y2="17"/></svg>
+    </button>
+  </div>
+
   <!-- BOTTOM RIGHT: Steering -->
   <div id="dr-right-container">
     <div id="dr-steer">

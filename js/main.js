@@ -351,6 +351,8 @@ safe("drive-ui wiring", function(){
   bindHold("dr-brake",  "brake");
   bindHold("dr-left",   "steerL");
   bindHold("dr-right",  "steerR");
+  bindHold("dr-climb",  "pitchUp");      /* SKYFURY jet: nose up / nose down */
+  bindHold("dr-dive",   "pitchDown");
 
   const en = document.getElementById("drive-enter");
   en && en.addEventListener("pointerdown", e => {

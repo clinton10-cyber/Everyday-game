@@ -75,6 +75,10 @@ const RAGDOLL_GROUND_Y  = 0;
 
 const WORLD_HALF = 2000;
 const WORLD_OCEAN_EDGE = 1800;
+/* Flight wraps around like a globe: leave the map in any direction and you come back in from the opposite side.
+   The seam sits far enough out (land edge 1800 + fog distance 1600) that neither side can be seen from the other. */
+const FLIGHT_WRAP = 3400;
+const wrapFlight = (v) => (v > FLIGHT_WRAP ? v - FLIGHT_WRAP * 2 : v < -FLIGHT_WRAP ? v + FLIGHT_WRAP * 2 : v);
 const GRID_RADIUS = 3, BLOCK_SIZE = 50, ROAD_W = 20;
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -340,6 +344,21 @@ async function _driveInner(params, router) {
     m.matrixAutoUpdate = false; m.renderOrder = 1;
     three.add(m);
   }
+
+  /* Endless surroundings: the city ground is only ~1.4 km wide, so flying out used to show nothing but sky.
+     A grass plain continues to the map edge and open sea runs beyond it (the sea plane follows the camera). */
+  /* a frame of grass around the city ground (|x|,|z| 700 → 1800); it abuts the city ground instead of overlapping it, so nothing z-fights */
+  const landMat = new THREE.MeshLambertMaterial({ color: 0x587e38 });
+  const R_IN = 700, R_OUT = WORLD_OCEAN_EDGE, SPAN = R_OUT - R_IN, MID = R_IN + SPAN / 2;
+  const strip = (cx, cz, w, d) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), landMat);
+    m.rotation.x = -Math.PI / 2; m.position.set(cx, -0.02, cz); m.renderOrder = -2; m.frustumCulled = false; three.add(m);
+  };
+  strip(-MID, 0, SPAN, R_OUT * 2); strip(MID, 0, SPAN, R_OUT * 2);
+  strip(0, -MID, R_IN * 2, SPAN);  strip(0, MID, R_IN * 2, SPAN);
+  const farSea = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000), new THREE.MeshLambertMaterial({ color: 0x3a7090 }));
+  farSea.rotation.x = -Math.PI / 2; farSea.position.y = -2.5; farSea.renderOrder = -3; farSea.frustumCulled = false;
+  three.add(farSea);
 
   /* -------- night: streetlights light up (glow + ground pools, plus the
      real PointLight pool that follows the player through __lampSpots) -------- */
@@ -2034,6 +2053,9 @@ try {
       } catch (e) {}
       const driveUIEl = document.getElementById("drive-ui");
       if (driveUIEl) driveUIEl.style.display = mode === "drive" ? "block" : "none";
+      farSea.position.x = camera.position.x; farSea.position.z = camera.position.z;       /* the sea always reaches the horizon */
+      const _pitchUI = document.getElementById("dr-pitch");
+      if (_pitchUI) _pitchUI.style.display = (mode === "drive" && model === "skyfury") ? "flex" : "none";
 
       if (mode === "walk" && walker && window.__ph3d_playerActions) {
         try { window.__ph3d_playerActions.tick(walker, dt); } catch (e) {}
@@ -2150,13 +2172,16 @@ try {
           if (input.joyX) steerIn = input.joyX;
           let pitchIn = 0;                                                    /* +1 = nose UP */
           if (input.joyY) pitchIn = -input.joyY;
-          if (keys.KeyR) pitchIn += 1;
-          if (keys.KeyF) pitchIn -= 1;
+          if (keys.KeyR || keys.Space) pitchIn += 1;
+          if (keys.KeyF || keys.ShiftLeft) pitchIn -= 1;
+          if (input.pitchUp) pitchIn += 1;                                    /* on-screen CLIMB / DIVE buttons (phones have no R / F keys) */
+          if (input.pitchDown) pitchIn -= 1;
+          pitchIn = Math.max(-1, Math.min(1, pitchIn));
 
           const GEAR = 0.85;                                                  /* wheel height: carRoot.y when parked on the ground */
           const VR = 45, VSTALL = 32, VMAX = 220;                             /* rotate speed, stall speed, top speed (m/s) */
           let cy = carRoot.position.y;
-          const gnd = sampleTerrainMeshHeight(carPos.x, carPos.z);
+          const gnd = Math.max(0, sampleTerrainMeshHeight(carPos.x, carPos.z));          /* the sea is the floor out there, not a pit */
           if (cy == null || !isFinite(cy)) cy = gnd + GEAR;
           const onGround = !jetAir;
 
@@ -2174,7 +2199,8 @@ try {
             carRoot.rotation.z += (0 - carRoot.rotation.z) * Math.min(1, dt * 6);
             cy = gnd + GEAR;
             jetVy = 0;
-            if (speed >= VR && pitchIn > 0.2) { jetAir = true; jetVy = 4; }               /* LIFT-OFF */
+            /* LIFT-OFF: pull up past rotate speed — or just keep the throttle on and the aircraft rotates by itself */
+            if (speed >= VR && (pitchIn > 0.2 || speed >= VR * 1.3)) { jetAir = true; jetVy = 5; jetPitch = Math.max(jetPitch, 0.2); }
           } else {
             /* roll to an ANGLE (not a rate), pitch from the stick, turn from the bank */
             const bank = steerIn * 0.85;
@@ -2199,8 +2225,10 @@ try {
 
           const fx = Math.sin(heading), fz = Math.cos(heading);
           const hs = speed * Math.cos(jetPitch);                                           /* horizontal speed */
-          carPos.x = Math.max(-1900, Math.min(1900, carPos.x + fx * hs * dt));
-          carPos.z = Math.max(-1900, Math.min(1900, carPos.z + fz * hs * dt));
+          carPos.x += fx * hs * dt; carPos.z += fz * hs * dt;
+          /* leave the map in any direction and you come back in from the other side (camera moves with you: no sweep) */
+          { const wx = wrapFlight(carPos.x), wz = wrapFlight(carPos.z);
+            if (wx !== carPos.x || wz !== carPos.z) { camera.position.x += wx - carPos.x; camera.position.z += wz - carPos.z; carPos.x = wx; carPos.z = wz; } }
           if (cy > 900) { cy = 900; if (jetVy > 0) jetVy = 0; }
 
           carRoot.position.set(carPos.x, cy, carPos.z);
@@ -2215,7 +2243,7 @@ try {
           camera.position.lerp(new THREE.Vector3(cx, camH, cz), Math.min(1, dt * 6));
           camera.lookAt(carPos.x, cy + 1.2, carPos.z);
 
-          if (hudEl) hudEl.textContent = Math.round(speed * 3.6) + " km/h · ALT " + Math.round(cy - GEAR - gnd) + " m" + (jetAir ? "" : " · ON GROUND");
+          if (hudEl) hudEl.textContent = Math.round(speed * 3.6) + " km/h · ALT " + Math.round(cy - GEAR - gnd) + " m" + (jetAir ? "" : (speed >= VR * 0.9 ? " · CLIMB ▲ TO TAKE OFF" : " · ON GROUND"));
           if (RIDE) { try { poseRider(dt); } catch (e) {} }
           window.__ph3d_player = { x: carPos.x, z: carPos.z, yaw: heading, y: cy };
           return;
@@ -2546,6 +2574,10 @@ try {
             }
             const _wf2 = hasWingFlight();
             jetVis.update(dt, jet.on && !_wf2, jet.on && !_wf2 && (jet.thrust || keys.Space) && jet.fuel > 0);
+            if (jet.on && !walker.onGround) {                 /* flying (jetpack / wings): same looping world as the jet */
+              const wx = wrapFlight(walker.x), wz = wrapFlight(walker.z);
+              if (wx !== walker.x || wz !== walker.z) { camera.position.x += wx - walker.x; camera.position.z += wz - walker.z; walker.x = wx; walker.z = wz; }
+            }
             if (!walker.onGround) {
               walker.vy -= (jet.on ? 0 : 20) * dt;
               walker.y += walker.vy * dt;
