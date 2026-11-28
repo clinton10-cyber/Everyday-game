@@ -6,42 +6,15 @@
     "start": "npx --yes serve . -l 8080",
     "py": "python3 -m http.server 8080",
     "desktop": "electron .",
-    "dist": "electron-builder --win nsis portable --publish never"
+    "dist": "node tools/build-win.cjs standard x64",
+    "dist:standard": "node tools/build-win.cjs standard x64",
+    "dist:lite": "node tools/build-win.cjs lite x64 ia32",
+    "dist:legacy": "node tools/build-win.cjs legacy x64 ia32",
+    "dist:all": "node tools/build-win.cjs all"
   },
   "main": "electron-main.cjs",
   "devDependencies": {
     "electron": "^36.0.0",
     "electron-builder": "^26.0.12"
-  },
-  "build": {
-    "appId": "com.clintonbenjamin.everydaygame",
-    "productName": "Everyday-game",
-    "asar": true,
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "**/*",
-      "!dist/**",
-      "!.git/**",
-      "!.github/**",
-      "!node_modules/.cache/**"
-    ],
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
-      "artifactName": "Everyday-game-${version}-${arch}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    },
-    "portable": {
-      "artifactName": "Everyday-game-${version}-Portable.${ext}"
-    }
   }
 }

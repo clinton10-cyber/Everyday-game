@@ -1,4 +1,10 @@
-name: Build Windows EXE and publish release
+name: Build Windows EXEs (all grades) and publish release
+
+# Builds one installer + one portable exe for every Windows "grade":
+#   standard  Windows 10/11 64-bit
+#   lite      weak PCs, Windows 10/11 (64-bit and 32-bit)
+#   legacy    Windows 7 / 8 / 8.1 and old 32-bit PCs (Electron 22), 64-bit and 32-bit
+# See WINDOWS-RELEASE.md for which file to download.
 
 on:
   push:
@@ -11,7 +17,17 @@ permissions:
 
 jobs:
   build-windows:
+    name: ${{ matrix.grade }} ${{ matrix.arch }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { grade: standard, arch: x64 }
+          - { grade: lite,     arch: x64 }
+          - { grade: lite,     arch: ia32 }
+          - { grade: legacy,   arch: x64 }
+          - { grade: legacy,   arch: ia32 }
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -24,19 +40,30 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Windows installer and portable EXE
-        run: npm run dist
+      - name: Build ${{ matrix.grade }} / ${{ matrix.arch }} (installer + portable)
+        run: node tools/build-win.cjs ${{ matrix.grade }} ${{ matrix.arch }}
 
       - name: Upload EXE build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Everyday-game-Windows-EXE
+          name: Everyday-game-${{ matrix.grade }}-${{ matrix.arch }}
           path: dist/*.exe
           if-no-files-found: error
           retention-days: 30
 
+  publish:
+    name: Publish GitHub Release
+    needs: build-windows
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download every build
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
