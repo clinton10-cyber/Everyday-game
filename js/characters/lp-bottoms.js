@@ -157,11 +157,19 @@ export function buildLeg(ctx, side) {
    Ankle group origin sits 0.105 above the ground, so a sole's underside is
    at y = -0.105.  Toe points +Z. */
 const SOLE_Y = -0.105;
-function footSkin(M, ankle, scale = 1) {
-  const f = mk(sphere(1, 9, 6), M.skin, ankle, 0, -0.072, 0.040);
-  f.scale.set(0.044 * scale, 0.034, 0.112 * scale);
-  const heel = mk(sphere(0.04, 7, 5), M.skin, ankle, 0, -0.068, -0.020);
-  heel.scale.set(1, 0.9, 1);
+function footSkin(M, ankle, scale = 1, side = 1) {
+  /* ankle: carries the leg down into the foot (there was a visible gap) */
+  mk(new THREE.CylinderGeometry(0.037, 0.034, 0.082, 10), M.skin, ankle, 0, -0.036, -0.002);
+  const f = mk(sphere(1, 9, 6), M.skin, ankle, 0, -0.074, 0.036);
+  f.scale.set(0.043 * scale, 0.031, 0.108 * scale);
+  const heel = mk(sphere(0.037, 8, 6), M.skin, ankle, 0, -0.077, -0.030);
+  heel.scale.set(1, 0.95, 1.05);
+  /* toes: big toe on the inner side, then four smaller ones fanning out */
+  const toes = [[-0.026, 0.0155, 0.140], [-0.009, 0.0118, 0.147], [0.006, 0.0108, 0.142], [0.019, 0.0098, 0.133], [0.030, 0.0088, 0.121]];
+  toes.forEach(([u, r, z]) => {
+    const t = mk(sphere(1, 7, 5), M.skin, ankle, side * u * scale, -0.092, z * scale);
+    t.scale.set(r, r * 0.78, r * 1.35);
+  });
   return f;
 }
 function soleFor(cfg) {
@@ -180,24 +188,24 @@ function buildShoe(ctx, g, side) {
   const body = (sx, sy, sz, y, z, mat) => { const m = mk(sphere(1, 10, 7), mat || M.shoes, a, 0, y, z); m.scale.set(sx, sy, sz); return m; };
   const slab = (w, h, l, y, z, mat) => mk(box(w, h, l), mat || sole, a, 0, y, z);
 
-  if (style === "barefoot") { footSkin(M, a); return; }
+  if (style === "barefoot") { footSkin(M, a, 1, side); return; }
 
   if (style === "sandals") {
-    footSkin(M, a);
+    footSkin(M, a, 1, side);
     const s = body(0.060, 0.016, 0.125, SOLE_Y + 0.016, Z); s.material = M.shoes;
     mk(box(0.092, 0.014, 0.034), M.shoes, a, 0, -0.054, Z + 0.025);
     mk(box(0.088, 0.012, 0.022), M.shoes, a, 0, -0.058, Z - 0.035);
     return;
   }
   if (style === "flipflops") {
-    footSkin(M, a);
+    footSkin(M, a, 1, side);
     slab(0.098, 0.014, 0.250, SOLE_Y + 0.008, Z + 0.02, M.shoes);
     const v1 = mk(box(0.010, 0.010, 0.07), sole, a, 0.022 * side, -0.066, Z + 0.07, 0, -0.28 * side, 0);
     const v2 = mk(box(0.010, 0.010, 0.07), sole, a, -0.022 * side, -0.066, Z + 0.07, 0, 0.28 * side, 0);
     return;
   }
   if (style === "slippers") {
-    footSkin(M, a);
+    footSkin(M, a, 1, side);
     slab(0.14, 0.020, 0.30, SOLE_Y + 0.012, Z + 0.02, M.shoes);
     mk(box(0.14, 0.024, 0.075), M.shoes, a, 0, -0.050, Z + 0.07);
     return;

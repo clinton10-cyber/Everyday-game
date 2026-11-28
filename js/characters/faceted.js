@@ -775,7 +775,7 @@ function buildLeg(rig, ctx, side) {
 
 /* shoes: lofts swept along Z (built along Y then rotated) */
 export const SHOE_STYLES = ["sneaker", "boot", "formal", "heels", "barefoot"];
-function buildShoe(g, ctx) {
+function buildShoe(g, ctx, side = 1) {
   const { B, M, o } = ctx;
   const ankle = g.ankle, fs = B.foot;
   let style = o.shoeStyle || "sneaker";
@@ -786,7 +786,7 @@ function buildShoe(g, ctx) {
     boot:    [[-0.070, .032, .046, -.058], [-0.030, .040, .050, -.056], [0.060, .047, .036, -.068], [0.130, .037, .028, -.077], [0.168, .020, .018, -.085]],
     formal:  [[-0.068, .028, .036, -.066], [-0.030, .036, .038, -.064], [0.060, .042, .028, -.075], [0.140, .030, .022, -.082], [0.190, .010, .012, -.090]],
     heels:   [[-0.066, .026, .034, -.048], [-0.030, .033, .034, -.046], [0.050, .040, .026, -.058], [0.120, .030, .020, -.070], [0.160, .012, .014, -.080]],
-    barefoot:[[-0.066, .026, .030, -.074], [-0.030, .034, .031, -.072], [0.060, .040, .024, -.080], [0.125, .032, .018, -.086], [0.160, .014, .012, -.090]],
+    barefoot:[[-0.070, .024, .028, -.070], [-0.036, .033, .034, -.070], [0.040, .041, .026, -.077], [0.110, .040, .018, -.086], [0.140, .037, .014, -.091], [0.158, .030, .012, -.093]],
   }[style];
   const mat = style === "barefoot" ? M.skin : M.shoes;
   const rings = P.map(([z, w, h, cy]) => ({ y: z * fs, rx: w * fs, rz: h, cx: 0, cz: -cy }));
@@ -794,6 +794,22 @@ function buildShoe(g, ctx) {
   geo.rotateX(Math.PI / 2);            /* sweep axis Y → Z, vertical = old -Z */
   geo.computeVertexNormals();
   mesh(geo, mat, ankle);
+  if (style === "barefoot") {
+    const skin = M.skin;
+    /* ankle: carries the leg down into the foot (there was a visible gap between them) */
+    const cb = Math.min(B.calfBot || 0.038, 0.040);
+    const an = ringsFrom(-0.072, 0.012, 4, { rx: [cb * 0.86, cb * 0.82, cb * 0.88, cb], rz: [cb * 0.92, cb * 0.88, cb * 0.94, cb * 1.04] });
+    mesh(loft(an, { seg: 8, caps: false }), skin, ankle, 0, 0, 0.0);
+    /* heel */
+    const hb = blobGeo(0.032, 1); hb.scale(1.0, 0.95, 1.05);
+    mesh(hb, skin, ankle, 0, -0.080, -0.052 * fs);
+    /* toes: big toe on the inner side, then four smaller ones fanning out */
+    const toes = [[-0.026, 0.0155, 0.160], [-0.009, 0.0115, 0.166], [0.006, 0.0105, 0.160], [0.019, 0.0095, 0.150], [0.030, 0.0085, 0.136]];
+    toes.forEach(([u, r, z], i) => {
+      const tg = blobGeo(r, 0); tg.scale(1, 0.78, 1.35);
+      mesh(tg, skin, ankle, side * u * fs, -0.090, z * fs + 0.006);
+    });
+  }
   if (style !== "barefoot") {
     const soleRings = P.map(([z, w, h, cy], i) => ({ y: z * fs, rx: (w + 0.004) * fs, rz: 0.0115, cz: (style === "heels" && i < 2) ? 0.084 : 0.0985 }));
     const sg = loft(soleRings, { seg: 6, caps: true, phase: 0 });
