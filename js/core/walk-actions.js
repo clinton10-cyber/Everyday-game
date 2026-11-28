@@ -94,10 +94,15 @@ export const WalkActions = {
       swallow(e);
       if (S.weapons && S.weapons.isArmed()) {
         this.attack();
+        S.weapons.setTrigger(true);                      /* keep firing while the button is held */
+        try { atk.setPointerCapture(e.pointerId); } catch (err) {}
         atk.style.transform = "scale(.92)";
         setTimeout(() => { atk.style.transform = ""; }, 120);
       }
     }, { passive: false });
+    const releaseTrigger = () => { try { S.weapons && S.weapons.setTrigger(false); } catch (err) {} };
+    ["pointerup", "pointercancel", "lostpointercapture", "pointerleave"].forEach((k) => atk.addEventListener(k, releaseTrigger));
+    window.addEventListener("blur", releaseTrigger);
     atk.addEventListener("click", (e) => {
       swallow(e);
       if (S.weapons && S.weapons.isArmed()) return;

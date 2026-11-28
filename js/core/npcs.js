@@ -1052,13 +1052,13 @@ export const NPCs = {
         npc.stateT = rBetween(2, 3.5);
         anyScared = true;
         _fled++;
-        if (npc.role !== "police" && Math.random() < 0.25) {
-          try { Sfx.voice("scream_short", { x: npc.ctl.pos.x, z: npc.ctl.pos.z, maxRange: 25, gender: npc._cfg && npc._cfg.gender }); } catch (e) {}
-        }
+        /* (no per-NPC scream here: scream_short is the 'agony' pain clip, so every shot made people cry out in pain
+           even when nobody was hit. Real pain sounds only play from the actual hit, in the damage code.) */
       }
     }
-    if (anyScared && _fled >= 3) {
-      try { Sfx.voice("crowd", { x, z, maxRange: 30 }); } catch (e) {}   /* a crowd reacts together */
+    if (anyScared && _fled >= 3 && !(this._crowdT > performance.now() - 4000)) {
+      this._crowdT = performance.now();
+      try { Sfx.voice("crowd", { x, z, maxRange: 30 }); } catch (e) {}   /* a crowd reacts together (at most every 4 s) */
     }
     if (anyScared && _fled >= 2 && !(this._scareAlertT > performance.now() - 5000)) {
       this._scareAlertT = performance.now();

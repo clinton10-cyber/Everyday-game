@@ -189,12 +189,12 @@ function buildLongGun3D(type) {
 /* ── Runtime config ─────────────────────────────────────────── */
 const GUN_CONFIG = {
   pistol: {
-    damage: 25, range: 25, cooldown: 0.40, fireDuration: 0.22,
+    damage: 25, range: 25, cooldown: 0.50, fireDuration: 0.22,   /* 2 shots / s while held */
   },
-  sniper: { damage: 85, range: 70, cooldown: 1.50, fireDuration: 0.55 },
+  sniper: { damage: 85, range: 70, cooldown: 1.00, fireDuration: 0.55 },   /* 1 / s */
   rifle: { damage: 30, range: 46, cooldown: 0.12, fireDuration: 0.24 },
   smg: { damage: 19, range: 30, cooldown: 0.075, fireDuration: 0.18 },
-  shotgun: { damage: 62, range: 17, cooldown: 0.82, fireDuration: 0.38 },
+  shotgun: { damage: 62, range: 17, cooldown: 1.00, fireDuration: 0.38 },   /* 1 / s */
   lmg: { damage: 25, range: 43, cooldown: 0.105, fireDuration: 0.30 },
 };
 
@@ -441,7 +441,7 @@ export class Gun {
   }
 
   fire() {
-    if (this.state !== "drawn") return false;
+    if (this.state !== "drawn" && this.state !== "firing") return false;
     if (this.cdTime > 0) return false;
     this.cdTime = this.cooldown;
     this.animTime = 0;
@@ -772,6 +772,15 @@ export class Weapons {
   }
   isArmed() { return this.current !== "fists"; }
 
+  /* fire button held: automatic guns (smg / rifle / lmg) keep shooting, the pistol at 2 / s, shotgun + sniper at 1 / s */
+  setTrigger(on) { this._trigger = !!on; }
+  _holdFire(targets) {
+    if (!this._trigger) return;
+    const cur = this.current;
+    if (cur === "fists" || cur === "knife" || cur === "bazooka" || !this.isArmed()) { this._trigger = false; return; }
+    this.attack(targets);
+  }
+
   attack(targets) {
     const c = this.controls;
     /* plain walker objects (drive/walk scenes) have no .state; only block when a state exists */
@@ -790,6 +799,7 @@ export class Weapons {
   }
 
   update(dt, targets) {
+    this._holdFire(targets);
     this.knife.update(dt, targets);
     this.pistol.update(dt, targets);
     this.sniper.update(dt, targets);

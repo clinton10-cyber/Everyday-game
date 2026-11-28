@@ -240,7 +240,14 @@ export class ThirdPersonControls {
     });
     document.body.appendChild(b); this._b = b;
     const stop = e => { e.stopPropagation(); e.cancelable && e.preventDefault(); };
-    b.addEventListener("pointerdown", e => { stop(e); window.__ph3d_lastHudTouch = performance.now(); this.triggerAction(); });
+    b.addEventListener("pointerdown", e => {
+      stop(e); window.__ph3d_lastHudTouch = performance.now(); this.triggerAction();
+      if (this._isGunWeapon() && this.weapons && this.weapons.isArmed()) {      /* hold = keep firing */
+        this.weapons.setTrigger(true);
+        try { b.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+    });
+    ["pointerup", "pointercancel", "lostpointercapture", "pointerleave"].forEach(k => b.addEventListener(k, () => { try { this.weapons && this.weapons.setTrigger(false); } catch (err) {} }));
     ["pointerup", "pointermove", "click"].forEach(k => b.addEventListener(k, stop));
 
     /* ── USE / DROP for the item in hand ── */
