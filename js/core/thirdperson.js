@@ -10,7 +10,7 @@ import {
 } from "../characters/lowpoly.js";
 import * as Animator from "../characters/animator.js";
 import { AnimationAutomation } from "./animation-automation.js";
-import { Weapons } from "./guns.js";
+import { Weapons, interiorWallDistance } from "./guns.js";
 import { NPCs } from "./npcs.js";
 import { HUD } from "../ui/hud.js";
 import { isTyping } from "./typing-guard.js";
@@ -1840,7 +1840,11 @@ _updateCamera(dt, snap) {
     /* True crosshair hitscan: ray starts at the camera and travels exactly along the look direction
        (screen centre). Muzzle flash still comes from the gun mesh in guns.js. */
     let D = (this.weapons && this.weapons.current === "sniper") ? 170 : 80;
-    if (this.world.colliders) {
+    if (this._interiorWeaponMode && this.world.colliders) {
+      /* interior: only a VISIBLE solid surface stops the aim point (invisible walking blockers do not) */
+      const t = interiorWallDistance(this, camPos, aimDir, D, []);
+      if (t > 0.35 && t < D) D = t;
+    } else if (this.world.colliders) {
       for (const c of this.world.colliders) {
         if (c.level !== this.level) continue;
         const t = rayAABB(camPos.x, camPos.y, camPos.z, aimDir.x, aimDir.y, aimDir.z,

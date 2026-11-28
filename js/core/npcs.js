@@ -412,6 +412,16 @@ function rejoinPath(npc) {
 
 let _scene = null;
 let _aabbs = [];
+let _aabbsAll = null;     /* full collider list while a tick is running (_aabbs is swapped per NPC floor) */
+let _lvSrc = null, _lvMap = null;
+/* Colliders carry lv (floor). An NPC only collides with its own floor, so upstairs furniture, rails and
+   walls no longer block people on the ground floor (and the other way round). */
+function _aabbsForLevel(all, lv) {
+  if (!all || !all.length) return all;
+  if (_lvSrc !== all) { _lvSrc = all; _lvMap = { has: all.some((b) => b.lv !== undefined), by: {} }; }
+  if (!_lvMap.has) return all;
+  return _lvMap.by[lv] || (_lvMap.by[lv] = all.filter((b) => b.lv === undefined || b.lv === lv));
+}
 let _seats = [];
 const HIP_H = 0.935;   /* matches animator HIP_HEIGHT */
 _loadVoiceLines();
@@ -515,6 +525,82 @@ export const NPCs = {
 
   setAABBs(aabbs) {
     _aabbs = aabbs || [];
+  },
+  /* Multi-floor interiors: world.stairs / world.levelHeight drive NPC height, floor and stair use. */
+  setLevels(world) { this._lvWorld = world && world.stairs && world.stairs.length ? world : null; },
+  _stairGround(npc, baseGy) {
+    const w = this._lvWorld; if (!w) return baseGy;
+    const x = npc.ctl.pos.x, z = npc.ctl.pos.z;
+    for (const st of w.stairs) {
+      if (x < st.minX || x > st.maxX || z < st.minZ || z > st.maxZ) continue;
+      const ax = st.axis === "x" ? x : z;
+      const lo = st.axis === "x" ? st.minX : st.minZ, hi = st.axis === "x" ? st.maxX : st.maxZ;
+      const t = Math.max(0, Math.min(1, (ax - lo) / Math.max(0.001, hi - lo)));
+      const y = st.y0 + (st.y1 - st.y0) * t;
+      npc._lvl = y > (st.y0 + st.y1) / 2 ? (st.toLevel != null ? st.toLevel : st.level + 1) : st.level;
+      npc._onStairs = true;
+      return y;
+    }
+    npc._onStairs = false;
+    return w.levelHeight ? w.levelHeight(npc._lvl || 0) : baseGy;
+  },
+  /* Start a trip up or down the nearest stair that begins on this NPC's floor. Returns true if started. */
+  _planStairs(npc) {
+    const w = this._lvWorld; if (!w) return false;
+    const lv = npc._lvl || 0, px = npc.ctl.pos.x, pz = npc.ctl.pos.z;
+    const opts = [];
+    for (const st of w.stairs) {
+      const toLv = st.toLevel != null ? st.toLevel : st.level + 1;
+      const ax = st.axis === "x";
+      const cx = (st.minX + st.maxX) / 2, cz = (st.minZ + st.maxZ) / 2;
+      const lo = ax ? st.minX : st.minZ, hi = ax ? st.maxX : st.maxZ;
+      let up;
+      if (st.level === lv) up = true; else if (toLv === lv) up = false; else continue;
+      const e = up ? lo - 1.0 : hi + 1.0, x = up ? hi + 1.2 : lo - 1.2;
+      const E = ax ? [e, cz] : [cx, e], X = ax ? [x, cz] : [cx, x];
+      opts.push({ st, up, E, X, toLv: up ? toLv : st.level, d: Math.hypot(E[0] - px, E[1] - pz) });
+    }
+    opts.sort((a, b) => a.d - b.d);
+    for (const o of opts) {
+      if (o.d < 0.6) { npc._stairPlan = o; npc.state = "stairs"; npc.stateT = 30; return true; }
+      const rt = _findRoute(px, pz, o.E[0], o.E[1]);
+      if (!rt) continue;
+      let len = 0, lx = px, lz = pz;
+      for (const q of rt) { len += Math.hypot(q[0] - lx, q[1] - lz); lx = q[0]; lz = q[1]; }
+      if (len > 70) continue;
+      npc._stairPlan = o; npc.strollX = o.E[0]; npc.strollZ = o.E[1]; npc.strollSp = 1.5; npc._rt = null;
+      npc.state = "stroll"; npc.stateT = len / 1.5 + 8; npc._toStairs = true;
+      return true;
+    }
+    return false;
+  },
+  _driveStairs(npc, dt) {
+    const o = npc._stairPlan;
+    if (!o) { npc.state = "idle"; npc.stateT = 1; return; }
+    const px = npc.ctl.pos.x, pz = npc.ctl.pos.z;
+    const ax = o.st.axis === "x";
+    const E = o.E, X = o.X;
+    /* line up on the stair centre line first, then climb straight through it */
+    let tx = X[0], tz = X[1];
+    if (!npc._stairOn) {
+      const off = Math.hypot(E[0] - px, E[1] - pz);
+      if (off > 0.35) { tx = E[0]; tz = E[1]; } else npc._stairOn = true;
+    }
+    const dx = tx - px, dz = tz - pz, d = Math.hypot(dx, dz);
+    const sp = 1.35;
+    if (d < 0.25 && npc._stairOn) {
+      npc._stairOn = false; npc._stairPlan = null; npc._rt = null;
+      npc._lvl = o.toLv;
+      npc.homeX = px; npc.homeZ = pz;               /* wander around the new floor from here */
+      npc.state = "idle"; npc.stateT = rBetween(3, 8); npc.moveSpeed = 0;
+      return;
+    }
+    const step = Math.min(d, sp * dt);
+    npc.ctl.pos.x += (dx / (d || 1)) * step;
+    npc.ctl.pos.z += (dz / (d || 1)) * step;
+    npc.moveSpeed = sp;
+    npc.yawTarget = Math.atan2(dx, dz);
+    if (npc.stateT <= 0) { npc._stairOn = false; npc._stairPlan = null; npc.state = "idle"; npc.stateT = 2; }
   },
   setTerrain(groundAt, bounds) { this._groundAt = groundAt || null; this._bounds = bounds || null; },
 
@@ -768,7 +854,8 @@ export const NPCs = {
       if (npc.dead) continue;
       if (npc.state === "downed" || npc.state === "sitting") continue; // on the floor / on a seat
       const pos = npc.ctl.pos;
-      const [nx, nz] = this._pushOut(pos.x, pos.z, aabbs, 0.45);
+      if (npc._onStairs || npc.state === "stairs") continue;
+      const [nx, nz] = this._pushOut(pos.x, pos.z, _aabbsForLevel(aabbs, npc._lvl || 0), 0.45);
       if (nx !== pos.x || nz !== pos.z) {
         pos.x = nx;
         pos.z = nz;
@@ -1510,11 +1597,16 @@ export const NPCs = {
     this.list.length = 0;
     _scene = null;
     _aabbs = [];
-    this._groundAt = null; this._bounds = null;
+    this._groundAt = null; this._bounds = null; this._lvWorld = null;
     _seats = [];
   },
 
   tick(dt, playerX, playerZ) {
+    const _all = _aabbs; _aabbsAll = _all;
+    try { return this._tickInner(dt, playerX, playerZ); } finally { _aabbs = _all; }
+  },
+
+  _tickInner(dt, playerX, playerZ) {
     NpcLod.beginFrame();
     /* LOD distances scale with the device tier (visRange: 150 / 100 / 70) */
     const _lod2 = Math.max(40, Math.min(62, (this.visRange || 150) * 0.6)), _lod1 = _lod2 * 0.5;
@@ -1535,6 +1627,7 @@ export const NPCs = {
 
     for (let i = this.list.length - 1; i >= 0; i--) {
       const npc = this.list[i];
+      _aabbs = _aabbsForLevel(_aabbsAll, npc._lvl || 0);
 
       if (npc.dead && npc.seatTarget) { npc.seatTarget.taken = false; npc.seatTarget = null; }
       if (npc._fly) { this._tickFly(npc, dt); continue; }          /* thrown by a car / blast */
@@ -1638,7 +1731,9 @@ export const NPCs = {
         npc.stateT = rBetween(2, 3);
       }
 
-      if (typeof npc.state === "string" && npc.state.startsWith("life_")) {
+      if (npc.state === "stairs") {
+        this._driveStairs(npc, dt);
+      } else if (typeof npc.state === "string" && npc.state.startsWith("life_")) {
         Lives.drive(npc, dt);                                         /* chatting, walking with family… */
       } else if (npc.state === "pose" || npc.state === "meet") {
         try { InteriorPoses.update(npc, dt, this); } catch (e) { npc.state = "idle"; npc.stateT = 1; npc._pose = null; }
@@ -1848,7 +1943,13 @@ export const NPCs = {
       } else if (npc.state === "stroll") {
         const dx = npc.strollX - npc.ctl.pos.x, dz = npc.strollZ - npc.ctl.pos.z;
         const d = Math.hypot(dx, dz);
-        if (d < 0.4 || npc.stateT <= 0) {
+        if (npc._toStairs && npc._stairPlan && (d < 0.7 || npc.stateT <= 0)) {
+          npc._toStairs = false;
+          if (d < 1.4) { npc.state = "stairs"; npc.stateT = 30; npc._stairOn = false; }
+          else { npc._stairPlan = null; npc.state = "idle"; npc.stateT = rBetween(1, 3); }
+          npc.moveSpeed = 0;
+        } else if (d < 0.4 || npc.stateT <= 0) {
+          npc._toStairs = false;
           npc.state = "idle"; npc.stateT = rBetween(2, 6); npc.moveSpeed = 0;
         } else {
           const sp = npc.strollSp || 1.3;
@@ -1862,11 +1963,15 @@ export const NPCs = {
           if (npc.stationary) {
             /* Ambient life: wander a few metres around home, then idle again */
             let picked = false;
+            /* Multi-floor interior: now and then take the stairs to the other floor. */
+            if (this._lvWorld && npc._interiorPlace && npc.role !== "police" && rnd() < 0.22) {
+              if (this._planStairs(npc)) picked = true;
+            }
             /* Interior life: sometimes walk to a nearby free seat and sit. */
-            if (npc._interiorPlace && _seats.length && npc.role !== "police" && rnd() < 0.3) {
+            if (!picked && npc._interiorPlace && _seats.length && npc.role !== "police" && rnd() < 0.3) {
               let best = null, bd = 20 * 20;
               for (const s of _seats) {
-                if (s.taken || (s.type && s.type !== "sit") || s.level) continue;
+                if (s.taken || (s.type && s.type !== "sit") || (s.level || 0) !== (npc._lvl || 0)) continue;
                 const sdx = s.x - npc.ctl.pos.x, sdz = s.z - npc.ctl.pos.z;
                 const d2 = sdx * sdx + sdz * sdz;
                 if (d2 < bd) { bd = d2; best = s; }
@@ -2052,7 +2157,7 @@ export const NPCs = {
 
       /* Safety net: no NPC is ever left inside a wall, even for one frame. */
       if (_aabbs.length && npc.state !== "goSeat" && npc.state !== "sitting" && npc.state !== "downed"
-          && !this._free(npc.ctl.pos.x, npc.ctl.pos.z, 0.3)) {
+          && !npc._onStairs && npc.state !== "stairs" && !this._free(npc.ctl.pos.x, npc.ctl.pos.z, 0.3)) {
         const cx = npc.ctl.pos.x, cz = npc.ctl.pos.z;
         if (this._free(cx, _prevZ, 0.3)) npc.ctl.pos.z = _prevZ;
         else if (this._free(_prevX, cz, 0.3)) npc.ctl.pos.x = _prevX;
@@ -2076,7 +2181,8 @@ export const NPCs = {
         npc.ctl.pos.x = Math.min(bd.maxX - 0.5, Math.max(bd.minX + 0.5, npc.ctl.pos.x));
         npc.ctl.pos.z = Math.min(bd.maxZ - 0.5, Math.max(bd.minZ + 0.5, npc.ctl.pos.z));
       }
-      const _gy = this._groundAt ? this._groundAt(npc.ctl.pos.x, npc.ctl.pos.z) : 0;
+      let _gy = this._groundAt ? this._groundAt(npc.ctl.pos.x, npc.ctl.pos.z) : 0;
+      if (this._lvWorld) _gy = this._stairGround(npc, _gy);
       npc.ctl.pos.y = npc._baseY + _gy;
       const _seatDrop = _sit ? ((npc.seatTarget.h || 0.5) - HIP_H + 0.10) : 0;
       npc.group.position.set(npc.ctl.pos.x, npc._baseY + _gy + _seatDrop, npc.ctl.pos.z);

@@ -282,6 +282,49 @@ function rayAABBSpan(ox, oy, oz, dx, dy, dz, minX, minY, minZ, maxX, maxY, maxZ,
   return tmin > 0.001 ? [tmin, tmax] : null;
 }
 
+/* Distance along (origin, dir) to the first VISIBLE solid surface inside an interior collider, or `range`.
+   Shared by bullets (Gun.fire) and the crosshair aim point (thirdperson), so invisible blockers
+   stop neither the shot nor the aim. */
+export function interiorWallDistance(c, origin, dir, range, skipObjs) {
+  let wallT = range;
+  if (!(c && c.world && Array.isArray(c.world.colliders))) return wallT;
+  const spans = [];
+  for (const col of c.world.colliders) {
+    if (!col) continue;
+    if (col.noShoot || col.shootThrough || col.passable || col.trigger || col.disabled || col.invisible || col.ghost) continue;
+    if (col.level !== undefined && col.level !== (c.level || 0)) continue;
+    const y0 = col.y0 != null ? col.y0 : 0, y1 = col.y1 != null ? col.y1 : 3;
+    if (!(y1 - y0 >= 0.2)) continue;                 /* rugs, kerbs, floor pads never stop a bullet */
+    const sp = rayAABBSpan(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z,
+      col.minX, y0, col.minZ, col.maxX, y1, col.maxZ, range);
+    if (sp) spans.push(sp);
+  }
+  if (!spans.length) return wallT;
+  spans.sort((p, q) => p[0] - q[0]);
+  let hits = null;
+  try {
+    const scene = c.scene;
+    if (scene) {
+      const skip = (skipObjs || []).concat([c.rig && (c.rig.root || c.rig.group || c.rig)]);
+      _wallRC.set(origin, dir);
+      _wallRC.near = 0.05; _wallRC.far = Math.min(range, spans[spans.length - 1][1] + 0.5);
+      hits = _wallRC.intersectObjects(_solidMeshes(scene), false)
+        .filter((h) => {
+          for (let o = h.object; o; o = o.parent) { if (o.visible === false) return false; if (skip.indexOf(o) >= 0) return false; }
+          return true;
+        })
+        .map((h) => h.distance);
+    }
+  } catch (e) { hits = null; }
+  for (const sp of spans) {
+    if (!hits) { wallT = sp[0]; break; }             /* cannot verify: old behaviour */
+    const mt = hits.find((h) => h >= sp[0] - 0.4 && h <= sp[1] + 0.4);
+    if (mt !== undefined) { wallT = Math.max(0.05, mt); break; }
+    /* no visible surface inside this collider: invisible blocker, the ray flies on */
+  }
+  return wallT;
+}
+
 const PART_MULT  = { head: 4.0, torso: 1.0, arm: 0.55, leg: 0.70, foot: 0.45 };
 const PART_LABEL = { head: "HEADSHOT", torso: "", arm: "ARM", leg: "LEG", foot: "FOOT" };
 function bodyPartFor(localY, lateral) {
@@ -597,43 +640,7 @@ export class Gun {
 
     // Interior shots stop at the first VISIBLE solid thing inside a registered collider.
     let wallT = this.range;
-    if (c._interiorWeaponMode && c.world && Array.isArray(c.world.colliders)) {
-      const spans = [];
-      for (const col of c.world.colliders) {
-        if (!col) continue;
-        if (col.noShoot || col.shootThrough || col.passable || col.trigger || col.disabled || col.invisible || col.ghost) continue;
-        if (col.level !== undefined && col.level !== (c.level || 0)) continue;
-        const y0 = col.y0 != null ? col.y0 : 0, y1 = col.y1 != null ? col.y1 : 3;
-        if (!(y1 - y0 >= 0.2)) continue;                 /* rugs, kerbs, floor pads never stop a bullet */
-        const sp = rayAABBSpan(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z,
-          col.minX, y0, col.minZ, col.maxX, y1, col.maxZ, this.range);
-        if (sp) spans.push(sp);
-      }
-      if (spans.length) {
-        spans.sort((p, q) => p[0] - q[0]);
-        let hits = null;
-        try {
-          const scene = c.scene;
-          if (scene) {
-            const skip = [this.mesh, c.rig && (c.rig.root || c.rig.group || c.rig)];
-            _wallRC.set(origin, dir);
-            _wallRC.near = 0.05; _wallRC.far = Math.min(this.range, spans[spans.length - 1][1] + 0.5);
-            hits = _wallRC.intersectObjects(_solidMeshes(scene), false)
-              .filter((h) => {
-                for (let o = h.object; o; o = o.parent) { if (o.visible === false) return false; if (skip.indexOf(o) >= 0) return false; }
-                return true;
-              })
-              .map((h) => h.distance);
-          }
-        } catch (e) { hits = null; }
-        for (const sp of spans) {
-          if (!hits) { wallT = sp[0]; break; }             /* cannot verify: old behaviour */
-          const mt = hits.find((h) => h >= sp[0] - 0.4 && h <= sp[1] + 0.4);
-          if (mt !== undefined) { wallT = Math.max(0.05, mt); break; }
-          /* no visible surface inside this collider: invisible blocker, the bullet flies on */
-        }
-      }
-    }
+    if (c._interiorWeaponMode) wallT = interiorWallDistance(c, origin, dir, this.range, [this.mesh]);
     let bestHit = null, bestT = wallT, bestPart = "torso";
     const radius = this.type === "sniper" ? 0.52 : this.type === "shotgun" ? 0.82 : 0.55;
 
