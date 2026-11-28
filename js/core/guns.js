@@ -372,7 +372,7 @@ function stanceSample(set, pitch) {
   const k = (pitch - P[i]) / (P[i + 1] - P[i]), a = set[i], b = set[i + 1];
   return a.map((v, j) => v + (b[j] - v) * k);
 }
-const HIGH_READY = 0.72;   /* 0 = old low carry, 1 = fully aimed */
+export const GUN_TUNE = { highReady: 0.72 };   /* 0 = old low carry, 1 = fully aimed */
 function stanceMix(a, b, k) { return a.map((v, j) => v + (b[j] - v) * k); }
 function poseFromP(p) {
   return {
@@ -588,7 +588,7 @@ export class Gun {
     const pose = (m) => stanceMix(stanceSample(sets[m].move, aimPitch), stanceSample(sets[m].idle, aimPitch), this._idleK);
     /* high-ready carry: the gun is always raised in front of the body (barrel forward, clearly visible), not hung low;
        aiming tightens it the rest of the way into the sights */
-    const pp = stanceMix(pose("ready"), pose("ads"), HIGH_READY + (1 - HIGH_READY) * this._aimK);
+    const pp = stanceMix(pose("ready"), pose("ads"), GUN_TUNE.highReady + (1 - GUN_TUNE.highReady) * this._aimK);
     const aimed = poseFromP(pp);
 
     const lower = () => { if (R.hips) R.hips.rotation.y += pp[12]; applyLowerStance(R, this._idleK); this._applyDrawLower(R); };
