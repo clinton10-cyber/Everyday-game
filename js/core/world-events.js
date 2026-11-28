@@ -194,6 +194,16 @@ export const WorldEvents = {
   tick(dt, px, pz) {
     if (!_scene) return;
 
+    /* Random street events (crash, fight, fire, lost wallet, medical) are OFF unless the player turns them on in
+       Settings > "Random street events". When off: nothing spawns and any leftover event is cleared. */
+    let _on = false;
+    try { _on = !!(window.__ph3d_settings && window.__ph3d_settings.get("randomEvents")); } catch (e) {}
+    if (!_on) {
+      if (_events.length) { for (const ev of _events) _dispose(ev); _events = []; }
+      _spawnCd = 12;
+      return;
+    }
+
     _spawnCd -= dt;
     if (_spawnCd <= 0) {
       _spawnCd = 45 + Math.random() * 45;
