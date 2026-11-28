@@ -18,6 +18,7 @@ const UPV = new THREE.Vector3(0, 1, 0);
 const _vv = new THREE.Vector3();
 
 /* irregular blotch + satellite drops (a plain radial disc reads as a red coin) */
+let _splatTex = null, _splatGeo = null;
 function blotchTexture() {
   const c = document.createElement("canvas");
   c.width = c.height = 96;
@@ -112,19 +113,24 @@ export const Blood = {
   /* ground stain. y = world floor height (defaults to 0), size multiplier optional. It spreads out, then dries and fades. */
   splat(scene, x, z, y, size) {
     if (!scene) return;
-    const tex = new THREE.CanvasTexture(blotchTexture());
-    tex.colorSpace = THREE.SRGBColorSpace;
+    /* 3 shared blotch textures + one shared plane: no canvas drawing / GPU upload per splat */
+    if (!_splatTex) {
+      _splatTex = [];
+      for (let i = 0; i < 3; i++) { const t = new THREE.CanvasTexture(blotchTexture()); t.colorSpace = THREE.SRGBColorSpace; _splatTex.push(t); }
+      _splatGeo = new THREE.PlaneGeometry(1, 1);
+    }
+    const tex = _splatTex[(Math.random() * 3) | 0];
     const sz = (size || 1) * (1.1 + Math.random() * 0.9);
     const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(sz, sz),
+      _splatGeo,
       new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
     );
     mesh.rotation.x = -Math.PI / 2;
     mesh.rotation.z = Math.random() * 6.2832;
     mesh.position.set(x, (y || 0) + 0.02, z);
-    mesh.scale.setScalar(0.25);
+    mesh.scale.setScalar(0.25 * sz);
     scene.add(mesh);
-    this._active.push({ scene, mesh, elapsed: 0, ttl: 14, isSplat: true });
+    this._active.push({ scene, mesh, elapsed: 0, ttl: 14, isSplat: true, baseSz: sz });
   },
 
   tick(dt) {
@@ -136,13 +142,11 @@ export const Blood = {
       if (s.isSplat) {
         if (s.elapsed >= s.ttl) {
           if (s.mesh.parent) s.mesh.parent.remove(s.mesh);
-          s.mesh.geometry.dispose();
-          if (s.mesh.material.map) s.mesh.material.map.dispose();
-          s.mesh.material.dispose();
+          s.mesh.material.dispose();            /* geometry + texture are shared, keep them */
           list.splice(i, 1);
         } else {
           const grow = Math.min(1, s.elapsed / 0.9);                /* the pool spreads out */
-          s.mesh.scale.setScalar(0.25 + 0.75 * (1 - Math.pow(1 - grow, 3)));
+          s.mesh.scale.setScalar((s.baseSz || 1) * (0.25 + 0.75 * (1 - Math.pow(1 - grow, 3))));
           if (s.elapsed > s.ttl - 3) s.mesh.material.opacity = 0.85 * (s.ttl - s.elapsed) / 3;
         }
         continue;

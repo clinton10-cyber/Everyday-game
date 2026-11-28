@@ -47,6 +47,7 @@ import { JobObjectives } from "../core/job-objectives.js";
 import { ObjectiveHUD } from "../ui/objective-hud.js";
 import { WalkActions } from "../core/walk-actions.js";
 import { askAndRoute } from "../core/landmark-routing.js";
+import { createPropCuller } from "../core/prop-culler.js";
 import { Kidnap } from "../core/kidnap.js";
 import { disposeObject3D } from "../core/disposer.js";
 import { isTyping } from "../core/typing-guard.js";
@@ -1984,6 +1985,10 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     }
   } catch (e) {}
 
+  /* distance-cull loose props: parked cars, street furniture, pickups (see core/prop-culler.js) */
+  const _propCuller = createPropCuller(three, camera, { range: POTATO ? 90 : LOW ? 130 : TIER === "high" ? 300 : 200 });
+  window.__ph3d_propCuller = _propCuller;
+
   return {
     three, camera, controls: { update: function () {} },
     crumb: "OPEN WORLD", title: "PORT LIFEX",
@@ -1997,6 +2002,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
                model === "hoverboard" ? "HOVERBOARD X-1" : model === "skyfury" ? "SKYFURY JET" : "G-WAGON"),
     hint: "",
     dispose: function () {
+      try { _propCuller.dispose(); window.__ph3d_propCuller = null; } catch (_) {}
       try { _unWardrobe(); if (_wdRaf) cancelAnimationFrame(_wdRaf); } catch (_) {}
       try { Sfx.stopAll(); } catch (_) {}
       window.__ph3d_world_aabbs = null;
@@ -2070,6 +2076,7 @@ try {
     },
     _upd: function (dt, t) {
       try { Weather.tick(dt); } catch (e) {}
+      try { _propCuller.update(dt); } catch (e) {}
       try {
         /* speed blur: cars start to blur at ~35% of top speed; wing flight always blurs, jetpack lightly */
         let _fx = 0;

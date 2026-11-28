@@ -5,6 +5,7 @@ import { Quality } from "./quality.js";
 import { DayNight } from "./daynight.js";
 import { NightTools } from "./night-tools.js";
 import { FlashPool } from "./flash-pool.js";
+import { PerfHud } from "./perf-hud.js";
 
 /* ═══════════════════════════════════════════════════════════════
    Router
@@ -445,6 +446,7 @@ export class Router {
         SceneLife.tick(this.current, dt, t);
 
         this.renderer.render(this.current.three, this.current.camera);
+        PerfHud.frame(this.renderer, rawDt, this.current.three);
       } catch(e){ console.warn(e); }
     }
   }

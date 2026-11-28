@@ -37,7 +37,8 @@ const scorches = [];
 const handlers = [];
 
 /* shared assets (created lazily, disposed in dispose()) */
-let _puff = null, _scorch = null, _boxGeo = null, _wheelGeo = null;
+let _puff = null, _scorch = null, _boxGeo = null, _wheelGeo = null, _planeGeo = null, _ringGeo = null, _coreGeo = null;
+const _panelMats = new Map();
 let _matMetal = null, _matGlass = null, _matRubber = null;
 
 function puffTex() {
@@ -63,6 +64,9 @@ function scorchTex() {
 function assets() {
   if (_boxGeo) return;
   _boxGeo = new THREE.BoxGeometry(1, 1, 1);
+  _planeGeo = new THREE.PlaneGeometry(1, 1);
+  _ringGeo = new THREE.RingGeometry(0.82, 1, 40);
+  _coreGeo = new THREE.SphereGeometry(1, 14, 10);
   _wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 14); _wheelGeo.rotateZ(Math.PI / 2);
   _matMetal = new THREE.MeshStandardMaterial({ color: 0x4a4e54, metalness: 0.8, roughness: 0.5 });
   _matGlass = new THREE.MeshStandardMaterial({ color: 0xbfe6ff, metalness: 0.1, roughness: 0.1, transparent: true, opacity: 0.55 });
@@ -126,17 +130,19 @@ export const CrashFX = {
       for (const p of parts) { scene.remove(p.s); p.s.material.dispose(); }
       for (const s of free) s.material.dispose();
       for (const d of debris) scene.remove(d.m);
-      for (const r of rings) { scene.remove(r.o); r.o.geometry.dispose(); r.m.dispose(); }
-      for (const s of scorches) { scene.remove(s); s.geometry.dispose(); s.material.dispose(); }
+      for (const r of rings) { scene.remove(r.o); r.m.dispose(); }
+      for (const s of scorches) { scene.remove(s); s.material.dispose(); }
     }
     parts.length = 0; free.length = 0; debris.length = 0; rings.length = 0; fires.length = 0; scorches.length = 0;
     handlers.length = 0;
     SH.amt = 0; SH.t = 0; SL.scale = 1; SL.t = 0;
     if (_ov) { try { _ov.remove(); } catch (e) {} _ov = null; }
     for (const t of [_puff, _scorch]) if (t) t.dispose();
-    for (const g of [_boxGeo, _wheelGeo]) if (g) g.dispose();
+    for (const g of [_boxGeo, _wheelGeo, _planeGeo, _ringGeo, _coreGeo]) if (g) g.dispose();
+    for (const m of _panelMats.values()) m.dispose();
+    _panelMats.clear();
     for (const m of [_matMetal, _matGlass, _matRubber]) if (m) m.dispose();
-    _puff = _scorch = _boxGeo = _wheelGeo = _matMetal = _matGlass = _matRubber = null;
+    _puff = _scorch = _boxGeo = _wheelGeo = _planeGeo = _ringGeo = _coreGeo = _matMetal = _matGlass = _matRubber = null;
     scene = null; camera = null;
   },
   get ready() { return !!scene; },
@@ -202,7 +208,7 @@ export const CrashFX = {
     }
     for (let i = rings.length - 1; i >= 0; i--) {
       const r = rings[i]; r.t += dt; const k = r.t / r.max;
-      if (k >= 1) { scene.remove(r.o); r.o.geometry.dispose(); r.m.dispose(); rings.splice(i, 1); continue; }
+      if (k >= 1) { scene.remove(r.o); r.m.dispose(); rings.splice(i, 1); continue; }
       r.o.scale.setScalar(0.4 + (r.s1 - 0.4) * (1 - Math.pow(1 - k, 2.4)));
       r.m.opacity = 1 - k;
     }
@@ -262,7 +268,9 @@ export const CrashFX = {
     assets(); o = o || {};
     const n = Math.min(o.count || 10, MAX_DEBRIS);
     const gy = o.groundY || 0;
-    const panel = new THREE.MeshStandardMaterial({ color: o.color != null ? o.color : 0x777777, metalness: 0.6, roughness: 0.45 });
+    const pc = o.color != null ? o.color : 0x777777;
+    let panel = _panelMats.get(pc);                      /* one shared panel material per colour, not one per crash */
+    if (!panel) { panel = new THREE.MeshStandardMaterial({ color: pc, metalness: 0.6, roughness: 0.45 }); _panelMats.set(pc, panel); }
     for (let i = 0; i < n; i++) {
       if (debris.length >= MAX_DEBRIS) { const old = debris.shift(); scene.remove(old.m); }
       const kind = Math.random();
@@ -290,11 +298,11 @@ export const CrashFX = {
   scorch(x, y, z, size) {
     if (!scene) return;
     const m = new THREE.MeshBasicMaterial({ map: scorchTex(), transparent: true, opacity: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m);
+    const p = new THREE.Mesh(_planeGeo, m);
     p.rotation.x = -Math.PI / 2; p.rotation.z = Math.random() * 6.28;
     p.position.set(x, y + 0.03, z); p.scale.setScalar(size || 5);
     scene.add(p); scorches.push(p);
-    while (scorches.length > MAX_SCORCH) { const o = scorches.shift(); scene.remove(o); o.geometry.dispose(); o.material.dispose(); }
+    while (scorches.length > MAX_SCORCH) { const o = scorches.shift(); scene.remove(o); o.material.dispose(); }
   },
   /* burning emitter: flames + black smoke. follow = an Object3D to stick to (a wreck). Returns a handle. */
   fire(x, y, z, o) {
@@ -373,11 +381,11 @@ export const CrashFX = {
     }
     this.sparks(x, y, z, Math.round(24 * s), null);
     const rm = new THREE.MeshBasicMaterial({ color: 0xffdd99, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.82, 1, 40), rm);
+    const ring = new THREE.Mesh(_ringGeo, rm);
     ring.rotation.x = -Math.PI / 2; ring.position.set(x, y > 1 ? 0.1 : y + 0.05, z); scene.add(ring);
     rings.push({ o: ring, m: rm, t: 0, max: 0.6, s1: 9 * s });
     const cm = new THREE.MeshBasicMaterial({ color: 0xfff4d0, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false });
-    const core = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), cm);
+    const core = new THREE.Mesh(_coreGeo, cm);
     core.position.copy(P); scene.add(core);
     rings.push({ o: core, m: cm, t: 0, max: 0.25, s1: 2.8 * s });
     this.debris(x, y, z, { count: Math.round(14 * s), color: o.color, power: 1.1 * s, wheels: o.wheels == null ? 2 : o.wheels, groundY: o.groundY });
