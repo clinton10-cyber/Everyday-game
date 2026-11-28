@@ -1369,6 +1369,9 @@ export class Phone{
   }
 
   _toast(text){
+    /* Notification pop-ups are OFF unless the player turns them on in Settings > "Notification pop-ups".
+       Every in-game toast in the project funnels through here, so this one check silences them all. */
+    try { const S = window.__ph3d_settings; if (S && !S.get("notifications")) return; } catch (_) {}
     const o = document.getElementById("ttoast");
     if (o) o.remove();
     const t = document.createElement("div");

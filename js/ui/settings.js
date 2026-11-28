@@ -22,6 +22,7 @@ const DEFAULTS = {
   autoRun:              false,
   haptics:              true,
   showFps:              false,
+  notifications:        false,   /* on-screen notification pop-ups / toasts (default OFF) */
   randomEvents:         false,   /* random street events: crash / fight / fire / lost wallet / medical (default OFF) */
   hideOnScreenHints:    false,
   theme:                "dark",
@@ -328,6 +329,7 @@ export const SettingsUI = {
             },
             this._toggle("showFps",           "FPS & draw calls", "phone"),
             this._toggle("hideOnScreenHints", "Hide hints", "talk"),
+            this._toggle("notifications",     "Notification pop-ups", "phone"),
             this._toggle("randomEvents",      "Random street events", "heart"),
           ],
         },
