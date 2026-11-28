@@ -744,6 +744,7 @@ export class ThirdPersonControls {
       }
       if ((e.code === "BracketRight" || e.code === "BracketLeft") && !e.repeat && this.weapons) { this.weapons.next(e.code === "BracketRight" ? 1 : -1); this._flashWeaponName(); this._ul(); }
       if (e.code === "KeyG" && !e.repeat) this._lie();
+      if (e.code === "KeyP" && !e.repeat && this.state === "lying") this.cycleLiePose(e.shiftKey ? -1 : 1);
       if (e.code === "KeyJ" && !e.repeat) this.toggleJet();
       if (e.code === "KeyC") this.crouch();
       /* KeyB shoulder swap disabled — player stays on the right */
@@ -1083,7 +1084,8 @@ export class ThirdPersonControls {
     }
     const obj = window.__ph3d_nearObj, PA = window.__ph3d_playerActions;
     if (obj && !obj.taken && PA && typeof PA.pickup === "function" && !PA.isBusy?.()) out.push({ id: "pick", label: "PICK UP", run: () => PA.pickup(this, obj) });
-    if (this.nearSit) out.push({ id: "sit", label: this.nearSit.label || "SIT", run: () => this.sit(this.nearSit) });
+    if (this.state === "lying") out.push({ id: "lie-pose", label: "POSE: " + Animator.LIE_POSE_LABEL(this.liePose).toUpperCase(), run: () => this.cycleLiePose(1) });
+    else if (this.nearSit) out.push({ id: "sit", label: this.nearSit.label || "SIT", run: () => this.sit(this.nearSit) });
     const c = this._nearestCarryable();
     if (c) out.push({ id: "take", label: "TAKE", run: () => this.pickUp(c) });
     return out;
@@ -1188,6 +1190,16 @@ export class ThirdPersonControls {
       this.weapons.attack(this._getWeaponTargets());
     }
   }
+  /* Switch to the next lying pose (Animator.LIE_POSE_ORDER); returns the new pose label. */
+  cycleLiePose(dir) {
+    const order = Animator.LIE_POSE_ORDER;
+    const i = Math.max(0, order.indexOf(this.liePose));
+    this.liePose = order[(i + (dir || 1) + order.length) % order.length];
+    const label = Animator.LIE_POSE_LABEL(this.liePose);
+    try { window.__ph3d_phone && window.__ph3d_phone._toast && window.__ph3d_phone._toast(label); } catch (e) {}
+    return label;
+  }
+
   _lie() {
     if (this.state === "lying") { this.stand(); return; }
     let best = null, bd = 2.4 * 2.4;
