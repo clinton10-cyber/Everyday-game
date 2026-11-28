@@ -64,6 +64,7 @@ const SPEC = {
   "ph3d-reload":           { z: "pad",  cls: "h-pad h-reload", ico: "reload" },
 
   "ph3d-walk-talk":        { z: "ctx",  cls: "h-ctx h-always", ico: "talk", o: 2 },
+  "ph3d-struct-btn":       { z: "ctx",  cls: "h-ctx h-always", ico: "use", o: 2 },
   "ph3d-walk-actions":     { z: "ctx",  cls: "h-ctx h-always", ico: "menu", o: 7 },
   "ph3d-walk-attack":      { z: "pad",  cls: "h-pad h-fight", ico: "fight", live: "fight" },
   "ph3d-walk-grab":        { z: "ctx",  cls: "h-ctx h-always", ico: "hand", o: 3 },

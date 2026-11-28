@@ -400,6 +400,14 @@ export const NPC_Cars = {
 
       const cur = carPose(car, car.lane);
       const fx = cur.tx, fz = cur.tz;
+      /* pedestrian crossing with the green man on: cars ahead of it stop short of the stripes */
+      if (this.holdZones && this.holdZones.length) {
+        for (const z of this.holdZones) {
+          if (!z.active) continue;
+          const zx = z.x - car.mesh.position.x, zz = z.z - car.mesh.position.z, zd = Math.hypot(zx, zz);
+          if (zd < z.r && zd > 6.5 && zx * fx + zz * fz > 0) { target = 0; break; }
+        }
+      }
       for (const o of this.list) {
         if (o === car) continue;
         if (o.dead && !(o.wreck && o.wreck.landed)) continue;      /* a wreck still in the air is no obstacle */

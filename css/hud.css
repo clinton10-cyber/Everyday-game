@@ -372,6 +372,7 @@
 #ph3d-walk-talk,
 #ph3d-walk-enter,
 #ph3d-walk-grab,
+#ph3d-struct-btn,
 #ph3d-outside-btn {
   background:var(--h-danfo)!important;
   border-color:transparent!important;

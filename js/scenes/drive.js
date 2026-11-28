@@ -30,6 +30,7 @@ import * as Animator from "../characters/animator.js";
 import { Limp } from "../characters/limp.js";
 import { LocationMarkers } from "../core/location-markers.js";
 import { WorldObjects } from "../core/world-objects.js";
+import { Structures } from "../core/city-structures.js";
 import { buildPHWorld } from "../world/phworld.js";
 import { addNightGlow } from "../core/night-glow.js";
 import { NPCs } from "../core/npcs.js";
@@ -1464,6 +1465,16 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     routeToLandmark(nearGate.lm, router);
   });
 
+  /* Interactive structures: pedestrian crossing, network mast, basket tower, crane, cave */
+  try {
+    Structures.init({
+      scene: three, aabbs: worldAABBs, platforms: walkablePlatforms, roads: city.roads, compounds,
+      spawn: { x: SPAWN_X, z: SPAWN_Z }, walker, jet,
+      get character() { return character; },
+      toast: (m) => { try { window.__ph3d_phone && window.__ph3d_phone._toast(m); } catch (e) {} },
+    });
+  } catch (e) { console.warn("[drive] Structures:", e); }
+
   const walkTalkBtn = document.createElement("button");
   walkTalkBtn.id = "ph3d-walk-talk";
   walkTalkBtn.textContent = "TALK";
@@ -2014,6 +2025,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       try { if (character && character.parent) character.parent.remove(character); disposeObject3D(character); } catch (e) {}
       try { walkerWeapons.dispose(); } catch (e) {}
       try { WorldObjects.clear(); } catch (e) {}
+      try { Structures.dispose(); } catch (e) {}
       try { LocationMarkers.clear(); } catch (e) {}
       try { NPCs.despawn(); } catch (e) {}
       try { NPC_Cars.despawn(); } catch (e) {}
@@ -2134,6 +2146,7 @@ try {
       tickPolice(dt, t, px, pz);
 
       try { WorldObjects.tick(dt, px, pz); } catch (e) {}
+      try { Structures.update(dt, px, pz, mode); } catch (e) {}
       try { LocationMarkers.tick(dt, camera, px, pz); } catch (e) {}
       try { NPCs.tick(dt, px, pz); } catch (e) {}
       try { NPC_Cars.tick(dt); } catch (e) {}
@@ -2634,6 +2647,8 @@ try {
             }
           }
         }
+
+        try { Structures.enforce(); } catch (e) {}
 
         if (walker.y < -5 && !walker.ragdoll) {
           if (window.__ph3d_phone) window.__ph3d_phone._toast("You fell in the water!");
