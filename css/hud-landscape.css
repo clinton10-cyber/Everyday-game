@@ -60,7 +60,6 @@
   #hud-tr{flex-direction:row-reverse!important;align-items:center!important;gap:6px!important}
   .h-chip,.h-wallet,#ph3d-pocket-btn{height:30px!important;border-radius:10px!important}
   .tpill.h-wallet .tamt{font-size:14px!important;font-weight:900!important}
-  #ph3d-wanted{top:calc(env(safe-area-inset-top,0px) + 44px)!important;right:var(--h-right)!important}
 
   /* ── CENTRE LANE · top: banner + toasts (kept narrow, between the two corners) ── */
   #drive-hud,#ph3d-wave,#ph3d-prison-hud,#pc-combo{padding:5px 12px!important;font-size:12px!important;max-width:min(34vw,300px)!important}

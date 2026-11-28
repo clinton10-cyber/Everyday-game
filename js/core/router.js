@@ -3,7 +3,6 @@ import * as THREE from "three";
 import { disposeScene } from "./disposer.js";
 import { Quality } from "./quality.js";
 import { DayNight } from "./daynight.js";
-import { tickWanted } from "../ui/wanted.js";
 import { NightTools } from "./night-tools.js";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -404,7 +403,6 @@ export class Router {
     DayNight.tick(dt);
     try { window.__ph3d_prison && window.__ph3d_prison.tick(dt); } catch (e) {}
     try { window.__ph3d_crime && window.__ph3d_crime.decay(dt); } catch (e) {}
-    try { tickWanted(); } catch (e) {}
     try { window.__ph3d_kidnap && window.__ph3d_kidnap.tick(dt); } catch (e) {}
     try { const C = window.__ph3d_combat; if (C && C.update) C.update(dt); } catch (e) {}
     window.__ph3d_daynight = DayNight;
