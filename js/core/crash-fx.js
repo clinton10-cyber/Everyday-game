@@ -413,12 +413,57 @@ const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion(), _tq2 = new THREE.
 const _AX = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
 
 /* the real oriented size + centre of a model, measured with no rotation so the yaw can't inflate it */
+/* helper geometry that is NOT car body: headlight beam cones, glow sprites, particles, lines.
+   (The additive headlight cones stick 7 m out of the nose; counting them made the wreck box far too long,
+   so a car resting on its side or roof floated in the air.) */
+const _isHelper = (o) => {
+  if (o.userData && (o.userData.noBody || o.userData.isHelper)) return true;
+  if (o.isSprite || o.isPoints || o.isLine || o.isLight) return true;
+  if (!o.isMesh) return false;
+  const ms = Array.isArray(o.material) ? o.material : [o.material];
+  for (const m of ms) {
+    if (!m) continue;
+    if (m.blending === THREE.AdditiveBlending) return true;
+    if (m.depthWrite === false && m.transparent) return true;
+  }
+  return false;
+};
+const _bodyMeshes = (obj, out) => {
+  obj.traverse((o) => { if (o.isMesh && o.geometry && !_isHelper(o)) out.push(o); });
+  return out;
+};
+const _mb = new THREE.Box3(), _mb2 = new THREE.Box3();
+function _bodyBox(obj) {
+  _mb.makeEmpty();
+  for (const m of _bodyMeshes(obj, [])) { _mb2.setFromObject(m); if (!_mb2.isEmpty()) _mb.union(_mb2); }
+  if (_mb.isEmpty()) _mb.setFromObject(obj);
+  return _mb;
+}
+
+/* the real oriented size + centre of a model, measured with no rotation so the yaw can't inflate it */
 CrashFX.measureBody = function (obj) {
   const q = obj.quaternion.clone(), p = obj.position.clone();
   obj.quaternion.identity(); obj.position.set(0, 0, 0); obj.updateMatrixWorld(true);
-  const bb = new THREE.Box3().setFromObject(obj);
+  const bb = _bodyBox(obj).clone();
   obj.quaternion.copy(q); obj.position.copy(p); obj.updateMatrixWorld(true);
   return { size: bb.getSize(new THREE.Vector3()), center: bb.getCenter(new THREE.Vector3()) };
+};
+
+/* exact lowest world-space point of the real body (vertex accurate) */
+const _lv = new THREE.Vector3();
+CrashFX.lowestBodyY = function (obj) {
+  obj.updateMatrixWorld(true);
+  let low = Infinity;
+  for (const m of _bodyMeshes(obj, [])) {
+    const pos = m.geometry.attributes && m.geometry.attributes.position;
+    if (!pos) continue;
+    const step = pos.count > 4000 ? 3 : 1;
+    for (let i = 0; i < pos.count; i += step) {
+      _lv.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+      if (_lv.y < low) low = _lv.y;
+    }
+  }
+  return low;
 };
 
 CrashFX.makeWreckBody = function (obj, size, o) {
@@ -503,7 +548,10 @@ CrashFX.stepWreckBody = function (b, dt, gy) {
     if (b.age > 7) { b.vx *= 0.9; b.vz *= 0.9; b.wx *= 0.6; b.wy *= 0.6; b.wz *= 0.6; }
     b.rest += dt;
     if ((ang < 0.02 && sp < 0.25) || b.rest > 3) { b.landed = true; }
-    if (b.landed && sp < 0.15) { b.vx = b.vy = b.vz = b.wx = b.wy = b.wz = 0; b.done = true; }
+    if (b.landed && sp < 0.15) {
+      b.vx = b.vy = b.vz = b.wx = b.wy = b.wz = 0; b.done = true;
+      b._snap = true;                                       /* final exact ground fit, done after the write-back below */
+    }
   } else if (!contact) { b.rest = 0; }
   /* the settle rotation may have dipped a corner: clamp once more so nothing ever sinks */
   if (contact) {
@@ -515,6 +563,13 @@ CrashFX.stepWreckBody = function (b, dt, gy) {
   b.obj.quaternion.copy(b.q);
   _tv.copy(b.ctr).applyQuaternion(b.q);
   b.obj.position.set(b.c.x - _tv.x, b.c.y - _tv.y, b.c.z - _tv.z);
+  if (b._snap) {                                            /* never left hanging: lowest real vertex touches the ground */
+    b._snap = false;
+    try {
+      const lo = CrashFX.lowestBodyY(b.obj);
+      if (isFinite(lo)) { const d = (gy + 0.01) - lo; if (Math.abs(d) > 0.005) { b.obj.position.y += d; b.c.y += d; } }
+    } catch (e) {}
+  }
   if (b._bounce) { const bn = b._bounce; b._bounce = null; if (b.onBounce) { try { b.onBounce(bn); } catch (e) {} } }   /* e.g. dent the body where it landed */
   return b.done;
 };

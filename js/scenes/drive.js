@@ -185,7 +185,7 @@ function resolveAABBs(x, z, radius, aabbs, walkerY) {
    the obstacle, so grazing a wall or a pole slides instead of stopping dead.
    ================================================================ */
 const CAR_CLEAR_H = 0.45;   /* colliders lower than this (kerbs, pads) do not stop a car */
-function resolveCarAABBs(x, z, heading, halfW, halfL, aabbs) {
+function resolveCarAABBs(x, z, heading, halfW, halfL, aabbs, clearH) {
   const r = Math.max(0.7, halfW * 0.9);
   const off = Math.max(0, halfL - r);
   const fx = Math.sin(heading), fz = Math.cos(heading);
@@ -194,7 +194,7 @@ function resolveCarAABBs(x, z, heading, halfW, halfL, aabbs) {
   for (let iter = 0; iter < 2; iter++) {
     for (let i = 0; i < offs.length; i++) {
       const cx = px + fx * offs[i], cz = pz + fz * offs[i];
-      const rr = resolveAABBs(cx, cz, r, aabbs, CAR_CLEAR_H);
+      const rr = resolveAABBs(cx, cz, r, aabbs, clearH == null ? CAR_CLEAR_H : clearH);
       px += rr[0] - cx; pz += rr[1] - cz;
     }
   }
@@ -1689,10 +1689,17 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     const f = carFly;
     if (f && !f.done) {
       /* rigid-body wreck: spins about its centre, bounces, lowest corner always above the road (no sinking) */
+      /* flies over buildings and lands anywhere: ground, or the roof it comes down on */
+      const bot = f.c.y - f.size.y * 0.5;
       const nx = f.c.x + f.vx * dt, nz = f.c.z + f.vz * dt;
-      const res = resolveCarAABBs(nx, nz, heading, carSize.x * 0.5, carSize.z * 0.5, worldAABBs);
+      const res = resolveCarAABBs(nx, nz, heading, carSize.x * 0.5, carSize.z * 0.5, worldAABBs, Math.max(CAR_CLEAR_H, bot + 0.25));
       if (Math.abs(res[0] - nx) > 1e-4 || Math.abs(res[1] - nz) > 1e-4) { f.vx *= -0.2; f.vz *= -0.2; }
-      CrashFX.stepWreckBody(f, dt, sampleTerrainMeshHeight(f.c.x, f.c.z) + 0.02);
+      let roof = 0;
+      for (const b of worldAABBs) {
+        if (b.y1 === undefined || b.y1 <= roof || b.y1 > bot + 0.6) continue;
+        if (f.c.x > b.x - b.hx && f.c.x < b.x + b.hx && f.c.z > b.z - b.hz && f.c.z < b.z + b.hz) roof = b.y1;
+      }
+      CrashFX.stepWreckBody(f, dt, Math.max(sampleTerrainMeshHeight(f.c.x, f.c.z), roof) + 0.02);
       carPos.x = f.c.x; carPos.z = f.c.z;
     }
     if (carWreckT > 30) repairPlayerCar();

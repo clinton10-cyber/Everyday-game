@@ -353,10 +353,23 @@ export const NPC_Cars = {
     car.speed = car.baseSpeed;
   },
 
-  _insideAABB(x, z, aabbs, pad) {
+  /* top of the tallest collider under (x,z) that the given height clears (a roof to land on), else the ground (0) */
+  _surfaceY(x, z, bottomY) {
+    let y = 0;
+    if (!_aabbs) return y;
+    for (const b of _aabbs) {
+      if (b.y1 === undefined || b.y1 <= y || b.y1 > bottomY + 0.6) continue;
+      if (x > b.x - b.hx && x < b.x + b.hx && z > b.z - b.hz && z < b.z + b.hz) y = b.y1;
+    }
+    return y;
+  },
+
+  /* clearY (optional): colliders whose top is below this height do not count (the thing is flying over them) */
+  _insideAABB(x, z, aabbs, pad, clearY) {
     if (!aabbs) return false;
     pad = pad || 0;
     for (const b of aabbs) {
+      if (clearY !== undefined && b.y1 !== undefined && b.y1 <= clearY) continue;
       if (x > b.x - b.hx - pad && x < b.x + b.hx + pad &&
           z > b.z - b.hz - pad && z < b.z + b.hz + pad) return true;
     }
@@ -633,7 +646,7 @@ export const NPC_Cars = {
       t: 0, landed: false,
       body: CrashFX.makeWreckBody(m, _bx.size, {
         center: _bx.center,
-        vx: dir.x / dl * (6 + 12 * pw), vz: dir.z / dl * (6 + 12 * pw), vy: 7 + 8 * pw,
+        vx: dir.x / dl * (8 + 14 * pw), vz: dir.z / dl * (8 + 14 * pw), vy: 9 + 9 * pw,
         wx: _rnd(-4, 4) * pw, wy: _rnd(-3, 3), wz: _rnd(-4, 4) * pw, color: car.colorHex,
         onBounce: (bn) => {                                          /* every hard landing dents the body where it touched down */
           try {
@@ -692,10 +705,13 @@ export const NPC_Cars = {
     w.t += dt;
     const bd = w.body;
     if (!bd.done) {
-      /* buildings stop it dead; everything else is rigid-body physics: it rotates about its centre, bounces,
-         and its lowest corner is always held above the road, so it can never sink */
-      if (this._insideAABB(bd.c.x + bd.vx * dt, bd.c.z + bd.vz * dt, _aabbs, 1.2)) { bd.vx *= -0.2; bd.vz *= -0.2; }
-      CrashFX.stepWreckBody(bd, dt, 0.02);
+      /* a wreck in the air flies OVER buildings and lands anywhere (road, grass, pavement, a rooftop);
+         it is only stopped by a wall it is still lower than */
+      const bot = bd.c.y - bd.size.y * 0.5;
+      const nx = bd.c.x + bd.vx * dt, nz = bd.c.z + bd.vz * dt;
+      if (this._insideAABB(nx, nz, _aabbs, 1.2, bot + 0.25)) { bd.vx *= -0.2; bd.vz *= -0.2; }
+      const gy = this._surfaceY(bd.c.x, bd.c.z, bot) + 0.02;
+      CrashFX.stepWreckBody(bd, dt, gy);
       w.landed = bd.landed;
     }
     /* burnt out: remove it and put a fresh car back on the road */
