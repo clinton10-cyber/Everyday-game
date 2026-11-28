@@ -17,6 +17,7 @@ import { buildChiron3D } from "../../vehicles/chiron3d.js";
 import { buildScrappy3D } from "../../vehicles/scrappy3d.js";
 import { buildNK250 } from "../../vehicles/nk250.js";
 import { buildHoverboard } from "../../vehicles/hoverboard.js";
+import { buildSkyfury } from "../../vehicles/skyfury.js";
 import { buildHilux } from "../../vehicles/models.js";
 
 /* name, tagline, default colour and model builder for every car in the game */
@@ -30,11 +31,12 @@ const CATALOG = {
   chiron:     { name: "BUGATTI CHIRON",   tag: "W16 · 420 KM/H",         color: "#0e2138", build: (b, r) => buildChiron3D(b, r) },
   nk250:      { name: "QLINK NK250",      tag: "NAKED SPORT BIKE",       color: "#d51f2b", build: (b, r) => buildNK250(b, r) },
   hoverboard: { name: "HOVERBOARD X-1",   tag: "ANTI-GRAV",              color: "#38e8ff", build: (b, r) => buildHoverboard(b, r) },
+  skyfury:    { name: "SKYFURY JET",      tag: "TWIN AFTERBURNER · FLIGHT", color: "#9aa7b4", build: (b, r) => buildSkyfury(b, r) },
   scrappy:    { name: "SCRAPPY CAR",      tag: "STARTER · UNBREAKABLE",  color: "#4d6b74", build: (b, r) => buildScrappy3D(b, r) },
 };
 const FACE_YAW = Math.PI;            /* cars park nose-first toward the entrance so you see their fronts */
-const SMALL = { nk250: 1, hoverboard: 1 };
-const FRONT_FIX = { nk250: 0, hoverboard: 0, gwagon: Math.PI, cybertruck: 0, rangerover: 0, mercedes: -Math.PI / 2, chiron: -Math.PI / 2, scrappy: 0, bmw: -Math.PI / 2, hilux: -Math.PI / 2 };
+const SMALL = { nk250: 1, hoverboard: 1, skyfury: 1 };
+const FRONT_FIX = { nk250: 0, hoverboard: 0, skyfury: 0, gwagon: Math.PI, cybertruck: 0, rangerover: 0, mercedes: -Math.PI / 2, chiron: -Math.PI / 2, scrappy: 0, bmw: -Math.PI / 2, hilux: -Math.PI / 2 };
 
 export async function buildInterior(router) {
   /* ---------- what the player owns ---------- */

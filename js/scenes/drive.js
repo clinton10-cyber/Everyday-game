@@ -17,6 +17,7 @@ import { buildChiron3D } from "../vehicles/chiron3d.js";
 import { buildVehicle as buildVehicleSimple } from "../vehicles/models.js";
 import { buildTaxi3D } from "../vehicles/taxi3d.js";
 import { buildScrappy3D } from "../vehicles/scrappy3d.js";
+import { buildSkyfury, updateSkyfuryThrottle } from "../vehicles/skyfury.js";
 import { addCarDoors, setDoorTarget, updateDoors, doorPoints, isDoorOpen } from "../vehicles/car-doors.js";
 import { buildCharacter, HIP_HEIGHT, attachPhone, liveApplyConfig } from "../characters/lowpoly.js";
 import { Wardrobe } from "../core/wardrobe.js";
@@ -35,6 +36,7 @@ import { NPCs } from "../core/npcs.js";
 import { Pursuit } from "../core/pursuit.js";
 import { NPC_Cars } from "../core/npc-cars.js";
 import { CrashFX } from "../core/crash-fx.js";
+import { CarDent } from "../core/car-dent.js";
 import { ArrestWatch } from "../core/arrest-watch.js";
 import { Economy } from "../core/economy.js";
 import { Blood } from "../core/blood.js";
@@ -73,7 +75,11 @@ const RAGDOLL_GROUND_Y  = 0;
 
 const WORLD_HALF = 2000;
 const WORLD_OCEAN_EDGE = 1800;
-const GRID_RADIUS = 3, BLOCK_SIZE = 50, ROAD_W = 14;
+/* Flight wraps around like a globe: leave the map in any direction and you come back in from the opposite side.
+   The seam sits far enough out (land edge 1800 + fog distance 1600) that neither side can be seen from the other. */
+const FLIGHT_WRAP = 3400;
+const wrapFlight = (v) => (v > FLIGHT_WRAP ? v - FLIGHT_WRAP * 2 : v < -FLIGHT_WRAP ? v + FLIGHT_WRAP * 2 : v);
+const GRID_RADIUS = 3, BLOCK_SIZE = 50, ROAD_W = 20;
 
 const UP = new THREE.Vector3(0, 1, 0);
 const TAU = Math.PI * 2;
@@ -122,7 +128,7 @@ function buildCity() {
   }));
 
   return {
-    RING_R: 450, RING_RZ: 400, ROAD_W: 14, SW: 4,
+    RING_R: 450, RING_RZ: 400, ROAD_W: 20, SW: 4,
     baseGeometry,
     detailGeometry,
     baseChunks,
@@ -206,7 +212,11 @@ export async function driveScene(params, router) {
   }
 }
 
+/* Hand the main thread back so the loading screen can paint and the browser stays responsive between heavy build steps. */
+const _yieldToBrowser = () => new Promise((r) => setTimeout(r, 0));
+
 async function _driveInner(params, router) {
+  await _yieldToBrowser();   /* let the "STARTING THE ENGINE" loader paint BEFORE the heavy build starts */
   const TIER = (Quality.current && Quality.current.tier) || "medium";
   const LOW = TIER === "low";
   const POTATO = !!(Quality.current && Quality.current.potato);
@@ -287,6 +297,7 @@ async function _driveInner(params, router) {
 
   /* -------- city (two meshes: base + detail) -------- */
   const city = buildCity();
+  await _yieldToBrowser();
   const RING_R = city.RING_R;
   const RING_RZ = city.RING_RZ;
   const worldAABBs = city.aabbs.slice();
@@ -338,6 +349,21 @@ async function _driveInner(params, router) {
     m.matrixAutoUpdate = false; m.renderOrder = 1;
     three.add(m);
   }
+
+  /* Endless surroundings: the city ground is only ~1.4 km wide, so flying out used to show nothing but sky.
+     A grass plain continues to the map edge and open sea runs beyond it (the sea plane follows the camera). */
+  /* a frame of grass around the city ground (|x|,|z| 700 → 1800); it abuts the city ground instead of overlapping it, so nothing z-fights */
+  const landMat = new THREE.MeshLambertMaterial({ color: 0x587e38 });
+  const R_IN = 700, R_OUT = WORLD_OCEAN_EDGE, SPAN = R_OUT - R_IN, MID = R_IN + SPAN / 2;
+  const strip = (cx, cz, w, d) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), landMat);
+    m.rotation.x = -Math.PI / 2; m.position.set(cx, -0.02, cz); m.renderOrder = -2; m.frustumCulled = false; three.add(m);
+  };
+  strip(-MID, 0, SPAN, R_OUT * 2); strip(MID, 0, SPAN, R_OUT * 2);
+  strip(0, -MID, R_IN * 2, SPAN);  strip(0, MID, R_IN * 2, SPAN);
+  const farSea = new THREE.Mesh(new THREE.PlaneGeometry(7000, 7000), new THREE.MeshLambertMaterial({ color: 0x3a7090 }));
+  farSea.rotation.x = -Math.PI / 2; farSea.position.y = -2.5; farSea.renderOrder = -3; farSea.frustumCulled = false;
+  three.add(farSea);
 
   /* -------- night: streetlights light up (glow + ground pools, plus the
      real PointLight pool that follows the player through __lampSpots) -------- */
@@ -397,6 +423,7 @@ async function _driveInner(params, router) {
     WorldObjects.seedCity(three, POTATO ? 40 : LOW ? 80 : 200, GRID_RADIUS, BLOCK_SIZE, ROAD_W);
     window.__ph3d_world_objects = WorldObjects;
   } catch (e) { console.warn("[drive] WorldObjects:", e); }
+  await _yieldToBrowser();
 
 /* -------- Police pursuit (up to 3 cars) -------- */
 const policeCars = [];
@@ -510,7 +537,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
             setTimeout(() => {
               try {
                 const P = window.__ph3d_police;
-                if (P && P.dispatched) { P.target = "You"; P.arrive(); }
+                /* arrests disabled: officers no longer arrest the player */
               } catch (e) { console.warn("[arrest] failed:", e); }
             }, 3000);
           }
@@ -552,7 +579,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   }
 
   /* -------- car selection -------- */
-  const FRONT_CORRECTION = { nk250: 0, hoverboard: 0, gwagon: Math.PI, cybertruck: 0, rangerover: 0, mercedes: -Math.PI / 2, chiron: -Math.PI / 2, scrappy: 0 };
+  const FRONT_CORRECTION = { nk250: 0, hoverboard: 0, skyfury: 0, gwagon: Math.PI, cybertruck: 0, rangerover: 0, mercedes: -Math.PI / 2, chiron: -Math.PI / 2, scrappy: 0 };
   const MODELS_JS_CORRECTION = -Math.PI / 2;
   const model = (State.vehicle && State.vehicle.model) || "scrappy";
   let carMesh, frontCorrection;
@@ -564,6 +591,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   else if (model === "mercedes") { carMesh = buildMercedes3D(State.vehicle.body, State.vehicle.rim); frontCorrection = FRONT_CORRECTION.mercedes; }
   else if (model === "bmw") { carMesh = buildBMW3D(State.vehicle.body, State.vehicle.rim); frontCorrection = MODELS_JS_CORRECTION; }
   else if (model === "chiron") { carMesh = buildChiron3D(State.vehicle.body, State.vehicle.rim); frontCorrection = FRONT_CORRECTION.chiron; }
+  else if (model === "skyfury") { carMesh = buildSkyfury(State.vehicle.body || "#9aa7b4", State.vehicle.rim || "#27313d"); frontCorrection = FRONT_CORRECTION.skyfury; }
   else { carMesh = buildVehicleSimple(model, State.vehicle.body, State.vehicle.rim, { riderless: true }) || buildTaxi(); frontCorrection = FRONT_CORRECTION[model] !== undefined ? FRONT_CORRECTION[model] : MODELS_JS_CORRECTION; }
 
   const carRoot = new THREE.Group();
@@ -580,7 +608,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   for (const n of hiddenForBox) n.visible = true;
 
   /* Hinged doors on every car (not bikes / hoverboard) */
-  const IS_CAR = !["nk250", "hoverboard"].includes(model);
+  const IS_CAR = !["nk250", "hoverboard", "skyfury"].includes(model);
   if (IS_CAR) {
     try {
       addCarDoors(carMesh, { size: carSize, model });
@@ -595,6 +623,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
 
   const charBuilt = buildCharacter(Wardrobe && Wardrobe.config ? Wardrobe.config : null);
   let character = charBuilt.root;
+  character.userData.noDent = true;   /* on the bike / hoverboard / jet the avatar is a child of the vehicle: crash dents must never touch the body */
   let charRig = charBuilt.rig;
   character.visible = false;
   three.add(character);
@@ -611,12 +640,17 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   });
 
   /* ── Bike / hoverboard: the PLAYER'S own avatar rides it; the vehicle itself is empty ── */
-  const RIDE = (model === "nk250" || model === "hoverboard") ? model : null;
+  const RIDE = (model === "nk250" || model === "hoverboard" || model === "skyfury") ? model : null;
   function mountRider() {
     if (!RIDE) return;
     const parent = RIDE === "hoverboard" ? ((carMesh.userData && carMesh.userData.hoverBoard) || carMesh) : carMesh;
     if (character.parent !== parent) parent.add(character);
     if (RIDE === "nk250") { character.position.set(0, 0.93 - HIP_HEIGHT, -0.3); character.rotation.set(0, 0, 0); }
+    else if (RIDE === "skyfury") {
+      const s = (carMesh.userData && carMesh.userData.seatLocal) || { x: 0, y: 0.95, z: 1.35 };
+      character.position.set(s.x, s.y - HIP_HEIGHT, s.z);
+      character.rotation.set(0, 0, 0);
+    }
     else { character.position.set(0, 0.04 - 0.035, 0); character.rotation.set(0, -Math.PI / 2, 0); }
     character.visible = true;
   }
@@ -632,6 +666,12 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       const sh = -(0.92 + 0.35 + tuck * 0.35);
       if (r.armL) { set(r.armL.shoulder, sh, 0, 0.12); set(r.armL.elbow, -0.15, 0, 0); }
       if (r.armR) { set(r.armR.shoulder, sh, 0, -0.12); set(r.armR.elbow, -0.15, 0, 0); }
+    } else if (RIDE === "skyfury") {
+      /* seated pilot: hands on stick/throttle, knees bent in cockpit */
+      set(r.spine, 0.12, 0, 0); set(r.neck, -0.08, 0, 0); set(r.head, 0.05, 0, 0);
+      for (const leg of [r.legL, r.legR]) if (leg) { set(leg.hip, -0.85, 0, 0); set(leg.knee, 1.35, 0, 0); set(leg.ankle, -0.45, 0, 0); }
+      if (r.armL) { set(r.armL.shoulder, -0.55, 0, 0.25); set(r.armL.elbow, -0.85, 0, 0); }
+      if (r.armR) { set(r.armR.shoulder, -0.55, 0, -0.25); set(r.armR.elbow, -0.85, 0, 0); }
     } else {
       set(r.spine, 0.08, 0, 0); set(r.neck, 0, 0, 0); set(r.head, 0, 0, 0);
       for (const [leg, s] of [[r.legL, 1], [r.legR, -1]]) if (leg) { set(leg.hip, -0.12, 0, s * 0.28); set(leg.knee, 0.24, 0, 0); set(leg.ankle, -0.12, 0, 0); }
@@ -643,6 +683,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   const carPos = new THREE.Vector3();
   let heading = Math.PI;
   let speed = 0, steer = 0, wheelRot = 0;
+  let jetAir = false, jetPitch = 0, jetVy = 0;   /* SKYFURY flight state: in the air?, nose-up angle, vertical speed */
   let cameraYaw = 0, cameraPitch = 0.15;
 
   carPos.set(SPAWN_X, 0, SPAWN_Z);
@@ -667,7 +708,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     return !!(walkerWeapons && walkerWeapons.isArmed() &&
       ["pistol", "sniper", "rifle", "smg", "shotgun", "lmg", "bazooka"].includes(walkerWeapons.current));
   }
-  let walkShoulder = -1;                /* +1 / -1: which shoulder the aim camera sits over (B swaps) */
+  let walkShoulder = -1;                /* locked: player always on RIGHT of crosshair (-1). B no longer flips. */
   /* ray vs. a vertical cylinder (a person): distance t, or -1 */
   function rayVertCyl(ox, oy, oz, dx, dy, dz, cx, cz, r, y0, y1, maxT) {
     const px = ox - cx, pz = oz - cz, a = dx * dx + dz * dz;
@@ -1064,6 +1105,21 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
       return;
     }
     if (RIDE) {
+      if (RIDE === "skyfury") {
+        /* climb into the cockpit: walk to the wing, step up, settle in the seat */
+        const cH = Math.cos(heading), sH = Math.sin(heading);
+        const stand = { x: carPos.x - cH * 2.8, z: carPos.z + sH * 2.8 }; /* left wing side */
+        carTransit = {
+          kind: "enter_jet", t: 0, phase: 0,
+          from: { x: walker.x, z: walker.z },
+          stand,
+          d0: Math.max(0.6, Math.hypot(stand.x - walker.x, stand.z - walker.z) / 1.8),
+        };
+        getOutBtn.style.pointerEvents = "none";
+        joyBaseEl.style.display = "none";
+        input.joyX = 0; input.joyY = 0;
+        return;
+      }
       mode = "drive"; speed = 0;
       try { Sfx.play("car_engine_start"); } catch (_) {}
       getOutBtn.textContent = "GET OUT";
@@ -1096,6 +1152,29 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
   function beginExitCar() {
     if (mode !== "drive" || carTransit) return;
     if (RIDE) {
+      if (RIDE === "skyfury") {
+        if (jetAir) { try { window.__ph3d_phone && window.__ph3d_phone._toast("Land the jet before you get out"); } catch (e) {} return; }
+        if (Math.abs(speed) > 6) { try { window.__ph3d_phone && window.__ph3d_phone._toast("Stop the jet first"); } catch (e) {} return; }
+        /* climb out of the cockpit onto the wing, then step to the ground */
+        if (character.parent !== three) {
+          three.add(character);
+          try { charRig.hips.rotation.set(0, 0, 0); charRig.spine.rotation.set(0, 0, 0); } catch (e) {}
+        }
+        character.visible = true;
+        const cH = Math.cos(heading), sH = Math.sin(heading);
+        const wing = { x: carPos.x - cH * 2.4, z: carPos.z + sH * 2.4 };
+        const stand = { x: carPos.x - cH * 3.6, z: carPos.z + sH * 3.6 };
+        const seatY = (carRoot.position.y || 0) + 1.0;
+        carTransit = {
+          kind: "exit_jet", t: 0, phase: 0,
+          from: { x: carPos.x, z: carPos.z, y: seatY },
+          wing, stand,
+        };
+        getOutBtn.style.pointerEvents = "none";
+        joyBaseEl.style.display = "none";
+        input.joyX = 0; input.joyY = 0;
+        return;
+      }
       mode = "walk";
       try { Sfx.play("car_engine_stop"); } catch (_) {}
       const cH = Math.cos(heading), sH = Math.sin(heading);
@@ -1133,6 +1212,80 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     const tr = carTransit;
     tr.t += dt;
     try { updateDoors(carMesh, dt); } catch (e) {}
+
+
+    if (tr.kind === "enter_jet") {
+      if (tr.phase === 0) {
+        const u = Math.min(1, tr.t / Math.max(0.55, tr.d0 || 0.8));
+        const e = u * u * (3 - 2 * u);
+        const p = { x: tr.from.x + (tr.stand.x - tr.from.x) * e, z: tr.from.z + (tr.stand.z - tr.from.z) * e };
+        walker.x = p.x; walker.z = p.z;
+        walker.y = sampleTerrainMeshHeight(p.x, p.z);
+        walker.yaw = Math.atan2(tr.stand.x - tr.from.x, tr.stand.z - tr.from.z);
+        stepAnim(tr, dt, "standing");
+        if (u >= 1) { tr.phase = 1; tr.t = 0; }
+        return true;
+      }
+      if (tr.phase === 1) {
+        const u = Math.min(1, tr.t / 0.85);
+        const e = u * u * (3 - 2 * u);
+        const seatY = (carRoot.position.y || 0) + 1.05;
+        const gy = sampleTerrainMeshHeight(tr.stand.x, tr.stand.z);
+        walker.x = tr.stand.x + (carPos.x - tr.stand.x) * e * 0.55;
+        walker.z = tr.stand.z + (carPos.z - tr.stand.z) * e * 0.55;
+        walker.y = gy + (seatY - gy) * e;
+        walker.yaw = heading;
+        stepAnim(tr, dt, "crouching");
+        if (u >= 1) {
+          mode = "drive"; speed = 0;
+          try { Sfx.play("car_engine_start"); } catch (_) {}
+          getOutBtn.textContent = "GET OUT";
+          getOutBtn.style.pointerEvents = "auto";
+          mountRider();
+          carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
+          carTransit = null;
+        }
+        return true;
+      }
+      return true;
+    }
+
+    if (tr.kind === "exit_jet") {
+      if (tr.phase === 0) {
+        const u = Math.min(1, tr.t / 0.7);
+        const e = u * u * (3 - 2 * u);
+        walker.x = tr.from.x + (tr.wing.x - tr.from.x) * e;
+        walker.z = tr.from.z + (tr.wing.z - tr.from.z) * e;
+        const gy = sampleTerrainMeshHeight(tr.wing.x, tr.wing.z);
+        walker.y = tr.from.y + (gy + 0.9 - tr.from.y) * e;
+        walker.yaw = heading + Math.PI / 2;
+        stepAnim(tr, dt, "crouching");
+        if (u >= 1) { tr.phase = 1; tr.t = 0; tr.from2 = { x: walker.x, z: walker.z }; }
+        return true;
+      }
+      if (tr.phase === 1) {
+        const u = Math.min(1, tr.t / 0.75);
+        const e = u * u * (3 - 2 * u);
+        walker.x = tr.from2.x + (tr.stand.x - tr.from2.x) * e;
+        walker.z = tr.from2.z + (tr.stand.z - tr.from2.z) * e;
+        walker.y = sampleTerrainMeshHeight(walker.x, walker.z);
+        walker.yaw = heading + Math.PI / 2;
+        stepAnim(tr, dt, "standing");
+        if (u >= 1) {
+          mode = "walk";
+          try { Sfx.play("car_engine_stop"); } catch (_) {}
+          walker.pitch = 0; walker.vy = 0; walker.onGround = true;
+          speed = 0;
+          getOutBtn.textContent = "GET IN CAR";
+          getOutBtn.style.pointerEvents = "auto";
+          character.visible = true;
+          joyBaseEl.style.display = "block";
+          carTransit = null;
+        }
+        return true;
+      }
+      return true;
+    }
 
     if (tr.kind === "enter") {
       /* phase 0: walk up to the door while it swings open */
@@ -1296,7 +1449,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     try { window.__ph3d_phone && window.__ph3d_phone._toast(jet.on ? "Jetpack on. Hold JUMP to fly" : "Jetpack off"); } catch (e) {}
   };
   walkFlyBtn.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); toggleJet(); }, { passive: false });
-  const _onKeyFly = e => { if (e.code === "KeyB" && !e.repeat && mode === "walk") walkShoulder = -walkShoulder; if (e.code === "KeyJ" && !e.repeat && mode === "walk") toggleJet();   /* J = jetpack (F is Fight/Fire only) */ };
+  const _onKeyFly = e => { /* shoulder locked to right — B no longer swaps */ if (e.code === "KeyJ" && !e.repeat && mode === "walk") toggleJet();   /* J = jetpack (F is Fight/Fire only) */ };
   window.addEventListener("keydown", _onKeyFly);
 
   const walkEnterBtn = document.createElement("button");
@@ -1457,8 +1610,8 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     o = o || {};
     carHp -= dmg;
     carDent += dmg / CAR_MAX_HP;
-    const d = Math.min(0.12, carDent * 0.16);
-    carMesh.scale.set(1 - d * 0.5, 1 - d * 0.4, 1 - d);
+    /* the body metal is pressed in where the force hit it */
+    try { CarDent.hit(carMesh, o.dirX != null ? { x: o.dirX, z: o.dirZ } : null, dmg / CAR_MAX_HP); } catch (e) {}
     if (carHp <= 0) { explodePlayerCar(o); return; }
     if (carHp < CAR_MAX_HP * 0.55 && !carSmoke) carSmoke = CrashFX.fire(carPos.x, 1, carPos.z, { follow: carRoot, smokeOnly: true, life: 600, scale: 0.75, offsetY: 1.1 });
     if (carHp < CAR_MAX_HP * 0.22 && !carBurning) {            /* engine on fire: it WILL blow up soon */
@@ -1491,11 +1644,15 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
     const y0 = carRoot.position.y;
     CrashFX.explosion(carPos.x, y0 + 0.9, carPos.z, { scale: 1.25, color: _carHex(), wheels: 2, groundY: y0 });
+    try { CarDent.crush(carMesh, { x: dx, z: dz }, o.power || 1); } catch (e) {}
     try { carCharRestore = CrashFX.charCar(carMesh); } catch (e) {}
     carBurn = CrashFX.fire(carPos.x, y0, carPos.z, { follow: carRoot, life: 30, scale: 1.2, offsetY: 0.8 });
-    carFly = CrashFX.makeWreckBody(carRoot, { x: carSize.x, y: carSize.y, z: carSize.z }, {
+    const _bx = CrashFX.measureBody(carRoot);
+    carFly = CrashFX.makeWreckBody(carRoot, _bx.size, {
+      center: _bx.center,
       vx: dx * 8, vz: dz * 8, vy: 8 + 4 * (o.power || 1),
       wx: (Math.random() - 0.5) * 8, wy: (Math.random() - 0.5) * 4, wz: (Math.random() - 0.5) * 8, color: _carHex(),
+      onBounce: (bn) => { try { CarDent.dentAt(carMesh, new THREE.Vector3(bn.x, bn.y + 0.2, bn.z), new THREE.Vector3(0, 1, 0), { depth: 0.12 + 0.2 * Math.min(1, bn.vn / 14), radius: 0.8 }); CrashFX.refreshWreckBody(carFly); } catch (e) {} },
     });
     const driving = (mode === "drive");
     speed = 0;
@@ -1515,6 +1672,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
     carBurn = null;
     try { if (carCharRestore) carCharRestore(); } catch (e) {}
     carCharRestore = null;
+    try { CarDent.repair(carMesh); } catch (e) {}                 /* the body is straightened out again */
     carMesh.scale.set(1, 1, 1);
     const gy = sampleTerrainMeshHeight(carPos.x, carPos.z) + 0.02;
     carRoot.position.set(carPos.x, gy, carPos.z); carRoot.rotation.set(0, heading, 0, "YXZ");
@@ -1818,7 +1976,7 @@ const POLICE_MODEL_CORRECTION = -Math.PI / 2;
                model === "bmw" ? "M4" :
                model === "chiron" ? "CHIRON" :
                model === "nk250" ? "QLINK NK250" :
-               model === "hoverboard" ? "HOVERBOARD X-1" : "G-WAGON"),
+               model === "hoverboard" ? "HOVERBOARD X-1" : model === "skyfury" ? "SKYFURY JET" : "G-WAGON"),
     hint: "",
     dispose: function () {
       try { _unWardrobe(); if (_wdRaf) cancelAnimationFrame(_wdRaf); } catch (_) {}
@@ -1902,6 +2060,9 @@ try {
       } catch (e) {}
       const driveUIEl = document.getElementById("drive-ui");
       if (driveUIEl) driveUIEl.style.display = mode === "drive" ? "block" : "none";
+      farSea.position.x = camera.position.x; farSea.position.z = camera.position.z;       /* the sea always reaches the horizon */
+      const _pitchUI = document.getElementById("dr-pitch");
+      if (_pitchUI) _pitchUI.style.display = (mode === "drive" && model === "skyfury") ? "flex" : "none";
 
       if (mode === "walk" && walker && window.__ph3d_playerActions) {
         try { window.__ph3d_playerActions.tick(walker, dt); } catch (e) {}
@@ -2006,6 +2167,95 @@ try {
            here used last frame's car matrix, so at speed the owner lagged behind and slid out) */
         carSitBtn.style.opacity = "0"; carSitBtn.style.pointerEvents = "none";
 
+
+        /* ── SKYFURY: a real aircraft — taxi, take off, bank + turn, climb/dive, stall, land ─────────
+           Nose points along the flight path (nose-up = NEGATIVE euler X for a +Z-forward model). */
+        if (model === "skyfury" || (carMesh && carMesh.userData && carMesh.userData.isSkyfury)) {
+          const th = (input.throttle || keys.KeyW || keys.ArrowUp) ? 1 : 0;
+          const br = (input.brake || keys.KeyS || keys.ArrowDown) ? 1 : 0;
+          let steerIn = 0;
+          if (input.steerL || keys.KeyA || keys.ArrowLeft) steerIn -= 1;      /* +1 = bank/turn RIGHT */
+          if (input.steerR || keys.KeyD || keys.ArrowRight) steerIn += 1;
+          if (input.joyX) steerIn = input.joyX;
+          let pitchIn = 0;                                                    /* +1 = nose UP */
+          if (input.joyY) pitchIn = -input.joyY;
+          if (keys.KeyR || keys.Space) pitchIn += 1;
+          if (keys.KeyF || keys.ShiftLeft) pitchIn -= 1;
+          if (input.pitchUp) pitchIn += 1;                                    /* on-screen CLIMB / DIVE buttons (phones have no R / F keys) */
+          if (input.pitchDown) pitchIn -= 1;
+          pitchIn = Math.max(-1, Math.min(1, pitchIn));
+
+          const GEAR = 0.85;                                                  /* wheel height: carRoot.y when parked on the ground */
+          const VR = 45, VSTALL = 32, VMAX = 220;                             /* rotate speed, stall speed, top speed (m/s) */
+          let cy = carRoot.position.y;
+          const gnd = Math.max(0, sampleTerrainMeshHeight(carPos.x, carPos.z));          /* the sea is the floor out there, not a pit */
+          if (cy == null || !isFinite(cy)) cy = gnd + GEAR;
+          const onGround = !jetAir;
+
+          /* throttle / brake / drag */
+          if (th) speed += (onGround ? 38 : 60) * dt;
+          if (br) speed -= (onGround ? 55 : 30) * dt;
+          speed -= speed * (onGround ? 0.01 : 0.12) * dt;
+          if (onGround && !th && !br) speed -= Math.sign(speed) * Math.min(Math.abs(speed), 5 * dt);   /* rolling friction */
+          speed = Math.max(onGround ? 0 : VSTALL * 0.5, Math.min(VMAX, speed));
+
+          if (onGround) {
+            /* taxi / take-off run: wheels on the ground, steer the nose wheel, pull up past rotate speed to fly */
+            heading += -steerIn * 0.7 * Math.min(1, speed / 12) * dt;
+            jetPitch += (0 - jetPitch) * Math.min(1, dt * 5);
+            carRoot.rotation.z += (0 - carRoot.rotation.z) * Math.min(1, dt * 6);
+            cy = gnd + GEAR;
+            jetVy = 0;
+            /* LIFT-OFF: pull up past rotate speed — or just keep the throttle on and the aircraft rotates by itself */
+            if (speed >= VR && (pitchIn > 0.2 || speed >= VR * 1.3)) { jetAir = true; jetVy = 5; jetPitch = Math.max(jetPitch, 0.2); }
+          } else {
+            /* roll to an ANGLE (not a rate), pitch from the stick, turn from the bank */
+            const bank = steerIn * 0.85;
+            carRoot.rotation.z += (bank - carRoot.rotation.z) * Math.min(1, dt * 3.5);
+            jetPitch += pitchIn * 1.0 * dt;
+            if (Math.abs(pitchIn) < 0.08) jetPitch *= Math.max(0, 1 - dt * 0.6);           /* hands off: ease level */
+            if (speed < VSTALL) jetPitch -= (VSTALL - speed) / VSTALL * 0.9 * dt;          /* stall: nose drops */
+            jetPitch = Math.max(-0.85, Math.min(0.75, jetPitch));
+            heading += -carRoot.rotation.z * 1.35 * Math.min(1, speed / 60) * dt;
+            const climbV = speed * Math.sin(jetPitch);                                     /* nose up = climb */
+            const sag = speed < VR ? ((VR - speed) / VR) * 16 : 0;                         /* too slow: it sinks */
+            jetVy += ((climbV - sag) - jetVy) * Math.min(1, dt * 3);
+            cy += jetVy * dt;
+            if (cy <= gnd + GEAR) {                                                         /* touch-down */
+              cy = gnd + GEAR;
+              if (jetVy < -22) { speed *= 0.5; try { CrashFX.impact(carPos.x, cy, carPos.z, { power: 0.8, color: _carHex() }); CrashFX.shake(0.8, 0.6); } catch (e) {} }
+              jetVy = 0; jetAir = false; jetPitch = 0;                                      /* landed: rolls out on the wheels */
+            }
+          }
+          while (heading > Math.PI) heading -= Math.PI * 2;
+          while (heading < -Math.PI) heading += Math.PI * 2;
+
+          const fx = Math.sin(heading), fz = Math.cos(heading);
+          const hs = speed * Math.cos(jetPitch);                                           /* horizontal speed */
+          carPos.x += fx * hs * dt; carPos.z += fz * hs * dt;
+          /* leave the map in any direction and you come back in from the other side (camera moves with you: no sweep) */
+          { const wx = wrapFlight(carPos.x), wz = wrapFlight(carPos.z);
+            if (wx !== carPos.x || wz !== carPos.z) { camera.position.x += wx - carPos.x; camera.position.z += wz - carPos.z; carPos.x = wx; carPos.z = wz; } }
+          if (cy > 900) { cy = 900; if (jetVy > 0) jetVy = 0; }
+
+          carRoot.position.set(carPos.x, cy, carPos.z);
+          carRoot.rotation.set(-jetPitch, heading, carRoot.rotation.z, "YXZ");           /* nose along its flight path */
+          try { updateSkyfuryThrottle(carMesh, th || (speed > VR ? 0.35 : 0)); } catch (e) {}
+
+          /* chase camera behind and slightly above, following the climb a little */
+          const camDist = 17 + Math.abs(speed) * 0.04;
+          const camH = cy + 4.5 + jetPitch * 6;
+          const cx = carPos.x - Math.sin(heading + cameraYaw) * camDist;
+          const cz = carPos.z - Math.cos(heading + cameraYaw) * camDist;
+          camera.position.lerp(new THREE.Vector3(cx, camH, cz), Math.min(1, dt * 6));
+          camera.lookAt(carPos.x, cy + 1.2, carPos.z);
+
+          if (hudEl) hudEl.textContent = Math.round(speed * 3.6) + " km/h · ALT " + Math.round(cy - GEAR - gnd) + " m" + (jetAir ? "" : (speed >= VR * 0.9 ? " · CLIMB ▲ TO TAKE OFF" : " · ON GROUND"));
+          if (RIDE) { try { poseRider(dt); } catch (e) {} }
+          window.__ph3d_player = { x: carPos.x, z: carPos.z, yaw: heading, y: cy };
+          return;
+        }
+
         const th = (input.throttle || keys.KeyW || keys.ArrowUp) ? 1 : 0;
         const br = (input.brake || keys.KeyS || keys.ArrowDown) ? 1 : 0;
         const sL = (input.steerL || keys.KeyA || keys.ArrowLeft) ? 1 : 0;
@@ -2037,8 +2287,8 @@ try {
           const fDotN = fwdX * nxn + fwdZ * nzn;
           const vn = speed * fDotN;                              /* < 0 = driving into the obstacle */
           if (vn < 0) {
-            /* velocity after the hit = old velocity minus the into-obstacle part (+12% bounce) */
-            const k = 1.12 * vn;
+            /* velocity after the hit = old velocity minus the into-obstacle part (heavy: absorb energy) */
+            const k = 0.88 * vn;
             const wx = speed * fwdX - k * nxn, wz = speed * fwdZ - k * nzn;
             const wl = Math.hypot(wx, wz) || 1e-6;
             const dir = speed >= 0 ? 1 : -1;                      /* driving forwards or reversing */
@@ -2331,6 +2581,10 @@ try {
             }
             const _wf2 = hasWingFlight();
             jetVis.update(dt, jet.on && !_wf2, jet.on && !_wf2 && (jet.thrust || keys.Space) && jet.fuel > 0);
+            if (jet.on && !walker.onGround) {                 /* flying (jetpack / wings): same looping world as the jet */
+              const wx = wrapFlight(walker.x), wz = wrapFlight(walker.z);
+              if (wx !== walker.x || wz !== walker.z) { camera.position.x += wx - walker.x; camera.position.z += wz - walker.z; walker.x = wx; walker.z = wz; }
+            }
             if (!walker.onGround) {
               walker.vy -= (jet.on ? 0 : 20) * dt;
               walker.y += walker.vy * dt;
@@ -2394,10 +2648,11 @@ try {
           const pp = walker.pitch || 0, cpp = Math.cos(pp), spp = Math.sin(pp);
           const fx = Math.sin(walkCameraYaw) * cpp, fy = spp, fz = Math.cos(walkCameraYaw) * cpp;
           const rx = Math.cos(walkCameraYaw), rz = -Math.sin(walkCameraYaw);
+          /* Player locked on RIGHT of screen; larger lateral offset so body never covers crosshair */
           _aimCamP.set(
-            walker.x - fx * 2.7 + rx * 0.95 * walkShoulder,
-            walker.y + 1.55 - fy * 2.7 + 0.25,
-            walker.z - fz * 2.7 + rz * 0.95 * walkShoulder);
+            walker.x - fx * 2.85 + rx * 1.25 * walkShoulder,
+            walker.y + 1.55 - fy * 2.85 + 0.22,
+            walker.z - fz * 2.85 + rz * 1.25 * walkShoulder);
           const gh = sampleTerrainMeshHeight(_aimCamP.x, _aimCamP.z) + 0.45;
           if (_aimCamP.y < gh) _aimCamP.y = gh;
           camera.position.lerp(_aimCamP, Math.min(1, dt * 16));
@@ -2436,7 +2691,7 @@ try {
             walkTalkBtn._npc = carNpc;
             walkTalkBtn.textContent = "CHAT";
             walkTalkBtn.style.display = "block";
-            walkRelBtn._npc = carNpc; walkRelBtn.style.display = "block";
+            walkRelBtn._npc = carNpc; walkRelBtn.style.display = "none";
           } else {
             walkTalkBtn._npc = null;
             walkTalkBtn.style.display = "none";
@@ -2481,7 +2736,7 @@ try {
         if (npcNear) {
           walkTalkBtn._npc = npcNear;
           walkTalkBtn.style.display = "block";
-          walkRelBtn._npc = npcNear; walkRelBtn.style.display = "block";
+          walkRelBtn._npc = npcNear; walkRelBtn.style.display = "none";
           if (walkEnterBtn) walkEnterBtn.style.display = "none";
           nearGate = null;
         } else {

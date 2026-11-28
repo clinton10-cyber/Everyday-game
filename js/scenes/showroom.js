@@ -19,6 +19,7 @@ import { buildChiron3D } from "../vehicles/chiron3d.js";
 import { buildScrappy3D } from "../vehicles/scrappy3d.js";
 import { buildNK250 } from "../vehicles/nk250.js";
 import { buildHoverboard } from "../vehicles/hoverboard.js";
+import { buildSkyfury } from "../vehicles/skyfury.js";
 import {
   buildVehicle as buildVehicleSimple,
   buildHilux,
@@ -34,6 +35,7 @@ const CARS = [
   { id: "chiron", name: "BUGATTI CHIRON", tag: "W16 · 1500PS · 420 KM/H", price: 280000000, color: "#0e2138", build: (b, r) => buildChiron3D(b, r) },
   { id: "nk250", name: "QLINK NK250", tag: "250 CC · NAKED SPORT · 29 HP", price: 6500000, color: "#d51f2b", build: (b, r) => buildNK250(b, r) },
   { id: "hoverboard", name: "HOVERBOARD X-1", tag: "ANTI-GRAV · DUAL TURBINE · 12 HP", price: 3500000, color: "#38e8ff", build: (b, r) => buildHoverboard(b, r) },
+  { id: "skyfury", name: "SKYFURY JET", tag: "TWIN AFTERBURNER · FREE FLIGHT · MACH CLASS", price: 150000000, color: "#9aa7b4", build: (b, r) => buildSkyfury(b, r) },
   { id: "scrappy", name: "SCRAPPY CAR", tag: "STARTER · RUSTY · UNBREAKABLE", price: 0, color: "#4d6b74", build: (b, r) => buildScrappy3D(b, r) },
 ];
 

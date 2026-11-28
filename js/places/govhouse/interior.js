@@ -356,19 +356,17 @@ export async function buildInterior(router) {
     ebox(Math.cos(a) * 1.3, 2.4, Math.sin(a) * 1.3, 0.1, 0.9, 0.1, 0xcdf2ff);
   }
 
-  /* Circular pool collider — the ThirdPersonControls uses box
-     colliders, so we approximate the circle with 16 thin boxes. */
-  const NRING = 16, RRING = PR + 0.55;
-  for (let i = 0; i < NRING; i++) {
-    const a = (i / NRING) * Math.PI * 2;
-    const bx = Math.cos(a) * RRING;
-    const bz = Math.sin(a) * RRING;
-    const seg = (Math.PI * 2 * RRING) / NRING;
-    SOLID.push({
-      x0: bx - seg, x1: bx + seg,
-      z0: bz - seg, z1: bz + seg,
-      y0: 0, y1: 0.8,
-    });
+  /* Circular pool collider. The controls only know boxes, so the disc is filled with thin horizontal
+     strips that stay inside the coping radius. (The old ring of 6 m squares left the middle of the pool
+     open, so NPCs spawned there and were fenced in, and it spilled out to ~10 m as an invisible wall.) */
+  {
+    const RC = PR + 0.35, DZ = 0.6;
+    for (let z = -RC; z < RC; z += DZ) {
+      const zf = Math.max(Math.abs(z), Math.abs(z + DZ));
+      if (zf >= RC) continue;
+      const hw = Math.sqrt(RC * RC - zf * zf);
+      SOLID.push({ x0: -hw, x1: hw, z0: z, z1: Math.min(z + DZ, RC), y0: 0, y1: 0.8 });
+    }
   }
 
   /* ══════════════════════════════════════════════════════════

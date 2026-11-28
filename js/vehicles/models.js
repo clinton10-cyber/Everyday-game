@@ -684,10 +684,12 @@ export function buildTaxi(body = "#f2c31a", rim = "#2a2d35") {
 
 import { buildNK250 } from "./nk250.js";
 import { buildHoverboard } from "./hoverboard.js";
+import { buildSkyfury } from "./skyfury.js";
 
 export const VEHICLE_BUILDERS = {
   nk250:      buildNK250,
   hoverboard: buildHoverboard,
+  skyfury:    buildSkyfury,
   gwagon:     buildGWagon,
   mercedes:   buildMercedes,
   cybertruck: buildCybertruck,
@@ -706,7 +708,7 @@ export function buildVehicle(id, body, rim, opts) {
 /* ── Seat Counts ────────────────────────────────────────────────── */
 export const SEAT_COUNTS = {
   gwagon: 5, mercedes: 4, cybertruck: 5, hilux: 5,
-  rangerover: 5, bmw: 4, chiron: 2, taxi: 5, nk250: 2, hoverboard: 1,
+  rangerover: 5, bmw: 4, chiron: 2, taxi: 5, nk250: 2, hoverboard: 1, skyfury: 1,
 };
 
 export function seatCount(id) {

@@ -24,6 +24,8 @@ export const Belly = {
 
   /* Create / update the belly on `rig` for progress p (0..1). p<=0 removes it. */
   ensure(rig, p) {
+    if (rig) this.remove(rig);   /* pregnancy belly removed from the game */
+    return null;
     if (!rig || !rig.spine) return null;
     if (!(p > 0.001)) { this.remove(rig); return null; }
     p = Math.min(1, p);

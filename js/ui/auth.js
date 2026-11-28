@@ -63,7 +63,7 @@ export const AuthUI = {
       @keyframes auIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
       @media (prefers-reduced-motion: reduce) { .au-card { animation: none; } }
 
-      .au-logo { width: 96px; height: 96px; margin: 0 auto 2px; display: block;
+      .au-logo { width: 190px; height: auto; margin: 0 auto 6px; display: block;
         filter: drop-shadow(0 6px 14px rgba(0,0,0,.45)); }
 
       .au-title { font: 800 24px/1.1 var(--a-font); letter-spacing: -.01em; color: var(--a-paper); margin-top: 4px; }
@@ -145,7 +145,7 @@ export const AuthUI = {
       <div class="au-card">
         <div class="au-l">
         <img class="au-logo" src="assets/logo.svg" alt="Everyday in LIFEX"/>
-        <div class="au-title">Everyday in LIFEX</div>
+        <div class="au-title">in LIFEX</div>
         <div class="au-sub">The Garden City</div>
         </div>
         <div class="au-r">

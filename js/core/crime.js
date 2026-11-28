@@ -49,7 +49,6 @@ export const Crime = {
     }
 
     if (before > 0 && this.alert === 0) {
-      try { window.__ph3d_phone && window.__ph3d_phone._toast("✅ Alert cleared"); } catch (e) {}
       try { window.__ph3d_police && window.__ph3d_police.cancel(); } catch (e) {}
     }
   },

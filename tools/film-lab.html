@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>film lab</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block;width:100vw;height:100vh}</style></head>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.min.js","three/addons/":"../vendor/three/addons/"}}</script>
+<body><canvas id="c"></canvas>
+<script type="module">
+/* Developer lab for the cinematic stories: builds every stage with an empty cast and exposes the engine so a
+   script (tools/film_render.py or an inspection script) can place the camera and capture frames.
+   Usage: tools/film-lab.html?w=960&h=540   →  window.__film, window.__ready */
+import { playCinematic, STAGES } from "../js/cinematics/story-player.js";
+const q = new URLSearchParams(location.search);
+const W = +(q.get("w") || 960), H = +(q.get("h") || 540);
+const c = document.getElementById("c"); c.style.width = W + "px"; c.style.height = H + "px";
+const kinds = Object.keys(STAGES).filter((k) => !["park", "university"].includes(k));
+const acts = kinds.map((kind) => ({ kind, heading: kind, caption: "", narration: "", duration: 8, cast: [], tod: "day" }));
+const film = await playCinematic(c, { acts, maxPixelRatio: 1 }, null);
+window.__film = film; window.__kinds = kinds; window.__ready = true;
+</script></body></html>

@@ -3,6 +3,7 @@
    Builds the UI, loads the 3D film with a progress bar, runs the controls,
    narration (speech synthesis, kept in sync with the scene timing) and end card. */
 import { STORIES, storyById, storyAfter } from './stories-data.js';
+import { SCRIPTS } from './story-scripts.js';
 
 const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>',
@@ -27,6 +28,8 @@ export async function mountStory(id) {
   document.title = `Everyday Stories · ${story.title}`;
   document.documentElement.style.setProperty('--accent', story.accent);
 
+  /* the film itself carries no text: headings, captions and scene counters are hidden (menus / end card stay) */
+  if (!document.getElementById('no-film-text')) { const st = document.createElement('style'); st.id = 'no-film-text'; st.textContent = '.film .subs,.film .shade,.film .topbar .chapter,.film .topbar .sceneNo,.film .time{display:none!important}'; document.head.appendChild(st); }
   root.innerHTML = `
   <main class="film" id="film">
     <canvas id="filmCanvas" aria-label="3D animated story scene"></canvas>
@@ -205,6 +208,7 @@ export async function mountStory(id) {
     const carBuilder = vehicle ? (c, r) => vehicle.buildRangeRover3D(c, r) : null;
     film = await playCinematic($('filmCanvas'), {
       acts,
+      scripts: SCRIPTS[story.id],
       onProgress: (p, label) => { $('loadfill').style.width = `${Math.max(6, Math.round(p * 100))}%`; $('loadtxt').textContent = label.toUpperCase(); },
       onAct: (a, i) => showAct(a, i),
       onTick: tick,

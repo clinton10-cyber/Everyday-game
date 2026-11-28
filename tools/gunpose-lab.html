@@ -1,0 +1,31 @@
+<!doctype html><meta charset="utf-8"><title>Gun pose lab</title>
+<script async src="../vendor/es-module-shims.js"></script>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.min.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{margin:0;background:#9aa4b2}canvas{display:block}</style><canvas id="c"></canvas>
+<script type="module">
+/* Renders the real avatar rig holding each gun at several carry levels (GUN_TUNE.highReady), side + behind.  window.__done when finished. */
+import * as THREE from "three";
+import { buildCharacter } from "../js/characters/lowpoly.js";
+import { Gun, GUN_TUNE } from "../js/core/guns.js";
+const q = new URLSearchParams(location.search);
+const guns = (q.get("guns") || "pistol,rifle,shotgun,sniper").split(","), levels = (q.get("levels") || "0,0.72,1").split(",").map(Number);
+const CW = 260, CH = 320, cols = levels.length * 2, rows = guns.length;
+const cv = document.getElementById("c"); cv.width = CW * cols; cv.height = CH * rows;
+const R = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+R.setPixelRatio(1); R.setSize(cv.width, cv.height, false); R.setScissorTest(true); R.setClearColor(0x9aa4b2);
+const views = [{ n: "side", pos: [-2.6, 1.3, 0.2], look: [0, 1.05, 0.1] }, { n: "behind", pos: [0.9, 1.6, 2.6], look: [0, 1.15, -0.3] }];
+guns.forEach((g, r) => levels.forEach((lv, li) => {
+  const scene = new THREE.Scene(); scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 1.6));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.4); dl.position.set(2, 4, 3); scene.add(dl);
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.MeshLambertMaterial({ color: 0x6f7a66 })); fl.rotation.x = -Math.PI / 2; scene.add(fl);
+  const b = buildCharacter(null); scene.add(b.root); b.root.rotation.y = Math.PI;   /* faces -Z like the game avatar */
+  const ctl = { rig: b.rig, scene, aiming: false, aimPitch: 0, state: "standing", onGround: true, _moveAmt: 0, pos: new THREE.Vector3(), yaw: 0 };
+  const gun = new Gun(ctl, g); gun.draw(); GUN_TUNE.highReady = lv; ctl.aiming = lv >= 1;
+  for (let k = 0; k < 40; k++) { gun._aimT = performance.now() - 50; gun.applyArmPose(b.rig); b.root.updateMatrixWorld(true); }
+  views.forEach((v, vi) => {
+    const cam = new THREE.PerspectiveCamera(40, CW / CH, 0.1, 50); cam.position.set(...v.pos); cam.lookAt(...v.look);
+    const x = (li * 2 + vi) * CW, y = (rows - 1 - r) * CH; R.setViewport(x, y, CW, CH); R.setScissor(x, y, CW, CH); R.render(scene, cam);
+  });
+}));
+window.__done = true;
+</script>

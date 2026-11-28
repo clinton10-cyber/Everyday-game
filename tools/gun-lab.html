@@ -1,0 +1,43 @@
+<!doctype html><meta charset="utf-8"><title>gun lab</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.min.js","three/addons/":"../vendor/three/addons/"}}</script>
+<script type="module">
+/* Developer lab: exercises weapon switching + scope zoom maths with stub controls (no scene). window.__res holds results. */
+import * as THREE from "three";
+import { Weapons } from "../js/core/guns.js";
+import { ThirdPersonControls as ThirdPerson } from "../js/core/thirdperson.js";
+import { horizontalToVertical } from "../js/core/fov.js";
+const out = {}; const log = []; window.__res = out;
+try {
+  const mkArm = () => ({ shoulder: new THREE.Group(), elbow: new THREE.Group(), wrist: new THREE.Group(), grip: new THREE.Group() });
+  const rig = { armR: mkArm(), armL: mkArm(), hips: new THREE.Group(), spine: new THREE.Group(), head: new THREE.Group() };
+  const calls = []; const c = { rig, scene: new THREE.Scene(), aiming: true, setAiming(v) { this.aiming = !!v; calls.push("aim:" + v); } };
+  const W = new Weapons(c); c.weapons = W;
+  W.select("pistol"); out.s1 = W.current;
+  W.switchTo("sniper"); out.swapping = W._swapping; out.attackBlocked = W.attack([]) === false; out.stillPistol = W.current; out.aimCleared = c.aiming === false;
+  await new Promise((r) => setTimeout(r, 220)); out.afterSwap = W.current; out.swappingAfter = W._swapping;
+  for (let i = 0; i < 30; i++) W.update(1 / 60, []); out.lowerSettled = W._lower;
+  W.next(1); await new Promise((r) => setTimeout(r, 220)); out.next1 = W.current;
+  W.next(-1); await new Promise((r) => setTimeout(r, 220)); out.prev1 = W.current;
+  W.next(1); W.next(1); await new Promise((r) => setTimeout(r, 260)); out.rapid = W.current;      /* two quick steps: sniper→bazooka→knife */
+  W.select("fists"); W.next(1); await new Promise((r) => setTimeout(r, 50)); out.fromFists = W.current;
+  /* ---- zoom maths ---- */
+  const TP = ThirdPerson.prototype; const asp = 16 / 9;
+  const fake = { camera: new THREE.PerspectiveCamera(95, asp, 0.1, 100), _baseCameraFov: 95, aiming: false, _adsZoom: 0, _scopeGun: () => "sniper", weapons: { current: "sniper" } };
+  fake._effBaseFov = TP._effBaseFov; fake._scopeMag = TP._scopeMag; fake._lookZoomScale = TP._lookZoomScale;
+  window.__ph3d_fov = { get: () => 90 };
+  fake.camera.updateProjectionMatrix();
+  const eff = horizontalToVertical(90, asp); out.effBase = +eff.toFixed(2);
+  const trace = []; fake.aiming = true;
+  for (let i = 0; i < 90; i++) { TP._updateAimFov.call(fake, 1 / 60, true); trace.push(+fake.camera.fov.toFixed(2)); }
+  out.zoomIn = trace.filter((_, i) => i % 15 === 0); out.maxJumpIn = +Math.max(...trace.slice(1).map((v, i) => Math.abs(v - trace[i]))).toFixed(2);
+  fake._adsZoom = 1; const t2 = []; for (let i = 0; i < 90; i++) { TP._updateAimFov.call(fake, 1 / 60, true); t2.push(fake.camera.fov); }
+  out.fullZoomFov = +fake.camera.fov.toFixed(2); out.mag8 = +TP._scopeMag.call(fake).toFixed(2); out.lookScale8 = +TP._lookZoomScale.call(fake).toFixed(3);
+  fake.aiming = false; fake._adsZoom = 0; const t3 = []; for (let i = 0; i < 120; i++) { TP._updateAimFov.call(fake, 1 / 60, true); t3.push(fake.camera.fov); }
+  out.maxJumpOut = +Math.max(...t3.slice(1).map((v, i) => Math.abs(v - t3[i]))).toFixed(2);
+  out.afterOutFov = +fake.camera.fov.toFixed(2); out.override = !!fake.camera.userData.noFovOverride;
+  /* effective vertical fov the renderer really uses at the end (override must be back on) */
+  out.projFov = +(2 * Math.atan(1 / fake.camera.projectionMatrix.elements[5]) * 180 / Math.PI).toFixed(2);
+  fake._scopeGun = () => "shotgun"; fake.aiming = true; fake._adsZoom = 0; out.shotgunMag0 = +TP._scopeMag.call(fake).toFixed(2); fake._adsZoom = 1; out.shotgunMag1 = +TP._scopeMag.call(fake).toFixed(2);
+} catch (e) { out.error = String(e && e.stack || e); }
+window.__done = true;
+</script>

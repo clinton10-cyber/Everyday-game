@@ -198,6 +198,7 @@ bikeMesh.rotation.y = Math.PI; // Bike model faces -Z locally
   taxi:       0,
   scrappy:    0,
   nk250:      0,
+  skyfury:    0,
   hoverboard: 0,
 };
 carRoot = new THREE.Group(); carRoot.rotation.order = "YXZ";

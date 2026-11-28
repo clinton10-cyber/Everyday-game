@@ -15,6 +15,7 @@
    ════════════════════════════════════════════════════════════════ */
 import * as THREE from "three";
 import { Blood } from "./blood.js";
+import { FlashPool } from "./flash-pool.js";
 
 /* ── per-weapon feel ─────────────────────────────────────────── */
 const FEEL = {
@@ -151,9 +152,37 @@ function smoke(scene, pos, dir, life, size) {
   });
 }
 
+/* ── screen-aware sizing: effects keep a readable size ON SCREEN at any distance / zoom ─────────────────
+   metres per pixel at 1 m from the camera = 2·tan(fov/2) / screenHeight. A 1.6 cm tracer is ~0.1 px at
+   100 m in an 8x scope, i.e. invisible; scaling by distance·px keeps it a steady couple of pixels. */
+function pxPerMetre(cam) { return 2 * Math.tan(((cam && cam.fov) || 60) * Math.PI / 360) / Math.max(300, (typeof window !== "undefined" && window.innerHeight) || 800); }
+const _vf = new THREE.Vector3(), _vr = new THREE.Vector3(), _vu = new THREE.Vector3();
+/* a point INSIDE the (zoomed) view, lower-right, where the bullet visibly leaves the player's line of fire */
+function viewOrigin(cam, dist) {
+  cam.getWorldDirection(_vf); _vr.setFromMatrixColumn(cam.matrixWorld, 0); _vu.setFromMatrixColumn(cam.matrixWorld, 1);
+  const th = Math.tan((cam.fov || 60) * Math.PI / 360);
+  return cam.position.clone().addScaledVector(_vf, dist).addScaledVector(_vr, th * (cam.aspect || 1.7) * dist * 0.5).addScaledVector(_vu, -th * dist * 0.55);
+}
+let _sf = null;
+/* lens flash for a scoped shot: the gun is out of frame, so the muzzle blast shows as a warm burst at the lens edge */
+function scopeFlash(type) {
+  try {
+    if (!_sf || !_sf.isConnected) {
+      _sf = document.createElement("div"); _sf.id = "ph3d-scope-flash";
+      _sf.style.cssText = "position:fixed;inset:0;z-index:31;pointer-events:none;opacity:0;";
+      document.body.appendChild(_sf);
+    }
+    const big = type === "shotgun" ? 1 : 0.85;
+    _sf.style.transition = "none";
+    _sf.style.background = "radial-gradient(circle at 74% 84%, rgba(255,236,170," + (0.95 * big) + ") 0%, rgba(255,170,60," + (0.6 * big) + ") 16%, rgba(255,120,30,0) 52%), radial-gradient(circle at 50% 50%, rgba(255,210,150,0.16) 0%, rgba(255,160,70,0) 70%)";
+    _sf.style.opacity = "1"; void _sf.offsetWidth;
+    _sf.style.transition = "opacity " + (type === "sniper" ? 0.22 : 0.16) + "s ease-out"; _sf.style.opacity = "0";
+  } catch (e) {}
+}
+
 /* ── tracer ──────────────────────────────────────────────────── */
 let _tracerGeo = null;
-function tracer(scene, from, to, type) {
+function tracer(scene, from, to, type, cam, scoped) {
   const f = feel(type);
   const len = from.distanceTo(to); if (len < 1.5) return;
   if (!_tracerGeo) { _tracerGeo = new THREE.CylinderGeometry(1, 1, 1, 5, 1, true); _tracerGeo.translate(0, 0.5, 0); }
@@ -161,7 +190,8 @@ function tracer(scene, from, to, type) {
   const m = new THREE.Mesh(_tracerGeo, mat); m.frustumCulled = false; scene.add(m);
   const dir = _v.copy(to).sub(from).normalize().clone();
   _q.setFromUnitVectors(_up, dir); m.quaternion.copy(_q);
-  const speed = 380, tail = Math.min(len, type === "sniper" ? 11 : 6.5);
+  const speed = scoped ? 300 : 380, tail = Math.min(len, scoped ? 26 : (type === "sniper" ? 11 : 6.5));
+  const pxm = cam ? pxPerMetre(cam) : 0, pix = scoped ? 2.6 : 1.5;
   let d = 0;
   run({
     update(dt) {
@@ -170,7 +200,8 @@ function tracer(scene, from, to, type) {
       if (tailD >= len) return false;
       const segLen = Math.max(0.01, head - tailD);
       m.position.copy(from).addScaledVector(dir, tailD);
-      m.scale.set(f.tracer, segLen, f.tracer);
+      const th = cam ? Math.max(0.0015, cam.position.distanceTo(m.position) * pxm * pix) : f.tracer;   /* steady on-screen width (a thin streak, not a fat wedge up close) */
+      m.scale.set(th, segLen, th);
       mat.opacity = 0.95 * (1 - Math.max(0, d - len) / tail);
       return true;
     },
@@ -179,8 +210,18 @@ function tracer(scene, from, to, type) {
 }
 
 /* ── impacts ─────────────────────────────────────────────────── */
+/* bright spark/flare at the impact point, sized in screen pixels so it is visible at 100 m in an 8x scope */
+function impactFlare(scene, p, sizeM, color) {
+  const mat = new THREE.SpriteMaterial({ map: texStar(), color: color || 0xffd890, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, opacity: 1 });
+  const sp = new THREE.Sprite(mat); sp.renderOrder = 20; sp.position.copy(p); sp.material.rotation = Math.random() * 6.28; scene.add(sp);
+  let t = 0; const life = 0.16;
+  run({
+    update(dt) { t += dt; const k = t / life; if (k >= 1) return false; const sz = sizeM * (0.6 + k * 0.8); sp.scale.set(sz, sz, sz); mat.opacity = 1 - k; return true; },
+    dispose() { scene.remove(sp); mat.dispose(); },
+  });
+}
 function dustPuff(scene, p, color, n, size, op, lifeK) {
-  op = op == null ? 0.5 : op; lifeK = lifeK || 1;
+  op = op == null ? 0.5 : op; lifeK = lifeK || 1; size *= _impactScale;
   for (let i = 0; i < n; i++) {
     const mat = new THREE.SpriteMaterial({ map: texSoft(), color, transparent: true, opacity: op, depthWrite: false });
     const sp = new THREE.Sprite(mat); sp.position.copy(p); scene.add(sp);
@@ -199,12 +240,15 @@ function dustPuff(scene, p, color, n, size, op, lifeK) {
 }
 
 function flash(scene, p, color, intensity, dist, life) {
-  const l = new THREE.PointLight(color, intensity, dist); l.position.copy(p); scene.add(l);
-  let t = 0;
-  run({ update(dt) { t += dt; l.intensity = intensity * Math.max(0, 1 - t / life); return t < life; }, dispose() { scene.remove(l); } });
+  /* pooled light: never add/remove a PointLight at runtime (forces every lit material to recompile) */
+  FlashPool.fire(scene, p, color, intensity, dist, life);
 }
 
-function impact(scene, p, dir, kind, dmg, type, floorY) {
+let _impactScale = 1;
+function impact(scene, p, dir, kind, dmg, type, floorY, sc, flareM) {
+  _impactScale = sc || 1;
+  if (flareM && kind !== "flesh" && kind !== "head") impactFlare(scene, p, flareM, kind === "ground" ? 0xffe0a8 : 0xffd890);
+  else if (flareM) impactFlare(scene, p, flareM * 0.7, 0xff5030);                                           /* far / zoomed impacts are drawn bigger so they read on screen */
   const d = { x: dir.x, y: dir.y, z: dir.z };
   if (kind === "head") {
     /* exit spray along the bullet + a thin entry mist back toward the shooter; thin red haze, never a solid cloud */
@@ -224,8 +268,9 @@ function impact(scene, p, dir, kind, dmg, type, floorY) {
   } else {                                                         /* hard surface */
     try { Blood.spray(scene, p.x, p.y, p.z, { count: 18, spread: 4.5, color: 0xffcc5e, gravity: -14 }); } catch (e) {}
     dustPuff(scene, p, 0xcfcfcf, 2, 0.38);
-    flash(scene, p, 0xffc060, 2.2, 3, 0.07);
+    flash(scene, p, 0xffc060, 2.2 * Math.min(2.5, _impactScale), 3 * Math.min(2.5, _impactScale), 0.07);
   }
+  _impactScale = 1;
 }
 
 /* ── hit-marker + floating numbers (DOM, centred on the crosshair) ── */
@@ -303,28 +348,42 @@ export const ShotFX = {
     const scene = o.scene; if (!scene) return;
     const f = feel(o.type);
     const dir = o.dir.clone().normalize();
+    const cam = o.camera || null, scoped = !!(o.scoped && cam);
+    const pxm = cam ? pxPerMetre(cam) : 0;
+    const dEnd = cam ? cam.position.distanceTo(o.end) : 0;
+    const sc = cam ? Math.max(1, Math.min(6, 60 * dEnd * pxm / 0.5)) : 1;           /* impact size factor for far / zoomed shots */
+    const flareM = cam && dEnd > 12 ? 26 * dEnd * pxm : 0;                           /* ~26 px flare at the impact */
+    /* scoped: the gun is outside the zoomed picture, so the shot is shown IN the view — a lens flash, plus a tracer that
+       starts inside the frame (lower-right) and streaks to the target */
+    const from = scoped ? viewOrigin(cam, 3) : o.muzzle;
     muzzle(scene, o.muzzle, dir, o.type);
+    if (scoped) scopeFlash(o.type);
     if (o.type === "shotgun") {                                   /* pellet streaks */
       for (let i = 0; i < 5; i++) {
         const e = o.end.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.6));
-        tracer(scene, o.muzzle, e, o.type);
+        tracer(scene, from, e, o.type, cam, scoped);
       }
-    } else tracer(scene, o.muzzle, o.end, o.type);
-    kickScreen(f.kick * 0.55, f.zoom);
+    } else tracer(scene, from, o.end, o.type, cam, scoped);
+    kickScreen(f.kick * (scoped ? 0.95 : 0.55), f.zoom * (scoped ? 1.5 : 1));
 
-    if (o.hit) {
-      const head = o.part === "head";
-      impact(scene, o.end, dir, head ? "head" : "flesh", o.dmg, o.type, o.floorY);
-      const kind = o.killed ? "kill" : head ? "head" : "body";
-      hitMarker(kind);
-      damageText((head ? "HEADSHOT  " : "") + "-" + Math.round(o.dmg), kind);
-      tone(head ? "crack" : "thump");
-      if (head) { vignette("rgba(160,0,0,.55)", 380); kickScreen(0.5, 0.006); }
-      if (o.killed) { vignette("rgba(120,0,0,.7)", 650); kickScreen(0.8, 0.012); }
-    } else if (o.surface === "solid" || o.surface === "ground") {
-      impact(scene, o.end, dir, o.surface === "ground" ? "ground" : "solid", 0, o.type);
-      tone("ping");
-    }
+    /* the bullet takes time to arrive: a long shot (e.g. 100 m through a scope) lands visibly AFTER the flash and tracer */
+    const travel = Math.min(0.32, (o.muzzle.distanceTo(o.end)) / 320);
+    const land = () => {
+      if (o.hit) {
+        const head = o.part === "head";
+        impact(scene, o.end, dir, head ? "head" : "flesh", o.dmg, o.type, o.floorY, sc, flareM);
+        const kind = o.killed ? "kill" : head ? "head" : "body";
+        hitMarker(kind);
+        damageText((head ? "HEADSHOT  " : "") + "-" + Math.round(o.dmg), kind);
+        tone(head ? "crack" : "thump");
+        if (head) { vignette("rgba(160,0,0,.55)", 380); kickScreen(0.5, 0.006); }
+        if (o.killed) { vignette("rgba(120,0,0,.7)", 650); kickScreen(0.8, 0.012); }
+      } else if (o.surface === "solid" || o.surface === "ground") {
+        impact(scene, o.end, dir, o.surface === "ground" ? "ground" : "solid", 0, o.type, undefined, sc, flareM);
+        tone("ping");
+      }
+    };
+    if (travel > 0.05) setTimeout(() => { try { land(); } catch (e) { console.warn("[shotfx] impact", e); } }, travel * 1000); else land();
   },
 
   /* a body hit the floor: dust skid, thud, and a jolt if it happened close to the player */

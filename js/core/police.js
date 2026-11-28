@@ -2,6 +2,8 @@ import { Sfx } from "./sfx.js";
 export const Police={
   dispatched:false,timer:0,target:null,arrivalTime:30,
   dispatch(by){
+    /* Police no longer chase, notify or arrest the player. */
+    if(!by||String(by).toLowerCase()==="you")return;
     if(this.dispatched)return;
     this.dispatched=true;this.timer=0;this.target=by||"You";
     let line="";try{Sfx.play("police_whistle");line=Sfx.voiceText("police_stop");}catch(_){}
@@ -18,6 +20,7 @@ export const Police={
   },
   arrive(){
     this.dispatched=false;this.timer=0;
+    if(!this.target||String(this.target).toLowerCase()==="you"){this.target=null;return;}   /* never arrest the player */
     /* Already arrested / in jail -> don't arrest twice */
     try { const P0=window.__ph3d_prison; if (P0 && P0.inJail) { this.target=null; return; } } catch(e){}
     const ui=window.__ph3d_phone;

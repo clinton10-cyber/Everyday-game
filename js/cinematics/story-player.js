@@ -9,6 +9,7 @@
 import * as THREE from '../../vendor/three/three.module.min.js';
 import { buildPHWorld } from '../world/phworld.js';
 import { buildFaceted } from '../characters/faceted.js';
+import { DirectedAct } from './film-director.js';
 
 /* ------------------------------------------------------------------ stages */
 /* anchor/yaw place the cast in the world; shots are in the stage's local frame.
@@ -163,6 +164,22 @@ function createGameCharacter(spec, index, actIndex) {
   return character;
 }
 
+/* A scripted cast member keeps the exact same look in every scene (skin, hair, clothes). */
+function createScriptedCharacter(spec) {
+  const L = spec.look || {};
+  const female = L.body === 'female';
+  const character = buildFaceted({
+    body: female ? 'female' : 'male', build: L.build ?? 0, skin: L.skin || '#8a5038',
+    hair: L.hair || 'short', hairColor: L.hairColor || '#211b19',
+    top: L.top || 'polo', topColor: L.topColor || '#2764a5', bottom: L.bottom || 'jeans', bottomColor: L.bottomColor || '#25344b',
+    shoeStyle: L.shoeStyle || 'sneaker', shoeColor: L.shoeColor || '#25272b',
+    dress: L.dress,
+  });
+  character.root.userData.cinematicCharacter = true;
+  character.root.userData.rig = character.rig;
+  return character;
+}
+
 /* ------------------------------------------------------------------ sets */
 function buildCityWorld() {
   const data = buildPHWorld();
@@ -251,6 +268,14 @@ export async function playCinematic(canvas, config, carBuilder) {
     const yaw = stage.yaw || 0;
     const toWorld = (v) => new THREE.Vector3(v[0], v[1] || 0, v[2]).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw).add(anchor);
     const cast = new THREE.Group(); cast.visible = false; scene.add(cast);
+    const script = config.scripts && config.scripts[i];
+    if (script) {
+      const setRec = sets.get(stage.set);
+      const directed = new DirectedAct({ script, stage, toWorld, scene, castGroup: cast, makeCharacter: createScriptedCharacter, carBuilder, setRec, interior: !!stage.interior, shield: stage.set !== 'city' });
+      directed.setupLights(scene, act.tod || 'day');
+      acts.push({ act, kind, stage, setKey: stage.set, cast, people: [], car: null, lead: null, shots: [], carStart: null, directed });
+      continue;
+    }
     const people = [];
     (act.cast || []).forEach((spec, j) => {
       const c = createGameCharacter(spec, j, i);
@@ -279,6 +304,7 @@ export async function playCinematic(canvas, config, carBuilder) {
 
   const state = { playing: false, act: 0, elapsed: 0, raf: 0, last: null, done: false, holding: false };
   const duration = (a) => a.duration || 9;
+  const actLen = (rec) => (rec.directed ? rec.directed.duration : duration(rec.act));
   const leadFocus = new THREE.Vector3();
   const focusOf = (rec, s) => {
     if (s.t !== 'lead') return s.t;
@@ -305,6 +331,8 @@ export async function playCinematic(canvas, config, carBuilder) {
     acts.forEach((a, j) => { a.cast.visible = j === i; });
     sets.forEach((rec, key) => { rec.group.visible = key === cur.setKey; });
     const set = sets.get(cur.setKey);
+    acts.forEach((a, j) => { if (a.directed) a.directed.setVisible(j === i); });
+    if (cur.directed) cur.directed.reset();
     rig.visible = !set.interior;
     const tod = TOD[cur.act.tod] || TOD.day;
     hemi.intensity = tod[2]; sun.color.set(tod[3]); sun.intensity = tod[4]; fill.intensity = tod[5];
@@ -342,6 +370,7 @@ export async function playCinematic(canvas, config, carBuilder) {
   }
 
   function moveCamera(rec) {
+    if (rec.directed) { rec.directed.updateCamera(camera, 1 / 30); return; }
     const p = Math.min(1, state.elapsed / duration(rec.act));
     const scaled = p * 3, index = Math.max(0, Math.min(2, Math.floor(scaled))), local = smooth(Math.min(1, scaled - index));
     const from = rec.shots[index], to = rec.shots[index + 1];
@@ -359,14 +388,19 @@ export async function playCinematic(canvas, config, carBuilder) {
     const dt = state.last == null ? 0 : Math.min(0.05, Math.max(0, (now - state.last) / 1000));
     state.last = now; state.elapsed += dt;
     const rec = acts[state.act];
-    updatePeople(rec, dt, now);
-    moveCamera(rec);
-    if (rec.car) rec.car.position.addScaledVector(rec.car.userData.drive, dt);
+    if (rec.directed) {
+      rec.directed.step(dt); rec.directed.updateCamera(camera, dt); rec.directed.updateLights(rec.act.tod || 'day');
+      applyFade(rec);
+    } else {
+      updatePeople(rec, dt, now);
+      moveCamera(rec);
+      if (rec.car) rec.car.position.addScaledVector(rec.car.userData.drive, dt);
+    }
     renderer.render(scene, camera);
     config.onTick?.(state);
-    if (state.elapsed >= duration(rec.act)) {
+    if (state.elapsed >= actLen(rec)) {
       // Let the narration finish (up to a cap) before cutting to the next scene.
-      const cap = duration(rec.act) + (rec.act.maxHold ?? 10);
+      const cap = actLen(rec) + (rec.act.maxHold ?? 10);
       state.holding = !!config.holdAct?.(state.act) && state.elapsed < cap;
       if (!state.holding) {
         if (state.act < acts.length - 1) activate(state.act + 1);
@@ -387,10 +421,36 @@ export async function playCinematic(canvas, config, carBuilder) {
   /* Jump to an exact moment of an act without playing (used by QA captures and thumbnails). */
   function scrub(i, p) {
     pause(); state.done = false;
-    if (state.act !== i || state.elapsed === 0) activate(i);
-    state.elapsed = Math.max(0, Math.min(1, p)) * duration(acts[i].act);
-    moveCamera(acts[i]); renderOnce();
+    activate(i);
+    const rec = acts[i];
+    if (rec.directed) {
+      const target = Math.max(0, Math.min(1, p)) * rec.directed.duration;
+      while (state.elapsed < target - 1e-6) { const dt = Math.min(1 / 30, target - state.elapsed); state.elapsed += dt; rec.directed.step(dt); rec.directed.updateCamera(camera, dt); }
+      rec.directed.updateLights(rec.act.tod || 'day'); applyFade(rec); renderOnce(); return;
+    }
+    state.elapsed = Math.max(0, Math.min(1, p)) * duration(rec.act);
+    moveCamera(rec); renderOnce();
   }
+  /* Offline / frame-exact stepping (MP4 renderer): advance the film by dt seconds, rolling into the next scene. */
+  function advance(dt) {
+    const rec = acts[state.act];
+    state.elapsed += dt;
+    if (rec.directed) { rec.directed.step(dt); rec.directed.updateCamera(camera, dt); rec.directed.updateLights(rec.act.tod || 'day'); applyFade(rec); }
+    if (state.elapsed >= actLen(rec) - 1e-6) {
+      if (state.act < acts.length - 1) activate(state.act + 1); else { state.done = true; }
+    }
+    renderer.render(scene, camera);
+    return state;
+  }
+  /* dip-to-black between scenes, applied to the canvas (stays 1 = fully visible) */
+  state.fade = 1;
+  function applyFade(rec) {
+    const len = actLen(rec), t = state.elapsed, F = 0.45;
+    const fin = sstepF(t / F), fout = sstepF((len - t) / F);
+    state.fade = Math.min(fin, fout);
+    canvas.style.opacity = String(state.fade);
+  }
+  function sstepF(x) { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }
   function skip() { if (state.act < acts.length - 1) seek(state.act + 1); else { pause(); state.done = true; config.onEnd?.(); } }
 
   // Defer to the next frame so the observer callback never changes layout in the same pass.
@@ -404,7 +464,7 @@ export async function playCinematic(canvas, config, carBuilder) {
   config.onProgress?.(1, 'Ready');
 
   return {
-    play, pause, restart, skip, seek, scrub, renderOnce,
+    play, pause, restart, skip, seek, scrub, renderOnce, advance,
     get state() { return state; },
     get acts() { return acts; },
     get sets() { return sets; },

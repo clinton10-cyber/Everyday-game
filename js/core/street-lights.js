@@ -36,7 +36,7 @@ export const StreetLights = {
     this._scene = scene; this._camera = camera || null;
     if (!scene || scene.userData.__streetLightsOptOut) return;
     scene.traverse((o) => {
-      if (o.isPointLight && o.position.y > 2.5) this.register(o);
+      if (o.isPointLight && !o.userData.__flashPool && o.position.y > 2.5) this.register(o);
       if (o.userData && o.userData.__nightGlow) this.glows.push(o);
     });
     const spots = scene.userData.__lampSpots;

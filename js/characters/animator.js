@@ -438,6 +438,25 @@ function airPose(a, ctl, P) {
   P.hL = HAND.open; P.hR = HAND.open;
 }
 
+/* Lying poses, cycled with ctl.cycleLiePose(). Keys are ctl.liePose values; label is what the player sees. */
+const LIE_POSES = {
+  back:         { label: "On back" },
+  side:         { label: "Left side", roll: PI / 2, armLX: -0.45, armRX: -0.45, armLz: 0.05, armRz: -0.05, elL: -0.55, elR: -0.55, kneeLX: 0.55, kneeRX: 0.55 },
+  side_r:       { label: "Right side", roll: -PI / 2, armLX: -0.45, armRX: -0.45, armLz: 0.05, armRz: -0.05, elL: -0.55, elR: -0.55, kneeLX: 0.55, kneeRX: 0.55 },
+  hand_pillow:  { label: "Hand under head", armLX: -2.3, armLz: 0.55, elL: -1.5, armRX: -0.35, armRz: -0.05, elR: -0.9 },
+  hands_behind: { label: "Hands behind head", armLX: -2.3, armLz: 0.55, elL: -1.5, armRX: -2.3, armRz: -0.55, elR: -1.5 },
+  chest_hands:  { label: "Hands on chest", armLX: -0.6, armRX: -0.6, armLz: -0.2, armRz: 0.2, elL: -1.9, elR: -1.9 },
+  stretch:      { label: "Arms overhead", armLX: -3.0, armRX: -3.0, armLz: 0.15, armRz: -0.15, elL: -0.12, elR: -0.12, head: [0.18, 0, 0] },
+  starfish:     { label: "Spread out", armLX: -0.1, armRX: -0.1, armLz: 1.2, armRz: -1.2, elL: -0.05, elR: -0.05, hipLZ: 0.3, hipRZ: -0.3 },
+  knee_up:      { label: "One knee up", armLX: -2.3, armLz: 0.55, elL: -1.5, armRX: -2.3, armRz: -0.55, elR: -1.5, hipLX: -1.0, kneeLX: 1.3 },
+  legs_bent:    { label: "Knees up", armLX: -0.5, armRX: -0.5, armLz: -0.05, armRz: 0.05, elL: -1.5, elR: -1.5, hipLX: -0.95, hipRX: -0.95, kneeLX: 1.35, kneeRX: 1.35 },
+  curled:       { label: "Curled up", roll: PI / 2, hipLX: -0.95, hipRX: -0.95, kneeLX: 1.85, kneeRX: 1.85, armLX: -0.9, armRX: -0.5, elL: -1.35, elR: -1.0 },
+  prone:        { label: "On stomach", roll: PI, head: [-0.05, 1.15, 0], armLX: -2.2, armRX: -2.2, armLz: 0.8, armRz: -0.8, elL: -1.9, elR: -1.9 },
+  prone_flat:   { label: "Face down, arms by sides", roll: PI, head: [-0.05, -1.15, 0], armLz: 0.3, armRz: -0.3 },
+};
+export const LIE_POSE_ORDER = Object.keys(LIE_POSES);
+export const LIE_POSE_LABEL = (k) => (LIE_POSES[k] && LIE_POSES[k].label) || "On back";
+
 /* ═══════════════ seated / lying / bath ═══════════════ */
 function seatedPose(a, ctl, P) {
   const st = ctl.state;
@@ -477,14 +496,17 @@ function seatedPose(a, ctl, P) {
     set3(P.spine, 0, 0, 0);   /* torso flat: no counter-rotation */
     set3(P.head, 0.10, 0, 0);
     P.hipsPos[1] = 0.16;
-    let roll = 0, armLX = -0.04, armRX = -0.04, armLz = 0.14, armRz = -0.14;
-    let elL = -0.08, elR = -0.08, hipLX = 0.02, hipRX = 0.02, kneeLX = 0.05, kneeRX = 0.05;
-    switch (ctl.liePose) {
-      case "side": roll = PI / 2; armLX = -0.45; armRX = -0.45; armLz = 0.05; armRz = -0.05; elL = -0.55; elR = -0.55; kneeLX = 0.55; kneeRX = 0.55; break;
-      case "hand_pillow": armLX = -2.3; armLz = 0.55; elL = -1.5; armRX = -0.35; armRz = -0.05; elR = -0.9; break;
-      case "hands_behind": armLX = -2.3; armLz = 0.55; elL = -1.5; armRX = -2.3; armRz = -0.55; elR = -1.5; break;
-      case "curled": roll = PI / 2; hipLX = 0.85; hipRX = 0.85; kneeLX = 1.85; kneeRX = 1.85; armLX = -0.9; elL = -1.35; break;
-    }
+    /* Pose table. Defaults are "on the back, arms by the sides". Hip x is NEGATIVE to bring a thigh toward the
+       chest (same convention as sitting), knee x is positive to bend. roll = spin about the long axis:
+       PI/2 / -PI/2 = on the left / right side, PI = face down. */
+    const D = { roll: 0, armLX: -0.04, armRX: -0.04, armLz: 0.14, armRz: -0.14, elL: -0.08, elR: -0.08,
+      hipLX: 0.02, hipRX: 0.02, kneeLX: 0.05, kneeRX: 0.05, hipLZ: 0, hipRZ: 0, head: null };
+    const LP = LIE_POSES[ctl.liePose] || null;
+    const Q = LP ? Object.assign({}, D, LP) : D;
+    let roll = Q.roll, armLX = Q.armLX, armRX = Q.armRX, armLz = Q.armLz, armRz = Q.armRz;
+    let elL = Q.elL, elR = Q.elR, hipLX = Q.hipLX, hipRX = Q.hipRX, kneeLX = Q.kneeLX, kneeRX = Q.kneeRX;
+    if (Q.head) set3(P.head, Q.head[0], Q.head[1], Q.head[2]);
+    P.lL.hip[2] = Q.hipLZ; P.lR.hip[2] = Q.hipRZ;
     let extra = ctl.lieRoll || 0;
     extra = Math.atan2(Math.sin(extra), Math.cos(extra));
     P.hips[1] = roll + extra;

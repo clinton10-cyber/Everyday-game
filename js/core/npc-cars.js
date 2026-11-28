@@ -29,6 +29,7 @@ function safeMerge(geos) {
 import { Blood } from "./blood.js";
 import { disposeObject3D } from "./disposer.js";
 import { CrashFX } from "./crash-fx.js";
+import { CarDent } from "./car-dent.js";
 
 const _rnd = (a, b) => a + Math.random() * (b - a);
 const _clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -140,7 +141,7 @@ function carPose(car, lat) {
   return _out;
 }
 
-function laneOffsetFor(edge, bias) { return Math.min(edge.w * 0.25, 3.6) + bias; }
+function laneOffsetFor(edge, bias) { return Math.min(edge.w * 0.28, 5.8) + bias; }
 
 /* pick the road a car continues onto at the end of its current one */
 function chooseNext(car) {
@@ -203,7 +204,7 @@ export const NPC_Cars = {
 
     /* Every AI car is a full vehicle model built from scratch, so 36 of them at once is a big part of the
        walk/drive loading freeze. Build a few now and the rest in the background. */
-    const count = opts.count || 12;
+    const count = opts.count || 18;
     const maxTries = count * 8;
     let spawned = 0, tries = 0;
     const batch = (n) => {
@@ -245,7 +246,7 @@ export const NPC_Cars = {
       const edge = this._randomEdge();
       const fwd = Math.random() < 0.5;
       const s = 6 + Math.random() * Math.max(1, edge.len - 12);
-      const bias = (Math.random() - 0.5) * 0.7;
+      const bias = (Math.random() - 0.5) * 2.0;  /* spread across wider carriageway */
       const car = { edge, fwd, s };
       const p = carPose(car, laneOffsetFor(edge, bias));
       if (this._insideAABB(p.x, p.z, _aabbs, 2.0)) continue;
@@ -509,7 +510,7 @@ export const NPC_Cars = {
           try { C && C.flash  && C.flash(0.8); } catch (e) {}
           _toast("\uD83D\uDCA5 Hit by " + (car.model === "taxi" ? "taxi" : "car"));
           try {
-            CrashFX.impact(player.x, 1.0, player.z, { power: _clamp(0.6 + speed / 30, 0.6, 1.2), dir: { x: impX, z: impZ } });
+            CrashFX.impact(player.x, 1.0, player.z, { power: _clamp(0.6 + speed / 30, 0.6, 1.2), dust: true });
             CrashFX.hurt(0.8);
             CrashFX.slowmo(0.3, 0.55);
             CrashFX.shake(0.9, 0.7);
@@ -591,13 +592,9 @@ export const NPC_Cars = {
   /* ── Damage, wrecks and explosions ─────────────────────────────── */
 
   /* dent the body a little more each hit */
-  _crumple(car, f) {
-    const m = car.mesh;
-    car._dent = (car._dent || 0) + f;
-    const d = Math.min(0.14, car._dent * 0.2);
-    m.scale.set(1 - d * 0.5, 1 - d * 0.45, 1 - d);
-    car._tilt = _clamp((car._tilt || 0) + _rnd(-0.03, 0.03) * Math.min(1, f * 6), -0.07, 0.07);
-    m.rotation.z = car._tilt;
+  _crumple(car, f, dir) {
+    /* the body metal is pressed in at the point the force reached it */
+    CarDent.hit(car.mesh, dir || null, f);
   },
 
   /* returns true if this hit destroyed the car. o: { dir:{x,z}, power } */
@@ -605,7 +602,7 @@ export const NPC_Cars = {
     if (!car || car.dead || !(dmg > 0)) return false;
     o = o || {};
     car.hp -= dmg;
-    this._crumple(car, dmg / car.maxHp);
+    this._crumple(car, dmg / car.maxHp, o.dir);
     if (car.hp <= 0) { this.wreck(car, o); return true; }
     if (dmg > 18 && o.dir) {                                    /* a hard knock slews the car sideways */
       const l = Math.hypot(o.dir.x, o.dir.z) || 1;
@@ -630,11 +627,20 @@ export const NPC_Cars = {
     const dir = o.dir || { x: car.vx, z: car.vz };
     const dl = Math.hypot(dir.x, dir.z) || 1;
     const pw = o.power == null ? 1 : _clamp(o.power, 0.3, 1.3);
+    try { CarDent.crush(m, dir, pw); } catch (e) {}                /* caved-in, crumpled body (before measuring, so the box matches it) */
+    const _bx = CrashFX.measureBody(m);                              /* this model's real size, so no part can sink into the road */
     car.wreck = {
       t: 0, landed: false,
-      body: CrashFX.makeWreckBody(m, { x: CAR_HALF_W * 2, y: 1.5, z: CAR_HALF_L * 2 }, {
+      body: CrashFX.makeWreckBody(m, _bx.size, {
+        center: _bx.center,
         vx: dir.x / dl * (6 + 12 * pw), vz: dir.z / dl * (6 + 12 * pw), vy: 7 + 8 * pw,
         wx: _rnd(-4, 4) * pw, wy: _rnd(-3, 3), wz: _rnd(-4, 4) * pw, color: car.colorHex,
+        onBounce: (bn) => {                                          /* every hard landing dents the body where it touched down */
+          try {
+            CarDent.dentAt(m, new THREE.Vector3(bn.x, bn.y + 0.2, bn.z), new THREE.Vector3(0, 1, 0), { depth: 0.12 + 0.2 * Math.min(1, bn.vn / 14), radius: 0.8 });
+            CrashFX.refreshWreckBody(car.wreck.body);                 /* keep the collision box hugging the dented body */
+          } catch (e) {}
+        },
       }),
     };
     CrashFX.explosion(p.x, 0.9, p.z, { scale: 1.15, color: car.colorHex, wheels: 2 });
@@ -697,7 +703,7 @@ export const NPC_Cars = {
       const i = this.list.indexOf(car);
       if (i >= 0) this.list.splice(i, 1);
       try { CrashFX.stopFire(car._fire); CrashFX.stopFire(car._smoke); } catch (e) {}
-      try { if (m.parent) m.parent.remove(m); disposeObject3D(m); } catch (e) {}
+      try { CarDent.release(m); if (m.parent) m.parent.remove(m); disposeObject3D(m); } catch (e) {}
       setTimeout(() => { try { if (_scene) this._spawnOne(); } catch (e) {} }, 600);
     }
   },
@@ -719,9 +725,8 @@ export const NPC_Cars = {
       NP.launch(npc, { vx: car.vx * 0.95 + hit.nx * 3, vy: 4 + sp * 0.35, vz: car.vz * 0.95 + hit.nz * 3 }, { damage: sp > 9 ? 220 : 25 + sp * 4, type: "car" });
       car.speed *= 0.5;
       try {
-        CrashFX.impact(npc.ctl.pos.x, 1.0, npc.ctl.pos.z, { power: _clamp(sp / 24, 0.3, 0.9) });
+        CrashFX.impact(npc.ctl.pos.x, 1.0, npc.ctl.pos.z, { power: _clamp(sp / 24, 0.3, 0.9), dust: true });
         const pl = _getPlayerState();
-        if (pl && Math.hypot(pl.x - cx, pl.z - cz) < 40) _toast("\uD83D\uDCA5 A car hit a pedestrian");
       } catch (e) {}
     }
   },

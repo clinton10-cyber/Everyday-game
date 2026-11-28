@@ -49,7 +49,7 @@ const PAPER2= "#e3d2a0";
 const RED   = "#9c3a24";
 const SERIF = "Georgia, 'Times New Roman', serif";
 
-const W = { RING_R: 180, RING_RZ: 145, ROAD_W: 10, OFFSET: 10 + 3.5 + 34, LAND_X: 340, LAND_Z: 310 };
+const W = { RING_R: 180, RING_RZ: 145, ROAD_W: 20, OFFSET: 210, BLOCK: 20 + 3.5 + 34, LAND_X: 340, LAND_Z: 310 };
 const MB = { x0: -415, x1: 355, z0: -335, z1: 452 };
 
 /* Per-landmark ink colour used on the map. */
@@ -141,7 +141,7 @@ function injectCSS() {
 
     #ph3d-map-hdr {
       position: absolute; top: 0; left: 0; right: 0; z-index: 2; pointer-events: none;
-      padding: calc(env(safe-area-inset-top) + 10px) 14px 0;
+      padding: calc(env(safe-area-inset-top) + 10px) max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left));
       display: flex; align-items: center; justify-content: space-between;
     }
     #ph3d-map-hdr .ttl {
@@ -157,14 +157,14 @@ function injectCSS() {
     #ph3d-map-close:active { transform: scale(.94); }
 
     #ph3d-map-mini {
-      position: absolute; left: 14px; top: calc(env(safe-area-inset-top) + 66px); z-index: 2;
+      position: absolute; left: max(14px, env(safe-area-inset-left)); top: calc(env(safe-area-inset-top) + 66px); z-index: 2;
       width: 104px; height: 120px; border: 3px solid ${INK}; border-radius: 3px;
       box-shadow: 0 0 0 2px ${PAPER}, 0 6px 14px rgba(30,20,5,.5); touch-action: none; cursor: pointer;
       background: #7aa0ab;
     }
 
     #ph3d-map-zoom {
-      position: absolute; right: 14px; top: 50%; transform: translateY(-50%); z-index: 2;
+      position: absolute; right: max(14px, env(safe-area-inset-right)); top: 50%; transform: translateY(-50%); z-index: 2;
       display: flex; flex-direction: column; overflow: hidden; border-radius: 24px;
     }
     #ph3d-map-zoom button {
@@ -180,7 +180,7 @@ function injectCSS() {
       display: flex; flex-direction: column; gap: 10px; pointer-events: none;
     }
     #ph3d-map-card {
-      pointer-events: auto; margin: 0 14px; padding: 10px 12px 10px 10px;
+      pointer-events: auto; margin: 0 max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left)); padding: 10px 12px 10px 10px;
       display: none; align-items: center; gap: 10px; border-radius: 10px;
     }
     #ph3d-map-card.on { display: flex; }
@@ -202,8 +202,10 @@ function injectCSS() {
     }
 
     #ph3d-map-strip {
-      pointer-events: auto; display: flex; gap: 8px; overflow-x: auto; padding: 3px 14px 6px;
+      pointer-events: auto; display: flex; gap: 8px; overflow-x: auto; padding: 3px max(14px, env(safe-area-inset-right)) 6px max(14px, env(safe-area-inset-left));
       scrollbar-width: none; -webkit-overflow-scrolling: touch;
+      -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 36px), transparent 100%);
+      mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 36px), transparent 100%);
     }
     #ph3d-map-strip::-webkit-scrollbar { display: none; }
     #ph3d-map-strip .chip {
@@ -1335,14 +1337,17 @@ function draw(t) {
     ];
     const card = document.getElementById("ph3d-map-card");
     const dockTop = _h - ((card && card.classList.contains("on")) ? 175 : 100);
-    const maxLen = z > 0.9 ? 24 : 15;
+    const maxW = z > 0.9 ? 230 : 180;
     for (const m of order) {
       let name = m.pl.lm.name;
       name = name.charAt(0) + name.slice(1).toLowerCase();
       name = name.replace(/\b(\w)/g, (c) => c.toUpperCase())
                  .replace(/\bOf\b/g, "of")
                  .replace(/'S\b/g, "'s");
-      if (name.length > maxLen) name = name.slice(0, maxLen - 1) + "…";
+      if (ctx.measureText(name).width + 18 > maxW) {
+        while (name.length > 4 && ctx.measureText(name + "…").width + 18 > maxW) name = name.slice(0, -1);
+        name = name.trimEnd() + "…";
+      }
       const tw = ctx.measureText(name).width + 18, th = 20;
       const x = m.s.x - tw / 2, y = m.s.y + 7;
       if (x < 4 || x + tw > _w - 4 || y < 56 || y + th > dockTop) continue;

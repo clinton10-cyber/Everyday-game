@@ -9,6 +9,7 @@ import { Combat } from "./combat.js";
 import { Knife } from "./knife.js";
 import { Sfx } from "./sfx.js";
 import { ShotFX } from "./shot-fx.js";
+import { FlashPool } from "./flash-pool.js";
 import { RocketLauncher } from "./bazooka.js";
 import { GUN_STANCE, STANCE_PITCHES, STANCE_LEGS, STANCE_DROP } from "./gun-stances.js";
 
@@ -191,7 +192,7 @@ const GUN_CONFIG = {
   pistol: {
     damage: 25, range: 25, cooldown: 0.50, fireDuration: 0.22,   /* 2 shots / s while held */
   },
-  sniper: { damage: 85, range: 70, cooldown: 1.00, fireDuration: 0.55 },   /* 1 / s */
+  sniper: { damage: 85, range: 160, cooldown: 1.00, fireDuration: 0.55 },   /* 1 shot / s; range 160 so the scoped 3.5-8x view can reach far targets */
   rifle: { damage: 30, range: 46, cooldown: 0.12, fireDuration: 0.24 },
   smg: { damage: 19, range: 30, cooldown: 0.075, fireDuration: 0.18 },
   shotgun: { damage: 62, range: 17, cooldown: 1.00, fireDuration: 0.38 },   /* 1 / s */
@@ -238,6 +239,90 @@ function rayAABBHelper(ox, oy, oz, dx, dy, dz, minX, minY, minZ, maxX, maxY, max
     if (t1>tmin) tmin=t1; if (t2<tmax) tmax=t2; if (tmin>tmax) return -1; }
   if (tmin <= 0.001) return -1;
   return tmin;
+}
+
+
+/* ── Interior bullet-vs-wall test ─────────────────────────────────────────────────────────────
+   The collider list is for WALKING: it holds invisible barriers, loose bounding boxes round furniture,
+   low pads and trigger zones. Treating every one as a bullet-stopper made shots die in thin air.
+   A collider now only stops a bullet if a VISIBLE solid surface really is inside it. */
+const _wallRC = new THREE.Raycaster();
+const _solidCache = new WeakMap();   /* scene -> { list, at } */
+
+function _isSolidMesh(o) {
+  if (!o.isMesh || o.isSkinnedMesh || !o.geometry || !o.material) return false;
+  if (o.userData && (o.userData.noShoot || o.userData.shootThrough)) return false;
+  const m = Array.isArray(o.material) ? o.material[0] : o.material;
+  if (!m || m.visible === false || m.colorWrite === false) return false;
+  if (m.side === THREE.BackSide) return false;                 /* sky domes, room shells seen from inside */
+  if (m.transparent && m.opacity < 0.3) return false;          /* glass, glow planes, hidden tap planes */
+  if (m.opacity != null && m.opacity < 0.3) return false;
+  return true;
+}
+function _solidMeshes(scene) {
+  const now = performance.now();
+  let e = _solidCache.get(scene);
+  if (e && now - e.at < 1500) return e.list;
+  const list = [];
+  scene.traverse((o) => { if (_isSolidMesh(o)) list.push(o); });
+  _solidCache.set(scene, { list, at: now });
+  return list;
+}
+/* entry and exit distance of a ray through an AABB (or null) */
+function rayAABBSpan(ox, oy, oz, dx, dy, dz, minX, minY, minZ, maxX, maxY, maxZ, maxT) {
+  let tmin = 0, tmax = maxT;
+  const o = [ox, oy, oz], d = [dx, dy, dz], lo = [minX, minY, minZ], hi = [maxX, maxY, maxZ];
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(d[i]) < 1e-8) { if (o[i] < lo[i] || o[i] > hi[i]) return null; continue; }
+    const inv = 1 / d[i]; let t1 = (lo[i] - o[i]) * inv, t2 = (hi[i] - o[i]) * inv;
+    if (t1 > t2) { const t = t1; t1 = t2; t2 = t; }
+    if (t1 > tmin) tmin = t1; if (t2 < tmax) tmax = t2;
+    if (tmin > tmax) return null;
+  }
+  return tmin > 0.001 ? [tmin, tmax] : null;
+}
+
+/* Distance along (origin, dir) to the first VISIBLE solid surface inside an interior collider, or `range`.
+   Shared by bullets (Gun.fire) and the crosshair aim point (thirdperson), so invisible blockers
+   stop neither the shot nor the aim. */
+export function interiorWallDistance(c, origin, dir, range, skipObjs) {
+  let wallT = range;
+  if (!(c && c.world && Array.isArray(c.world.colliders))) return wallT;
+  const spans = [];
+  for (const col of c.world.colliders) {
+    if (!col) continue;
+    if (col.noShoot || col.shootThrough || col.passable || col.trigger || col.disabled || col.invisible || col.ghost) continue;
+    if (col.level !== undefined && col.level !== (c.level || 0)) continue;
+    const y0 = col.y0 != null ? col.y0 : 0, y1 = col.y1 != null ? col.y1 : 3;
+    if (!(y1 - y0 >= 0.2)) continue;                 /* rugs, kerbs, floor pads never stop a bullet */
+    const sp = rayAABBSpan(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z,
+      col.minX, y0, col.minZ, col.maxX, y1, col.maxZ, range);
+    if (sp) spans.push(sp);
+  }
+  if (!spans.length) return wallT;
+  spans.sort((p, q) => p[0] - q[0]);
+  let hits = null;
+  try {
+    const scene = c.scene;
+    if (scene) {
+      const skip = (skipObjs || []).concat([c.rig && (c.rig.root || c.rig.group || c.rig)]);
+      _wallRC.set(origin, dir);
+      _wallRC.near = 0.05; _wallRC.far = Math.min(range, spans[spans.length - 1][1] + 0.5);
+      hits = _wallRC.intersectObjects(_solidMeshes(scene), false)
+        .filter((h) => {
+          for (let o = h.object; o; o = o.parent) { if (o.visible === false) return false; if (skip.indexOf(o) >= 0) return false; }
+          return true;
+        })
+        .map((h) => h.distance);
+    }
+  } catch (e) { hits = null; }
+  for (const sp of spans) {
+    if (!hits) { wallT = sp[0]; break; }             /* cannot verify: old behaviour */
+    const mt = hits.find((h) => h >= sp[0] - 0.4 && h <= sp[1] + 0.4);
+    if (mt !== undefined) { wallT = Math.max(0.05, mt); break; }
+    /* no visible surface inside this collider: invisible blocker, the ray flies on */
+  }
+  return wallT;
 }
 
 const PART_MULT  = { head: 4.0, torso: 1.0, arm: 0.55, leg: 0.70, foot: 0.45 };
@@ -287,6 +372,7 @@ function stanceSample(set, pitch) {
   const k = (pitch - P[i]) / (P[i + 1] - P[i]), a = set[i], b = set[i + 1];
   return a.map((v, j) => v + (b[j] - v) * k);
 }
+export const GUN_TUNE = { highReady: 0.72 };   /* 0 = old low carry, 1 = fully aimed */
 function stanceMix(a, b, k) { return a.map((v, j) => v + (b[j] - v) * k); }
 function poseFromP(p) {
   return {
@@ -388,6 +474,8 @@ function applyPose(R, pose) {
 }
 
 /* ── Gun runtime ─────────────────────────────────────────────── */
+const GunsFlashShared = { geo: null, mat: null };
+
 export class Gun {
   constructor(controls, type) {
     this.controls = controls;
@@ -406,6 +494,7 @@ export class Gun {
     this.hitDone = false;
     this.onStateChange = null;
     this._pendingTimers = [];
+    try { FlashPool.prime(this.controls && this.controls.scene); } catch (e) {}
 
     const rig = controls.rig;
     if (rig && rig.armR && rig.armR.grip) {
@@ -462,12 +551,27 @@ export class Gun {
     if (p >= 1) this._setState("drawn");
   }
 
+  /* Weapon switch: the arms dip toward the relaxed pose while Weapons._lower > 0, so swapping guns is a
+     lower-and-raise motion instead of one gun popping into another. */
+  _applyDrawLower(R) {
+    const W = this.controls && this.controls.weapons, L = W ? W._lower : 0;
+    if (!(L > 0.01)) return;
+    const k = Math.min(1, L);
+    for (const [arm, sg] of [[R.armR, -1], [R.armL, 1]]) {
+      if (!arm || !arm.shoulder || !arm.elbow) continue;
+      const sr = arm.shoulder.rotation, er = arm.elbow.rotation;
+      sr.x += (0.04 - sr.x) * k; sr.y *= (1 - k); sr.z += (sg * 0.09 - sr.z) * k;
+      er.x += (-0.18 - er.x) * k;
+    }
+    if (R.spine) R.spine.rotation.x += 0.08 * k;
+  }
+
   /* Full-body arm pose (both arms + torso + head). */
   applyArmPose(R) {
     if (!R) return;
     const kick  = ({ pistol: PISTOL_KICK, sniper: SNIPER_KICK, rifle: RIFLE_KICK, smg: SMG_KICK, shotgun: SHOTGUN_KICK, lmg: LMG_KICK })[this.type] || PISTOL_KICK;
     const c = this.controls || {};
-    const aimPitch = c.aimPitch || 0;
+    const aimPitch = (c._gunVisPitch != null) ? c._gunVisPitch : (c.aimPitch || 0);
     const sets = GUN_STANCE[this.type] || GUN_STANCE.pistol;
 
     /* hip -> aimed blend, eased over ~0.12 s so raising the gun is a motion, not a snap */
@@ -482,10 +586,12 @@ export class Gun {
     this._idleK = (this._idleK == null ? idleWant : this._idleK) + (idleWant - (this._idleK == null ? idleWant : this._idleK)) * Math.min(1, dt * 9);
 
     const pose = (m) => stanceMix(stanceSample(sets[m].move, aimPitch), stanceSample(sets[m].idle, aimPitch), this._idleK);
-    const pp = stanceMix(pose("ready"), pose("ads"), this._aimK);
+    /* high-ready carry: the gun is always raised in front of the body (barrel forward, clearly visible), not hung low;
+       aiming tightens it the rest of the way into the sights */
+    const pp = stanceMix(pose("ready"), pose("ads"), GUN_TUNE.highReady + (1 - GUN_TUNE.highReady) * this._aimK);
     const aimed = poseFromP(pp);
 
-    const lower = () => { if (R.hips) R.hips.rotation.y += pp[12]; applyLowerStance(R, this._idleK); };
+    const lower = () => { if (R.hips) R.hips.rotation.y += pp[12]; applyLowerStance(R, this._idleK); this._applyDrawLower(R); };
     if (this.state === "drawn") {
       applyPose(R, aimed);
       lower();
@@ -535,20 +641,10 @@ export class Gun {
     Sfx.gunshot(this.type, muzzleWorld.x, muzzleWorld.z);
     if (this.type !== "shotgun") this._spawnCasing();
 
-    // Interior shots stop at the first registered solid collider.
+    // Interior shots stop at the first VISIBLE solid thing inside a registered collider.
     let wallT = this.range;
-    if (c._interiorWeaponMode && c.world && Array.isArray(c.world.colliders)) {
-      for (const col of c.world.colliders) {
-        if (!col) continue;
-        if (col.level !== undefined && col.level !== (c.level || 0)) continue;
-        const t = rayAABBHelper(
-          origin.x, origin.y, origin.z, dir.x, dir.y, dir.z,
-          col.minX, col.y0 != null ? col.y0 : 0, col.minZ,
-          col.maxX, col.y1 != null ? col.y1 : 3, col.maxZ, wallT
-        );
-        if (t > 0 && t < wallT) wallT = t;
-      }
-    }
+    /* walls stop bullets everywhere (not only inside): the check only counts VISIBLE solid meshes, so invisible colliders never block a shot */
+    try { wallT = interiorWallDistance(c, origin, dir, this.range, [this.mesh]); } catch (e) { wallT = this.range; }
     let bestHit = null, bestT = wallT, bestPart = "torso";
     const radius = this.type === "sniper" ? 0.52 : this.type === "shotgun" ? 0.82 : 0.55;
 
@@ -626,6 +722,7 @@ export class Gun {
     try {
       ShotFX.fire({
         scene: this.controls.scene, muzzle: muzzleWorld, origin, dir, end: endPt, type: this.type,
+        camera: c.camera || null, scoped: !!(c.aiming && (this.type === "sniper" || this.type === "shotgun")),
         part: bestPart, hit: !!bestHit, dmg: shotDmg, surface, floorY: c.floorY || 0,
         killed: !!bestHit && wasAlive && bestHit.hp !== undefined && bestHit.hp <= 0,
       });
@@ -636,26 +733,20 @@ export class Gun {
     const scene = this.controls.scene;
     if (!scene) return;
 
-    const light = new THREE.PointLight(
-      0xffcc66,
-      this.type === "sniper" ? 6 : 3,
-      2.5
-    );
-    light.position.copy(pos);
-    scene.add(light);
+    /* pooled light + shared sprite-free flash mesh: no PointLight add/remove, no per-shot geometry/material */
+    FlashPool.fire(scene, pos, 0xffcc66, this.type === "sniper" ? 6 : 3, 2.5, 0.11);
 
-    const flash = new THREE.Mesh(
-      new THREE.SphereGeometry(this.type === "sniper" ? 0.05 : 0.03, 6, 4),
-      new THREE.MeshBasicMaterial({ color: 0xffdd88, transparent: true, opacity: 1 })
-    );
+    if (!GunsFlashShared.geo) {
+      GunsFlashShared.geo = new THREE.SphereGeometry(1, 6, 4);
+      GunsFlashShared.mat = new THREE.MeshBasicMaterial({ color: 0xffdd88, transparent: true, opacity: 1 });
+    }
+    const flash = new THREE.Mesh(GunsFlashShared.geo, GunsFlashShared.mat);
+    flash.scale.setScalar(this.type === "sniper" ? 0.05 : 0.03);
     flash.position.copy(pos);
     scene.add(flash);
 
     const timer = setTimeout(() => {
-      try { if (light.parent) light.parent.remove(light); } catch (e) {}
       try { if (flash.parent) flash.parent.remove(flash); } catch (e) {}
-      try { flash.geometry.dispose(); } catch (e) {}
-      try { flash.material.dispose(); } catch (e) {}
       const i = this._pendingTimers.indexOf(timer);
       if (i >= 0) this._pendingTimers.splice(i, 1);
     }, 110);
@@ -713,6 +804,8 @@ export class Gun {
 }
 
 /* ── Weapons manager ─────────────────────────────────────────── */
+const QUICK_ORDER = ["pistol", "smg", "rifle", "shotgun", "lmg", "sniper", "bazooka", "knife"];
+const WEAPON_NAMES = { fists: "FISTS", knife: "KNIFE", pistol: "PISTOL", smg: "SMG", rifle: "RIFLE", shotgun: "SHOTGUN", lmg: "LMG", sniper: "SNIPER", bazooka: "BAZOOKA" };
 export class Weapons {
   constructor(controls) {
     this.controls = controls;
@@ -726,6 +819,7 @@ export class Weapons {
     this.bazooka = new RocketLauncher(controls);
     this.current = "fists";
     this.onStateChange = null;
+    this._lower = 0; this._lowerGoal = 0; this._swapping = false; this._swapTimer = 0; this._pendingName = null;
   }
 
   _notify() {
@@ -734,6 +828,9 @@ export class Weapons {
 
   select(name) {
     if (name === this.current) return;
+    /* a different weapon never inherits the previous one's scope / zoom */
+    try { if (this.controls && this.controls.aiming && this.controls.setAiming) this.controls.setAiming(false); } catch (e) {}
+    if (name !== "fists") { this._lower = Math.max(this._lower, 0.9); this._lowerGoal = 0; }   /* new weapon rises into place */
     this.knife.holster();
     this.pistol.holster();
     this.sniper.holster();
@@ -754,7 +851,8 @@ export class Weapons {
   }
 
   _syncCrosshair() {
-    setCrosshairVisible(["pistol", "sniper", "rifle", "smg", "shotgun", "lmg", "bazooka"].includes(this.current));
+    const scoped = this.controls && this.controls.aiming && (this.current === "sniper" || this.current === "shotgun");
+    setCrosshairVisible(["pistol", "sniper", "rifle", "smg", "shotgun", "lmg", "bazooka"].includes(this.current) && !scoped);
   }
 
   cycle() {
@@ -762,6 +860,32 @@ export class Weapons {
     const i = list.indexOf(this.current);
     this.select(list[(i + 1) % list.length]);
   }
+
+  /* ── seamless weapon switching ─────────────────────────────
+     switchTo(name): the drawn weapon dips (~0.14 s), the new one rises. Fire is blocked during the swap and
+     aiming ends. next(+1 / -1): step through the guns (mouse wheel, [ ] keys, the SWITCH button).  */
+  switchTo(name) {
+    const base = this._swapping ? this._pendingName : this.current;
+    if (!name || name === base) return;
+    if (this._swapTimer) { clearTimeout(this._swapTimer); this._swapTimer = 0; }
+    try { if (this.controls && this.controls.setAiming) this.controls.setAiming(false); } catch (e) {}
+    if (!this.isArmed() || name === "fists") { this._swapping = false; this.select(name); return; }
+    this._swapping = true; this._pendingName = name; this._lowerGoal = 1;
+    this._swapTimer = setTimeout(() => {
+      this._swapTimer = 0; this._swapping = false; this._pendingName = null;
+      this.select(name); this._lowerGoal = 0;
+    }, 140);
+  }
+  next(dir = 1) {
+    const order = QUICK_ORDER;
+    const base = this._swapping ? this._pendingName : (this.isArmed() ? this.current : (this._lastArmed && this._lastArmed !== "fists" ? this._lastArmed : null));
+    if (!base) { this.switchTo(order[0]); return order[0]; }       /* from fists: draw the first gun */
+    if (!this.isArmed() && !this._swapping) { this.switchTo(base); return base; }   /* from fists: draw the last one you held */
+    let i = order.indexOf(base); if (i < 0) i = 0;
+    const n = order[(i + (dir < 0 ? -1 : 1) + order.length) % order.length];
+    this.switchTo(n); return n;
+  }
+  get displayName() { const n = this._swapping ? this._pendingName : this.current; return WEAPON_NAMES[n] || ""; }
 
   holsterAll() { this.select("fists"); }
   /* one key / one button: armed → fists, fists → the weapon you last held (pistol the first time) */
@@ -785,6 +909,7 @@ export class Weapons {
     const c = this.controls;
     /* plain walker objects (drive/walk scenes) have no .state; only block when a state exists */
     const st = c && c.state;
+    if (this._swapping) return false;                       /* mid weapon swap */
     if (c && st && st !== "standing" && st !== "crouching") return false;
     if (c && (!!c.held || (c._emoteTimer > 0.12) || (!!(c.jet && c.jet.on) && c.onGround === false))) return false;
     if (this.current === "knife")  return this.knife.stab();
@@ -800,6 +925,9 @@ export class Weapons {
 
   update(dt, targets) {
     this._holdFire(targets);
+    /* ease the draw/lower dip (fast down, slightly slower up) */
+    this._lower += (this._lowerGoal - this._lower) * Math.min(1, dt * (this._lowerGoal > this._lower ? 22 : 11));
+    if (this._lower < 0.002 && this._lowerGoal === 0) this._lower = 0;
     this.knife.update(dt, targets);
     this.pistol.update(dt, targets);
     this.sniper.update(dt, targets);
@@ -819,6 +947,7 @@ export class Weapons {
   }
 
   dispose() {
+    if (this._swapTimer) { clearTimeout(this._swapTimer); this._swapTimer = 0; }
     this.knife.dispose();
     this.pistol.dispose();
     this.sniper.dispose();

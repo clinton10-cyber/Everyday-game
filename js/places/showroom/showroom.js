@@ -1,4 +1,4 @@
-/* showroom.js -- Auto Hub. Bright showroom with six cars.
+/* showroom.js -- Auto Hub. Bright showroom with cars including SKYFURY jet.
    v23: background and floor lightened, ambient + hemisphere +
    directional + 3 overhead spots added so nothing renders black. */
 import * as THREE from "three";
@@ -13,6 +13,7 @@ const CARS = [
   { id: "hilux",      name: "TOYOTA HILUX",   tag: "2.8 GD-6",          price: 32000000, pos: [-8, 0,  5], color: 0xc0392b },
   { id: "rangerover", name: "RANGE ROVER",    tag: "AUTOBIOGRAPHY",     price: 71000000, pos: [ 0, 0,  5], color: 0xf2f4f7 },
   { id: "bmw",        name: "BMW M4",         tag: "COMPETITION",       price: 58000000, pos: [ 8, 0,  5], color: 0x1f3a93 },
+  { id: "skyfury",    name: "SKYFURY JET",    tag: "TWIN AFTERBURNER",   price: 150000000, pos: [ 0, 0, 12], color: 0x9aa7b4 },
 ];
 
 export async function showroomScene(params, router) {

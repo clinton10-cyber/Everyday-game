@@ -184,7 +184,7 @@ export const WalkActions = {
   cancelEmote() {
     if (!S) return;
     const wk = S.walker;
-    if (wk._emoteTimer > 0) { wk._emoteTimer = 0; wk._emoteName = null; if (typeof wk._onEmoteEnd === "function") { const done = wk._onEmoteEnd; wk._onEmoteEnd = null; try { done(); } catch (e) {} } }
+    if (wk._emoteTimer > 0 && !(wk._swimming && String(wk._emoteName || "").startsWith("swim_"))) { wk._emoteTimer = 0; wk._emoteName = null; if (typeof wk._onEmoteEnd === "function") { const done = wk._onEmoteEnd; wk._onEmoteEnd = null; try { done(); } catch (e) {} } }
   },
 
   /* hug / handshake with the nearest NPC: they walk over, then both play the pose */
@@ -272,7 +272,8 @@ export const WalkActions = {
 
     /* Walking away ends a gesture; flips and dances in place are left alone */
     const wk = S.walker;
-    if (wk._emoteTimer > 0) {
+    /* swimming is state-driven (animator keeps swim_pool alive): never cancel it because you are moving */
+    if (wk._emoteTimer > 0 && !String(wk._emoteName || "").startsWith("swim_")) {
       const flip = (Animator.FLIP_EMOTES && Animator.FLIP_EMOTES[wk._emoteName]) || String(wk._emoteName || "").startsWith("vic_");
       if (!can || (!flip && horizSpeed > 0.6 && !wk._fightLock)) this.cancelEmote();
     }

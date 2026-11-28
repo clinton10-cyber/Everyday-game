@@ -71,11 +71,14 @@ export async function interiorScene(params, router) {
     if (wc && wc.world && Array.isArray(wc.world.colliders)) {
       sceneAABBs = wc.world.colliders
         .filter(c => c && typeof c.minX === "number" && typeof c.maxX === "number")
+        .filter(c => !(c.passable || c.trigger || c.disabled || c.ghost))
+        .filter(c => c.y0 == null || c.y1 == null || (c.y1 - c.y0) >= 0.3)   /* rugs and floor pads never stop a person */
         .map(c => ({
           x:  (c.minX + c.maxX) * 0.5,
           z:  (c.minZ + c.maxZ) * 0.5,
           hx: (c.maxX - c.minX) * 0.5,
           hz: (c.maxZ - c.minZ) * 0.5,
+          lv: (wc.world.stairs && wc.world.stairs.length) ? (c.level || 0) : undefined,   /* floor: only multi-storey interiors */
         }));
     }
     if (!sceneAABBs.length) {
@@ -179,6 +182,7 @@ export async function interiorScene(params, router) {
 
     const _wc = window.__ph3d_walkCtrl;
     try { NPCs.setTerrain(_wc && _wc.world && _wc.world.groundAt, _wc && _wc.world && _wc.world.bounds); } catch (e) {}
+    try { NPCs.setLevels(_wc && _wc.world); } catch (e) {}
     const _seats = (_wc && _wc.world && _wc.world.seats) || [];
     spawnInteriorNPCs(scene.three, id, {
       aabbs: sceneAABBs,
