@@ -132,10 +132,6 @@ export class Phone{
               <div class="tico"><i class="fa-solid fa-briefcase"></i></div>
               <div class="tnm">Career</div>
             </div>
-            <div class="tapp-ic" data-a="story">
-              <div class="tico"><i class="fa-solid fa-book-open"></i></div>
-              <div class="tnm">Story</div>
-            </div>
             <div class="tapp-ic" data-a="comics">
               <div class="tico"><i class="fa-solid fa-book-open-reader"></i></div>
               <div class="tnm">Comics</div>

@@ -67,8 +67,11 @@ if(!Number.isFinite(state.progress)) state.progress=0;
 if(!state.claimed || typeof state.claimed!=="object") state.claimed={};
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn("[campaign] save failed",e)}}
 function active(){return state.index>=CHAPTERS.length?null:CHAPTERS[state.index]}
+/* Story campaign is switched OFF while it is being redesigned: no chip, no chapter pop-ups, no progress tracking.
+   Set to true to bring the old campaign back (saved progress is untouched). */
+const STORY_ENABLED=false;
 function toast(t){try{window.__ph3d_phone?._toast?.(t)}catch(_){}}
-function add(event){const m=active(); if(!m||m.event!==event||state.progress>=m.target)return;
+function add(event){if(!STORY_ENABLED)return; const m=active(); if(!m||m.event!==event||state.progress>=m.target)return;
   state.progress=Math.min(m.target,state.progress+1);save();
   toast(state.progress>=m.target?`📖 ${m.chapter} done: open Story on your phone to collect ₦${m.reward.toLocaleString("en-NG")}`:`📖 ${m.objective}: ${state.progress}/${m.target}`);
   window.dispatchEvent(new CustomEvent("ph3d:campaign-progress"));}
@@ -81,6 +84,7 @@ window.addEventListener("ph3d:scene-enter",e=>{const d=e.detail||{};add("visit:"
 /* ── small always-on HUD chip so the story is visible while you play ── */
 function chip(){
   if(!document.body) return;
+  if(!STORY_ENABLED){ const old=document.getElementById("ph3d-story-chip"); if(old) old.remove(); return; }
   let el=document.getElementById("ph3d-story-chip");
   if(!el){
     const st=document.createElement("style");
