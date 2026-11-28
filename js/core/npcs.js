@@ -554,11 +554,14 @@ export const NPCs = {
       const ax = st.axis === "x";
       const cx = (st.minX + st.maxX) / 2, cz = (st.minZ + st.maxZ) / 2;
       const lo = ax ? st.minX : st.minZ, hi = ax ? st.maxX : st.maxZ;
-      let up;
-      if (st.level === lv) up = true; else if (toLv === lv) up = false; else continue;
-      const e = up ? lo - 1.0 : hi + 1.0, x = up ? hi + 1.2 : lo - 1.2;
+      /* which end sits on this floor? (a stair may run downhill along its axis, like the hospital's second flight) */
+      const loLv = st.y0 > st.y1 ? toLv : st.level, hiLv = st.y0 > st.y1 ? st.level : toLv;
+      let atLo;
+      if (loLv === lv) atLo = true; else if (hiLv === lv) atLo = false; else continue;
+      const up = atLo;
+      const e = atLo ? lo - 1.0 : hi + 1.0, x = atLo ? hi + 1.2 : lo - 1.2;
       const E = ax ? [e, cz] : [cx, e], X = ax ? [x, cz] : [cx, x];
-      opts.push({ st, up, E, X, toLv: up ? toLv : st.level, d: Math.hypot(E[0] - px, E[1] - pz) });
+      opts.push({ st, up, E, X, toLv: atLo ? hiLv : loLv, d: Math.hypot(E[0] - px, E[1] - pz) });
     }
     opts.sort((a, b) => a.d - b.d);
     for (const o of opts) {
