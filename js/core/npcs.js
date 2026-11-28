@@ -1203,6 +1203,21 @@ export const NPCs = {
       return;
     }
 
+    /* every bullet shoves a survivor the way the killing shot throws a body: along the bullet's path,
+       scaled by the damage (same 'power' curve DeathPhysics uses) */
+    try {
+      const inf = opts && opts.info;
+      if (inf && inf.dir && type !== "knife") {
+        let bx = inf.dir.x, bz = inf.dir.z; const bl = Math.hypot(bx, bz);
+        if (bl > 0.05) {
+          bx /= bl; bz /= bl;
+          const power = Math.max(0.3, Math.min(2.2, (dmg || 40) / 90));
+          const v0 = 2.2 + 2.6 * power;
+          npc._shove = { vx: bx * v0, vz: bz * v0 };
+        }
+      }
+    } catch (e) {}
+
     if (Cr && Cr.addEvent) {
       try { Cr.addEvent("attack", type === "knife" ? 22 : 30, "You"); } catch (e) {}
     }
@@ -1538,6 +1553,17 @@ export const NPCs = {
 
       if (npc.dead && npc.seatTarget) { npc.seatTarget.taken = false; npc.seatTarget = null; }
       if (npc._fly) { this._tickFly(npc, dt); continue; }          /* thrown by a car / blast */
+
+      if (npc._shove && !npc.dead && npc.ctl) {                     /* bullet push on a living NPC (decays fast, stops at walls) */
+        const sh = npc._shove;
+        const nx = npc.ctl.pos.x + sh.vx * dt, nz = npc.ctl.pos.z + sh.vz * dt;
+        if (_aabbs && this._insideAABB(nx, nz, _aabbs, 0.4)) npc._shove = null;
+        else {
+          npc.ctl.pos.x = nx; npc.ctl.pos.z = nz;
+          const k = Math.exp(-5 * dt); sh.vx *= k; sh.vz *= k;
+          if (sh.vx * sh.vx + sh.vz * sh.vz < 0.04) npc._shove = null;
+        }
+      }
 
       if (npc.dead && npc.state === "dying") {
         npc.dyingPhase += dt;
