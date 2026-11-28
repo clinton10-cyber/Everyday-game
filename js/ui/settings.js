@@ -4,6 +4,8 @@
    SettingsUI.open()        → opens the HUD sheet.
    confirmDanger(msg)       → returns Promise<bool> — HUD-styled confirm modal. */
 
+import { PerfHud } from "../core/perf-hud.js";
+
 const KEY = "ph3d.settings.v1";
 
 const DEFAULTS = {
@@ -118,7 +120,9 @@ export const Settings = {
           document.documentElement.style.setProperty("--ph3d-hud-scale", String(value));
           break;
         case "showFps":
-          this._applyFps(value);
+          /* one overlay now: fps, frame time, draw calls, triangles, shader programs, lights (core/perf-hud.js) */
+          this._applyFps(false);
+          PerfHud.setEnabled(!!value);
           break;
         case "adultConsent":
           window.__ph3d_adultAllowed = () => Settings.adultAllowed();
@@ -321,7 +325,7 @@ export const SettingsUI = {
               icon: "reload", label: "Reset layout", sub: "Controls back to default",
               onClick: () => { import("./hud-edit.js").then((m) => m.HudEdit.resetAll()).catch(() => {}); },
             },
-            this._toggle("showFps",           "Show FPS",   "phone"),
+            this._toggle("showFps",           "FPS & draw calls", "phone"),
             this._toggle("hideOnScreenHints", "Hide hints", "talk"),
           ],
         },

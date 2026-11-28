@@ -1,15 +1,14 @@
 /* perf-hud.js - optional on-screen performance readout. Off by default.
-   Turn on with  ?perf=1  in the URL (or localStorage ph3d_perf = "1"); turn off with ?perf=0.
+   Turn on in Settings > "FPS & draw calls" (or add ?perf=1 to the URL to force it on).
    Shows fps, frame ms, draw calls, triangles, geometries, textures, shader programs and lights.
    When a frame takes > 100 ms it logs a SPIKE line saying what changed since the previous frame:
    "programs +12" or "lights 7>8" means a shader recompile, "geom/tex +N" means new GPU uploads.
    Everything is also readable from the console as window.__ph3d_perf. */
 let _on = false;
+let _forced = false;     /* ?perf=1 in the URL keeps it on regardless of the setting */
 try {
   const q = new URLSearchParams(location.search).get("perf");
-  if (q === "1") localStorage.setItem("ph3d_perf", "1");
-  if (q === "0") localStorage.removeItem("ph3d_perf");
-  _on = localStorage.getItem("ph3d_perf") === "1";
+  if (q === "1") { _forced = true; _on = true; }
 } catch (e) {}
 
 let _el = null, _acc = 0, _frames = 0, _max = 0, _last = null, _lastUi = 0;
@@ -23,7 +22,13 @@ function countLights(scene) {
 }
 
 export const PerfHud = {
-  enabled: _on,
+  get enabled() { return _on; },
+  get forced() { return _forced; },
+  /* Settings > "FPS & draw calls" calls this; turning it off removes the overlay and stops all measuring */
+  setEnabled(on) {
+    _on = !!on || _forced;
+    if (!_on) { if (_el) { _el.remove(); _el = null; } _last = null; _acc = 0; _frames = 0; _max = 0; _spikes.length = 0; }
+  },
   frame(renderer, rawDt, scene) {
     if (!_on || !renderer) return;
     const ms = rawDt * 1000;
