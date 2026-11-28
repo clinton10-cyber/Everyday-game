@@ -640,7 +640,8 @@ export class Gun {
 
     // Interior shots stop at the first VISIBLE solid thing inside a registered collider.
     let wallT = this.range;
-    if (c._interiorWeaponMode) wallT = interiorWallDistance(c, origin, dir, this.range, [this.mesh]);
+    /* walls stop bullets everywhere (not only inside): the check only counts VISIBLE solid meshes, so invisible colliders never block a shot */
+    try { wallT = interiorWallDistance(c, origin, dir, this.range, [this.mesh]); } catch (e) { wallT = this.range; }
     let bestHit = null, bestT = wallT, bestPart = "torso";
     const radius = this.type === "sniper" ? 0.52 : this.type === "shotgun" ? 0.82 : 0.55;
 
@@ -718,6 +719,7 @@ export class Gun {
     try {
       ShotFX.fire({
         scene: this.controls.scene, muzzle: muzzleWorld, origin, dir, end: endPt, type: this.type,
+        camera: c.camera || null, scoped: !!(c.aiming && (this.type === "sniper" || this.type === "shotgun")),
         part: bestPart, hit: !!bestHit, dmg: shotDmg, surface, floorY: c.floorY || 0,
         killed: !!bestHit && wasAlive && bestHit.hp !== undefined && bestHit.hp <= 0,
       });
